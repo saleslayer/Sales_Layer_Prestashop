@@ -70,12 +70,14 @@
  ```html          
                                                 ## Error. Creating category  ID: 91
  ```
+ 
   <i>With this message we know that it is a category and that its reference in Sales Layer is "91".</i><br>      
   <p>In case the error does not have an identifying reference it is possible that it has happened somewhere in the middle of the code and, in this case, we can identify it in the general log file that begins with:</p>          
 
 ```html 
                                                 _debbug_log_saleslayer_sync_data_
 ```
+
 <p>... followed with the date of the day of what happened.
  In the file we can find more information about the element in which the problem has occurred (by clicking on the error icon) and we can jump from one error to another and navigate between the errors (if more than one has occurred).</p>
 <p>The errors that could be found before the synchronization of an item, most likely relate to this fact. With this we can identify if it is a category or another element, and what concrete reference you have to review it in Sales Layer.</p>                 
@@ -88,6 +90,7 @@ This button will help you to eliminate in bulk all the categories, products and 
 ```php 
                                      public      $i_am_a_developer                    = false;
 ```
+
 <p>a true value to unlock the button.</p>
 </div>
 
