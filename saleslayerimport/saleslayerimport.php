@@ -1309,20 +1309,20 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                     '&token=' . Configuration::getGlobalValue('CRONJOBS_EXECUTION_TOKEN') . '"';
                 $this->debbug(
                     '## Error. The activity of Prestashop cron has not been detected.'.
-                    ' Last time the SL cron needed for synchronization is executed ->'.print_r(
+                    ' Last time the SL cron needed for synchronization was executed ->'.print_r(
                         date('d/m/Y H:i:s', $updated_time),
                         1
                     ).
-                    'It is strictly necessary that on your server you activate the cron job '.
-                    'that executes the tasks of prestashop to be able to execute ' .
+                    'It is necessary that you activate on your server the cron job '.
+                    'that performs the prestashop tasks in order to execute ' .
                     'the automatic synchronizations of prestashop.'.
-                    'Add the following command to your cronjobs on your server: '.$construct_prestashop_cron_url
+                    'Add the following command to the cronjobs on your server: '.$construct_prestashop_cron_url
                 );
                 $return['stat'] = false;
                 $return['message'] = 'The activity of Prestashop cron has not been detected.<br>';
-                $return['message'] .= 'It is strictly necessary that on your server activate the cron job '.
-                                        'that executes the tasks of prestashop.'.
-                                            ' To be able to execute the automatic synchronizations Sales '.
+                $return['message'] .= 'It is necessary that you activate on your server the cron job '.
+                                        'that performs the prestashop tasks '.
+                                            'in order to execute the automatic synchronizations Sales '.
                     'layer plugin.<br>';
                 $return['message'] .= 'Add the following command to your cronjobs on your server: <br> '.
                     $construct_prestashop_cron_url;
@@ -2048,12 +2048,12 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             if (!empty($result_test)) {
                 //Print errors that have occurred due to php processes
                 $this->debbug('## Error. Processes have been detected that could not be completed'.
-                    ' and it is possible that it is due to an error in php please check the'.
-                    ' php / apache / nginx log error to find a solution to this problem.'.
-                    ' Stored information is this:', 'syncdata');
+                    ' and it is possible that this is due to a PHP error, please check the'.
+                    ' php / apache / nginx error log to find a solution to this problem.'.
+                    ' Stored information is:', 'syncdata');
                 foreach ($result_test as $item_err) {
-                    $item_data = json_decode($item_err['item_data']);
-                    $this->debbug('## Error. item_type:'.$item_err['item_type'].
+                    $item_data = json_decode($item_err['item_data'], 1);
+                    $this->debbug('## Error. item_type:'. $item_err['item_type'] .
                         ' ID:'.print_r($item_data['sync_data']['ID'], 1).
                         ' Item_data_pack->'.print_r($item_err, 1), 'syncdata', true);
                 }
@@ -2089,7 +2089,8 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             $sql_delete = " DELETE FROM "._DB_PREFIX_."slyr_syncdata WHERE sync_tries >= 3";
             $this->slConnectionQuery('-', $sql_delete);
         } catch (Exception $e) {
-            $this->debbug('## Error. Clearing exceeded attemps: '.$e->getMessage(), 'syncdata');
+            $this->debbug('## Error. Data cleaning has exceeded the maximum number of attempts: '
+                .$e->getMessage(), 'syncdata');
         }
 
         $load = sys_getloadavg();
@@ -2205,7 +2206,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                             switch ($result_delete) {
                                 case 'item_not_deleted':
                                     $this->debbug(
-                                        '## Error. Proble to delete Item: '.print_r($item_to_delete, 1),
+                                        '## Error. Problem in deleting Item: '.print_r($item_to_delete, 1),
                                         'syncdata'
                                     );
                                     $sync_tries++;
@@ -2253,7 +2254,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                         $this->sl_catalogues->reorganizeCategories();
                     } catch (Exception $e) {
                         $this->debbug(
-                            '## Error. In reorganize Categories after Update '.
+                            '## Error. In reorganizing Categories after Update '.
                             $e->getMessage().' line->'.$e->getLine(),
                             'syncdata'
                         );
@@ -2388,7 +2389,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
         if ($memory_remaining < 100) {
             $this->debbug(
-                'The synchronization does not have many mb left to work, it will be assigned more ->'
+                'The synchronization does not have any mb left wih which to work, it will be assigned more ->'
                 .$memory_multiply,
                 'syncdata'
             );
@@ -2396,11 +2397,11 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
         }
 
         $this->debbug(
-            'Actual Memory limit ->'.$actual_limit.' In Use->'.$mem.' memory recomended ->'.$memory_multiply,
+            'Actual Memory limit ->'.$actual_limit.' In Use->'.$mem.' Memory recommended ->'.$memory_multiply,
             'syncdata'
         );
         if ($actual_limit < $memory_multiply) {
-            $this->debbug('Reasing memory max_limit to ->'.$memory_multiply);
+            $this->debbug('Reassigning memory max_limit to ->'.$memory_multiply);
             @ini_set('memory_limit', $memory_multiply.'M');
         }
     }
@@ -2491,7 +2492,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
     }
 
     /**
-     * Load array of accesories to sync after already stored all product
+     * Load array of accessories to sync after already stored all product
      *
      */
 
@@ -2510,33 +2511,37 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
     }
 
     /**
-     * Synchronize Accesories 'related_ithems'->accesories skus
+     * Synchronize Acessories 'related_ithems'->accesories skus
      */
 
 
-    public function saveStatAccesories(): void
+    public function saveStatAccessories()
     {
         if (count($this->product_accessories)) {
             $item_type = 'accessories';
             $sync_type = 'update';
+            try {
+                $item_data_to_insert = html_entity_decode(json_encode($this->product_accessories));
 
-            $item_data_to_insert = html_entity_decode(json_encode($this->product_accessories));
-
-            $sql_sel = "SELECT * FROM "._DB_PREFIX_."slyr_syncdata
+                $sql_sel = "SELECT * FROM "._DB_PREFIX_."slyr_syncdata
             WHERE sync_type = '$sync_type' AND item_type = '$item_type' Limit 1  ";
-            $res = $this->slConnectionQuery('read', $sql_sel);
+                $res = $this->slConnectionQuery('read', $sql_sel);
 
-            if (!$res) {
-                $sql_query_to_insert = "INSERT INTO "._DB_PREFIX_."slyr_syncdata".
-                    " ( sync_type, item_type, item_data ) VALUES ".
-                    "('".$sync_type."', '".$item_type."', '".addslashes($item_data_to_insert)."')";
-                $this->slConnectionQuery('-', $sql_query_to_insert);
-            } else {
-                $sql_query_to_insert = " UPDATE "._DB_PREFIX_."slyr_syncdata".
-                    " SET item_data =  '".addslashes(
-                        $item_data_to_insert
-                    )."' WHERE sync_type = '$sync_type' AND item_type = '$item_type' ";
-                $this->slConnectionQuery('-', $sql_query_to_insert);
+                if (!$res) {
+                    $sql_query_to_insert = "INSERT INTO "._DB_PREFIX_."slyr_syncdata".
+                        " ( sync_type, item_type, item_data ) VALUES ".
+                        "('".$sync_type."', '".$item_type."', '".addslashes($item_data_to_insert)."')";
+                    $this->slConnectionQuery('-', $sql_query_to_insert);
+                } else {
+                    $sql_query_to_insert = " UPDATE "._DB_PREFIX_."slyr_syncdata".
+                        " SET item_data =  '".addslashes(
+                            $item_data_to_insert
+                        )."' WHERE sync_type = '$sync_type' AND item_type = '$item_type' ";
+                    $this->slConnectionQuery('-', $sql_query_to_insert);
+                }
+            } catch (Exception $e) {
+                $this->debbug('## Error. An error has occurred keeping changes of accessories of a product.->'.
+                    $e->getMessage().' line->'.$e->getLine(), 'syncdata');
             }
         }
     }
@@ -3137,7 +3142,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                                         $result_update_array['additional_output']['product_accessories'];
                                 }
 
-                                $this->saveStatAccesories();
+                                $this->saveStatAccessories();
                             } catch (Exception $e) {
                                 $result_update = 'item_not_updated';
                                 $this->debbug(

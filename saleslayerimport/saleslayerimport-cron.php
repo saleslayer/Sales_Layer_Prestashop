@@ -50,12 +50,12 @@ if ($SLimport->checkRegistersForProccess()) {
             );
         }
     } catch (Exception $e) {
-        $SLimport->debbug('## Error. Sync data connectors  in Cron start : ' . $e->getMessage(), 'error');
+        $SLimport->debbug('## Error. Sync data connectors in Cron start : ' . $e->getMessage(), 'error');
     }
 } else {
     try {
         $SLimport->autoSyncConnectors();
     } catch (Exception $e) {
-        $SLimport->debbug('## Error. In autosync_ conectors   in cron start : ' . $e->getMessage(), 'error');
+        $SLimport->debbug('## Error. Auto-sync connectors in cron start : ' . $e->getMessage(), 'error');
     }
 }

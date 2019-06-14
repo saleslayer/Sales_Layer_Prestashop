@@ -73,7 +73,7 @@ class SlProducts extends SalesLayerPimUpdate
         $is_new_product = false;
 
         $this->debbug(
-            ' Entry to process: ' . $occurence . '  Information of product: ' . print_r(
+            ' Entering to process: ' . $occurence . '  Product Information: ' . print_r(
                 $product,
                 1
             ) . '  $shops ->' . print_r(
@@ -116,11 +116,6 @@ class SlProducts extends SalesLayerPimUpdate
 
 
         if (!$product_exists) {
-
-            /**
-             *
-             * Sending to Save the new product or search among existing products not synchronized by SL
-             */
             $this->debbug('Synchronize product ID: ' . $product['ID'], 'syncdata');
             try {
                 $product_exists = $this->syncProduct($product, $comp_id, $schema);
@@ -169,10 +164,10 @@ class SlProducts extends SalesLayerPimUpdate
                         $this->debbug(
                             '## Error. ' . $occurence . ' The catalog with ID :' .
                             $sl_product_parent_id . ' for the company with ID: '
-                            . $comp_id . ' does not exist in the table.
-                             It is possible that it has been deactivated or deleted.
-                            Put the invisible category and again visible and the same
-                            in product so that this problem can be repaired.',
+                            . $comp_id . ' does not exist in the table. '.
+                             'It is possible that it has been deactivated or deleted.'.
+                            'Change the state of the category and of the product to invisible,'.
+                            'and then back to visible again so that the issue can be resolved.',
                             'syncdata'
                         );
                         continue;
@@ -462,7 +457,7 @@ class SlProducts extends SalesLayerPimUpdate
                         } catch (Exception $e) {
                             $syncCat = false;
                             $this->debbug(
-                                '## Error. ' . $occurence . ' In save changes to product ->' . print_r(
+                                '## Error. ' . $occurence . ' When saving changes to product ->' . print_r(
                                     $e->getMessage(),
                                     1
                                 ),
@@ -981,7 +976,7 @@ class SlProducts extends SalesLayerPimUpdate
                             if ($product_name_index != '' && isset($product['data'][$product_name_index])
                                 && !empty($product['data'][$product_name_index])) {
                                 $this->debbug(
-                                    'Search in name in several languages : ' . $product_name_index . ' ->' . print_r(
+                                    'Search for name in several languages : ' . $product_name_index . ' ->' . print_r(
                                         $product['data'][$product_name_index],
                                         1
                                     ) . ' language ->' . print_r($shop_language['iso_code'], 1),
@@ -1015,7 +1010,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                     /**
                      *
-                     * Default lenguage if is a null set it from any Language
+                     * Default language if it is null set it from any Language
                      */
                     if ($lang['id_lang'] != $this->defaultLanguage) {
                         if ($product_name != '' && (!isset($productObject->name[$defaultLenguage])
@@ -1065,11 +1060,11 @@ class SlProducts extends SalesLayerPimUpdate
 
                 // $productObject->addToCategories($arrayIdCategories);
                 // $productObject->updateCategories($arrayIdCategories);
-                $this->debbug('Before update categories ->' . print_r($arrayIdCategories, 1), 'syncdata');
+                $this->debbug('Before updating categories ->' . print_r($arrayIdCategories, 1), 'syncdata');
                 try {
                     $categories = $productObject->getProductCategories();
                     $this->debbug(
-                        'before test old categories -> ' . print_r(
+                        'before testing old categories -> ' . print_r(
                             $categories,
                             1
                         ) . '  new set Categories ->' . print_r(
@@ -1083,21 +1078,21 @@ class SlProducts extends SalesLayerPimUpdate
 
                     if (!empty($categories) && count($categories)) {
                         $this->debbug(
-                            'Updating categories but product has this categories old values -> ' . print_r(
+                            'Updating categories but product has old category value -> ' . print_r(
                                 $categories,
                                 1
                             ) . '  ',
                             'syncdata'
                         );
                         $diferences = array_diff($categories, $arrayIdCategories);
-                        $this->debbug('This is a diferences -> ' . print_r($categories, 1), 'syncdata');
+                        $this->debbug('This are differences -> ' . print_r($categories, 1), 'syncdata');
 
                         if (count($diferences)) {
                             $this->debbug(
                                 'Differences in categories  $diferences-> ' . print_r(
                                     $diferences,
                                     1
-                                ) . ' deleting old and set newest categories',
+                                ) . ' deleting old and setting new categories',
                                 'syncdata'
                             );
                             $productObject->deleteCategories();
@@ -1111,7 +1106,7 @@ class SlProducts extends SalesLayerPimUpdate
                         }
                     } else {
                         $this->debbug(
-                            'Updating categories but product has no categories old categories->' . print_r(
+                            'Updating categories but product has no categories. Old categories ->' . print_r(
                                 $categories,
                                 1
                             ) . ' new categories ->' . print_r($arrayIdCategories, 1),
@@ -1126,7 +1121,7 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 } catch (Exception $e) {
                     $this->debbug(
-                        '## Error. In update Categories tree ' . $occurence . ' ->' . print_r(
+                        '## Error. In updating Category tree ' . $occurence . ' ->' . print_r(
                             $e->getMessage(),
                             1
                         ) . ' line->' . print_r($e->getLine(), 1),
@@ -1438,7 +1433,7 @@ class SlProducts extends SalesLayerPimUpdate
                             } catch (Exception $e) {
                                 $syncCat = false;
                                 $this->debbug(
-                                    '## Error. ' . $occurence . ' In save new Manufacturer ' . print_r(
+                                    '## Error. ' . $occurence . ' In saving new Manufacturer ' . print_r(
                                         $e->getMessage(),
                                         1
                                     ),
@@ -1572,7 +1567,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 } catch (Exception $e) {
                     $syncCat = false;
                     $this->debbug(
-                        '## Error. Save changes to product ID:  ->' . print_r($e->getMessage(), 1),
+                        '## Error. Saving changes to product ID:  ->' . print_r($e->getMessage(), 1),
                         'syncdata'
                     );
                 }
@@ -1798,7 +1793,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         }
 
         $this->debbug(
-            $occurence . '  Entro a synchronizar imagenes  image array for this product->' . print_r(
+            $occurence . '  Beginning to synchronise images. First sync shop for this product->' . print_r(
                 $this->first_sync_shop,
                 1
             ),
@@ -1874,7 +1869,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     /**
                      * Product without images delete records of SL table
                      */
-                    $this->debbug('Images exist in cache but product dont have any images ', 'syncdata');
+                    $this->debbug('Images exist in cache but product doesnt have any images ', 'syncdata');
                     foreach ($slyr_images as $keySLImg => $slyr_image) {
                         $slyr_images_to_delete[] = $slyr_image['id_image'];
                         unset($slyr_images[$keySLImg]);
@@ -1906,7 +1901,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     /**
                      * Images for delete that do not match in SL
                      */
-                    $this->debbug('Images for delete that do not match in SL', 'syncdata');
+                    $this->debbug('Images to be deleted that do not match in SL', 'syncdata');
                     foreach ($ps_images as $ps_image) {
                         $image_delete = new Image($ps_image['id_image']);
                         $image_delete->delete();
@@ -1951,13 +1946,13 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
              * Process images from this connection
              */
             $this->debbug(
-                'Before process prepared images for update stat of array ->' . print_r($catch_images, 1),
+                'Before processing prepared images to update state of array ->' . print_r($catch_images, 1),
                 'syncdata'
             );
 
             foreach ($catch_images as $image_reference => $image_url) {
                 $this->debbug(
-                    'Process images from this connection ->' . print_r($image_reference, 1) . ' url ->' . print_r(
+                    'Processing images from this connection ->' . print_r($image_reference, 1) . ' url ->' . print_r(
                         $image_url,
                         1
                     ),
@@ -2008,21 +2003,27 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 ) {
                                                     $image_cover->legend[$id_lang_multi] = $name_of_product;
                                                     $this->debbug(
-                                                        'Recording a new image alt attribute, 
-                                                        you need to update this image information ->' . print_r(
+                                                        'Recording a new image alt attribute, '.
+                                                         'you need to update this image information ->' .
+                                                        print_r(
                                                             $image_cover->legend[$id_lang],
                                                             1
-                                                        ) . '  !=  ' . print_r($name_of_product, 1),
+                                                        ) .
+                                                        '  !=  ' .
+                                                        print_r($name_of_product, 1),
                                                         'syncdata'
                                                     );
                                                 } else {
                                                     $this->debbug(
-                                                        'The image is the same, the alt attribute of the image
-                                                         is the same, it is not necessary, update the information 
-                                                         of this image ->' . print_r(
+                                                        'The image is the same, the alt attribute of the image '.
+                                                         'is the same. It is not necessary to update the information '.
+                                                         'of this image ->' .
+                                                        print_r(
                                                             $image_cover->legend[$id_lang],
                                                             1
-                                                        ) . '  ==  ' . print_r($name_of_product, 1),
+                                                        ) .
+                                                        '  ==  ' .
+                                                        print_r($name_of_product, 1),
                                                         'syncdata'
                                                     );
                                                 }
@@ -2061,7 +2062,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                         }
 
                                         try {
-                                            $this->debbug('updating info of image ', 'syncdata');
+                                            $this->debbug('updating image information ', 'syncdata');
 
                                             $image_cover->save();
                                             Db::getInstance()->execute(
@@ -2069,10 +2070,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 WHERE id_image = '" . $slyr_image['id_image'] . "' "
                                             );
 
-                                            $this->debbug('Save changes to image complete', 'syncdata');
+                                            $this->debbug('Saving changes to complete image', 'syncdata');
                                         } catch (Exception $e) {
                                             $this->debbug(
-                                                '## Error. ' . $occurence . ' Update Image info product->' . print_r(
+                                                '## Error. ' . $occurence . ' Updating Image info ->' . print_r(
                                                     $e->getMessage(),
                                                     1
                                                 ),
@@ -2092,7 +2093,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         }
 
                         /**
-                         *
                          * Process images that do not exist in the sl cache and have arrived in this connection
                          */
 
@@ -2111,7 +2111,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             ) {
                                 $image->legend[$id_lang_multi] = $name_of_product;
                                 $this->debbug(
-                                    'Set image alt atribute  need update this image info ->' .
+                                    'Setting image alt attribute. You  to update this image info ->' .
                                     print_r(
                                         $image->legend[$id_lang],
                                         1
@@ -2126,7 +2126,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             } else {
                                 $this->debbug(
                                     'Image is the same, image alt attribute not is
-                                    needed update this image info ->' . print_r(
+                                    needed, update this image info ->' . print_r(
                                         $image->legend[$id_lang],
                                         1
                                     ) .
@@ -2166,7 +2166,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         } catch (Exception $e) {
                             $validate_fields = false;
                             $this->debbug(
-                                '## Error. ' . $occurence . ' Validate fields of image ->' . print_r(
+                                '## Error. ' . $occurence . ' Validate image fields ->' . print_r(
                                     $e->getMessage(),
                                     1
                                 ) . ' url->' . $url,
@@ -2178,7 +2178,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         } catch (Exception $e) {
                             $validate_language = false;
                             $this->debbug(
-                                '## Error. ' . $occurence . ' Validate language fields of image ->' . print_r(
+                                '## Error. ' . $occurence . ' Validating language fields of image ->' . print_r(
                                     $e->getMessage(),
                                     1
                                 ) . ' url->' . $url,
@@ -2190,7 +2190,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         } catch (Exception $e) {
                             $result_save_image = false;
                             $this->debbug(
-                                '## Error. ' . $occurence . ' Problem save image ->' . print_r(
+                                '## Error. ' . $occurence . ' Problem saving image ->' . print_r(
                                     $e->getMessage(),
                                     1
                                 ) . ' url->' . $url,
@@ -2201,10 +2201,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         if ($result_save_image != true) {
                             $this->debbug(
                                 '## Warning. ' . $occurence . '. We have tried to create an
-                                image but store has caused problem.
-                                 We are going to verify if there are phantom images
-                                 in its table and we try to eliminate them,
-                                 so that it allows us to create a new image. We will try to repair it',
+                                image but the store has caused problem.'.
+                                 'We are going to verify if there are any phantom images'.
+                                 'in the table and then try to eliminate them,'.
+                                 'so that we can create a new image. We will try to repair it',
                                 'syncdata'
                             );
                             try {
@@ -2234,12 +2234,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             if ($result_save_image) {
                                 $this->debbug(
                                     '## Info. ' . $occurence . ' Second attempt to create
-                                    image after repair has been correct  ',
+                                    image after repair has been corrected  ',
                                     'syncdata'
                                 );
                             } else {
                                 $this->debbug(
-                                    '## Info. ' . $occurence . ' Could not create the image or second attempt. ',
+                                    '## Info. ' . $occurence . ' Could not create the image on second attempt. ',
                                     'syncdata'
                                 );
                             }
@@ -2266,7 +2266,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             } else {
                                 $all_shops_image = Shop::getShops(true, null, true);
                                 $this->debbug(
-                                    'Associate image to all stores' . print_r($all_shops_image, 1),
+                                    'Associating image to all stores' . print_r($all_shops_image, 1),
                                     'syncdata'
                                 );
                                 $image->associateTo($all_shops_image);
@@ -2286,11 +2286,11 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             }
                         } else {
                             $this->debbug(
-                                '## Error. ' . $occurence . '. Validation of image problem in Product ID:'
+                                '## Error. ' . $occurence . '. Validating image problems in Product ID:'
                                 . $product_id . ' validate fields->' . print_r(
                                     $validate_fields,
                                     1
-                                ) . ', validatelanguage fields ->' . print_r(
+                                ) . ', validate language fields ->' . print_r(
                                     $validate_language,
                                     1
                                 ) . ', result save image->' . print_r(
@@ -2306,17 +2306,17 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         unset($image);
                     }
                 }
-                $this->debbug('END to process this image Timing ->' . ($time_ini_image - microtime(1)), 'syncdata');
+                $this->debbug('END processing this image Timing ->' . ($time_ini_image - microtime(1)), 'syncdata');
             }
         } else {
-            $this->debbug('We will check if any of the images has been imported in the past with this variant');
+            $this->debbug('We will check if any of the images have been imported in the past with this variant');
             $slyr_images = Db::getInstance()->executeS(
                 'SELECT * FROM '. _DB_PREFIX_ . "slyr_image im WHERE  im.ps_product_id = '" . $product_id . "' "
             );
 
             if (!empty($slyr_images)) {
                 foreach ($slyr_images as $keySLImg => $slyr_image) {
-                    $this->debbug('Test if is needed to delete this image ' . print_r($slyr_image, 1));
+                    $this->debbug('Test if it is needed to delete this image ' . print_r($slyr_image, 1));
 
                     $variant_ids = array();
                     if ($slyr_image['ps_variant_id'] != null) {
@@ -2330,8 +2330,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
                     if (empty($variant_ids)) {// this variant  is unique variant in use this file
                         $this->debbug(
-                            'Deleting image because the image has been sent from this
-                            format and now no longer has this format no photo',
+                            'Deleting image because it does not belong to any products or variants',
                             'syncdata'
                         );
                         $image_delete = new Image($slyr_image['id_image']);
@@ -2397,12 +2396,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     }
                 } catch (Exception $e) {
                     $this->debbug(
-                        '## Error. Problem hide product ID:' . $product . ' error->' . print_r(
+                        '## Error. Problem hiding product ID:' . $product . ' error->' . print_r(
                             $e->getMessage(),
                             1
-                        ) . ' it has not been possible to find a product that we must deactivate,
-                        it is possible that it does not already exist in prestashop,
-                        and thus it can no longer be eliminated. Try deactivating product manually from prestashop.',
+                        ) . ' it has not been possible to find a product that we must deactivate,'.
+                        'it is possible that it does not exist anymore in prestashop,'.
+                        'and thus it can no longer be eliminated. Try deactivating product manually from prestashop.',
                         'syncdata'
                     );
                 }
@@ -3017,19 +3016,19 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             $product['data'] = $this->removePredefinedFieldsBeforeFeatures($product['data'], $schema);
         } catch (Exception $e) {
             $this->debbug(
-                '## Error. ' . $occurence . ' Remove element predefined. problem found->' . $e->getMessage(),
+                '## Error. ' . $occurence . ' Removing element predefined. Problem found->' . $e->getMessage(),
                 'syncdata'
             );
         }
 
         $this->debbug(
-            'Entry to sync Features id_prod->' . $id_product . ' product -> ' . print_r($product['data'], 1),
+            'Entering to sync Features id_prod->' . $id_product . ' product -> ' . print_r($product['data'], 1),
             'syncdata'
         );
         try {
             foreach ($this->shop_languages as $lang) {
                 $this->debbug(
-                    'Verify language ->' . $lang['id_lang'] . ' lg_code -> ' . print_r($lang['iso_code'], 1),
+                    'Verifying language ->' . $lang['id_lang'] . ' lg_code -> ' . print_r($lang['iso_code'], 1),
                     'syncdata'
                 );
 
@@ -3037,7 +3036,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                 if (!empty($featuresFields)) {
                     foreach ($featuresFields as $featureField) {
                         $this->debbug(
-                            'Verify feature ->' . $featureField['name'] .
+                            'Verifying feature ->' . $featureField['name'] .
                             ' language ->' . $lang['id_lang'] . ' lg_code -> ' . print_r(
                                 $lang['iso_code'],
                                 1
@@ -3078,7 +3077,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                         }
 
                         $this->debbug(
-                            'Revisando Caracteristica  $new_name->' . print_r(
+                            'in feature  $new_name->' . print_r(
                                 $new_name,
                                 1
                             ) . ' in $product[data]->' . print_r(
@@ -3093,7 +3092,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                         if (!array_key_exists($feature_index_selected, $product['data'])) {
                             $this->debbug(
-                                'That characteristic has not been found in the information of product->'
+                                'That feature has not been found in the oroduct information->'
                                 . $lang['id_lang'] . ' lg_code -> ' . print_r(
                                     $lang['iso_code'],
                                     1
@@ -3103,12 +3102,12 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             //No existe la característica en el producto.
                             continue;
                         } else {
-                            $this->debbug('Feature found in array of product ', 'syncdata');
+                            $this->debbug('Feature found in product array ', 'syncdata');
 
                             $count_values = 0;
 
 
-                            // $this->debbug('there is a characteristic in the product ->'.$lang['id_lang'].
+                            // $this->debbug('there is a feature in the product ->'.$lang['id_lang'].
                             //' lg_code -> '.print_r($lang['iso_code'],1),'syncdata');
 
                             $id_feature_value = (int)Db::getInstance()->getValue(
@@ -3125,7 +3124,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 $featureValue = new FeatureValue($id_feature_value);
 
                                 $this->debbug(
-                                    'Feature found by the id and this are its values in all languages ->' . print_r(
+                                    'Feature found by the id and these are its values in all languages ->' . print_r(
                                         $featureValue->value,
                                         1
                                     ) . ' in the current language ->' . $featureValue->value[$lang['id_lang']],
@@ -3162,7 +3161,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                     ) &&
                                         $schema[$feature_name_index_search]['language_code'] == $lang_sub['iso_code']) {
                                         $this->debbug(
-                                            'Entro por $feature_name_index_search->' . print_r(
+                                            'Entering by $feature_name_index_search->' . print_r(
                                                 $feature_name_index_search,
                                                 1
                                             ),
@@ -3240,7 +3239,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                     ) {
                                         $this->debbug(
                                             'Value of ' . $feature_name_index .
-                                            ' is empty jump to another feature ->' . print_r(
+                                            ' is empty, jumping to another feature ->' . print_r(
                                                 $value,
                                                 1
                                             ),
@@ -3268,7 +3267,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                                     try {
                                         $this->debbug(
-                                            'Guardando cabios en feature ->' .
+                                            'Saving changes in feature ->' .
                                             $featureValue->value . ' lg_code -> ' . print_r(
                                                 $lang['iso_code'],
                                                 1
@@ -3297,7 +3296,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                                             if (empty($feature_value_exist)) {
                                                 $this->debbug(
-                                                    'Value is null remove the feature from this product ->'
+                                                    'Value is null, removing the feature from this product ->'
                                                     . $featureValue->value . ' lg_code -> ' . print_r(
                                                         $lang['iso_code'],
                                                         1
@@ -3329,7 +3328,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                     }
                                 } else {
                                     $this->debbug(
-                                        'It is not custom value  ' . print_r($featureValue->value, 1),
+                                        'It is not a custom value  ' . print_r($featureValue->value, 1),
                                         'syncdata'
                                     );
 
@@ -3354,7 +3353,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                                         if (empty($feature_value_exist)) {
                                             $this->debbug(
-                                                'Value is null remove the feature from this product ->' . print_r(
+                                                'Value is null removing the feature from this product ->' . print_r(
                                                     $featureValue->value,
                                                     1
                                                 ) . ' lg_code -> ' . print_r($lang['iso_code'], 1),
@@ -3415,7 +3414,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                     }
                                 }
                             } else {
-                                $this->debbug('Feature value id not found  how to a create it ', 'syncdata');
+                                $this->debbug('Feature value id not found, it will be created now ', 'syncdata');
 
                                 foreach ($this->shop_languages as $lang_sub) {
 
@@ -3439,7 +3438,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             $sanitized_ant_version_space = $sanitized_name_index_search .
                                                 '_' . $lang['iso_code'];
                                             $this->debbug(
-                                                'Buscando ->' . print_r($feature_name_index_search, 1),
+                                                'Searching ->' . print_r($feature_name_index_search, 1),
                                                 'syncdata'
                                             );
                                             if (isset(
@@ -3451,7 +3450,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 $lang_sub['iso_code']
                                             ) {
                                                 $this->debbug(
-                                                    'Entro por $feature_name_index_search->' . print_r(
+                                                    'Entering by $feature_name_index_search->' . print_r(
                                                         $feature_name_index_search,
                                                         1
                                                     ),
@@ -3462,7 +3461,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 && !empty($product['data'][$new_name])
                                                 && !isset($schema[$new_name]['language_code'])) {
                                                 $this->debbug(
-                                                    'Entro por $new_name->' . print_r($new_name, 1),
+                                                    'Entering by $new_name->' . print_r($new_name, 1),
                                                     'syncdata'
                                                 );
                                                 $feature_name_index = $new_name;
@@ -3470,7 +3469,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 && !empty($product['data'][$sanitized_name_index_search])) {
                                                 $feature_name_index = $sanitized_name_index_search;
                                                 $this->debbug(
-                                                    'Entro else $sanitized_name_index_search->' . print_r(
+                                                    'Entering by $sanitized_name_index_search->' . print_r(
                                                         $sanitized_name_index_search,
                                                         1
                                                     ),
@@ -3479,7 +3478,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             } elseif (isset($product['data'][$sanitized_name_index_search_languae])
                                                 && !empty($product['data'][$sanitized_name_index_search_languae])) {
                                                 $this->debbug(
-                                                    'Entro else $sanitized_name_index_search_languae->' . print_r(
+                                                    'Entering by $sanitized_name_index_search_languae->' . print_r(
                                                         $sanitized_name_index_search_languae,
                                                         1
                                                     ),
@@ -3489,7 +3488,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             } elseif (isset($product['data'][$sanitized_ant_version])
                                                 && !empty($product['data'][$sanitized_ant_version])) {
                                                 $this->debbug(
-                                                    'Entro else $sanitized_ant_version->' . print_r(
+                                                    'Entering by $sanitized_ant_version->' . print_r(
                                                         $sanitized_ant_version,
                                                         1
                                                     ),
@@ -3501,7 +3500,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 $schema[$sanitized_ant_version_space]['language_code'] ==
                                                 $lang_sub['iso_code']) {
                                                 $this->debbug(
-                                                    'Entro else $sanitized_ant_version_space->' . print_r(
+                                                    'Entering by $sanitized_ant_version_space->' . print_r(
                                                         $sanitized_ant_version_space,
                                                         1
                                                     ),
@@ -3544,7 +3543,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 && $value == 0)
                                         ) {
                                             $this->debbug(
-                                                'Value of ' . $feature_name_index . ' is empty jump to another
+                                                'Value of ' . $feature_name_index . ' is empty, jumping to another
                                                  feature ->' . print_r(
                                                     $value,
                                                     1
@@ -3649,7 +3648,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 }
                             } catch (Exception $e) {
                                 $this->debbug(
-                                    '## Error. ' . $occurence . ' Clean this feature from product ' . $e->getMessage(),
+                                    '## Error. ' . $occurence . ' Cleaning this feature from product ' .
+                                    $e->getMessage(),
                                     'syncdata'
                                 );
                             }
@@ -3659,7 +3659,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             }
         } catch (Exception $e) {
             $this->debbug(
-                '## Error. ' . $occurence . ' Recognizing with existing feature.  problem found->' . print_r(
+                '## Error. ' . $occurence . ' Recognizing existing feature.  problem found->' . print_r(
                     $e->getMessage(),
                     1
                 ),
@@ -3675,7 +3675,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                 $contextShopID = Shop::getContextShopID();
                 Shop::setContext(Shop::CONTEXT_ALL);
                 $this->debbug(
-                    'Process elements that were left in the array and create new features of that ' . print_r(
+                    'Processing elements that were left in the array and creating new features of: ' . print_r(
                         $product['data'],
                         1
                     ),
@@ -3704,7 +3704,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                     if (isset($schema[$first_index_name]['language_code'])) {
                         $this->debbug(
-                            'Feature name in multilanguage ' .
+                            'Feature name in multi-language ' .
                             print_r($schema[$first_index_name], 1),
                             'syncdata'
                         );
@@ -3721,7 +3721,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                         }
                     } else {
                         $this->debbug(
-                            'Feature name dont have any language code of 
+                            'Feature name does not have any language code of 
                             index name ->' . $first_index_name . ' -> ' . print_r(
                                 $schema[$first_index_name],
                                 1
@@ -3740,7 +3740,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst($first_basename);
                             }
                             $this->debbug(
-                                'After set names ->' . $first_index_name . ' -> ' . print_r(
+                                'After setting names ->' . $first_index_name . ' -> ' . print_r(
                                     $schema[$first_index_name],
                                     1
                                 ),
@@ -3753,7 +3753,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst($first_basename);
                             }
                             $this->debbug(
-                                'Set for all languages ->' . $first_index_name . ' -> ' . print_r(
+                                'Setting for all languages ->' . $first_index_name . ' -> ' . print_r(
                                     $schema[$first_index_name],
                                     1
                                 ),
@@ -3761,7 +3761,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             );
                         }
                         $this->debbug(
-                            'Elemento para agregar ' . $first_basename . ' con el valor ' . print_r(
+                            'Element to be added ' . $first_basename . ' with the value ' . print_r(
                                 $first_value,
                                 1
                             ),
@@ -3774,7 +3774,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                         $new_feature->add();
                         $features_founded[] = $new_feature->id;
                         $this->debbug(
-                            'After save new id of this element feature ->' . print_r($features_founded, 1),
+                            'After saving new id of this element feature ->' . print_r($features_founded, 1),
                             'syncdata'
                         );
                     } catch (Exception $e) {
@@ -3782,7 +3782,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
 
                         $this->debbug(
-                            '## Error. ' . $occurence . ' Save new Feature  ->' . $first_index_name .
+                            '## Error. ' . $occurence . ' Saving new Feature  ->' . $first_index_name .
                             ' and value->' . $product['data'][$first_index_name] . '  problem found->' . print_r(
                                 $e->getMessage(),
                                 1
@@ -3792,17 +3792,17 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                     }
 
                     $this->debbug(
-                        'After create feature resync all values  ->' . print_r($features_founded, 1),
+                        'After creating feature resynchronising all values  ->' . print_r($features_founded, 1),
                         'syncdata'
                     );
                     if (isset($schema[$first_index_name]['language_code'])) {
-                        $this->debbug('Is from multilangue  ->' . print_r($features_founded, 1), 'syncdata');
+                        $this->debbug('This is from multi-language  ->' . print_r($features_founded, 1), 'syncdata');
 
                         $prepare_values_feature = array();
                         $basename = $schema[$first_index_name]['basename'];
                         foreach ($schema as $field_name => $values_schema) {
                             $this->debbug(
-                                'Pasando por value ' . $basename . ' -> ' . print_r(
+                                'Passing the values ' . $basename . ' -> ' . print_r(
                                     $product['data'][$field_name],
                                     1
                                 ),
@@ -3819,7 +3819,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 }
 
                                 $this->debbug(
-                                    'Eliminado feature en otra idioma ya procesada ->' .
+                                    'Eliminating features in languages that have been processed ->' .
                                     $field_name . '  Value->' . print_r(
                                         $product['data'][$field_name],
                                         1
@@ -3872,9 +3872,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                     }
                                 } catch (Exception $e) {
                                     $this->debbug(
-                                        '## Error. ' . $occurence . ' Inserting feature value in 
-                                        not recognized with
-                                         Another language  ->' . $e->getMessage(),
+                                        '## Error. ' . $occurence . ' Inserting feature value in '.
+                                        'unrecognized with another language  ->' . $e->getMessage(),
                                         'syncdata'
                                     );
                                 }
@@ -3915,7 +3914,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                             if ($id_feature_value != 0) {
                                 $this->debbug(
-                                    'Valor recibido hacer insert en feature product table id_product ->'
+                                    'Value returned when inserting in products with table id_product ->'
                                     . $id_product . ' $this->defaultLanguage ',
                                     'syncdata'
                                 );
@@ -3970,7 +3969,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             }
         } catch (Exception $e) {
             $this->debbug(
-                '## Error.  Create features that have not been recognized. ' .
+                '## Error.  Creating features that have not been recognized. ' .
                 $occurence . ' problem found->' . print_r(
                     $e->getMessage(),
                     1
@@ -3993,11 +3992,13 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             );
 
             if (count($product_features)) {
-                $this->debbug('Test before delete $features_founded->' . print_r($features_founded, 1), 'syncdata');
+                $this->debbug('Test before deleting $features_founded->' .
+                    print_r($features_founded, 1), 'syncdata');
                 foreach ($product_features as $feature) {
                     if (!in_array($feature['id_feature'], $features_founded, false)) {
                         $this->debbug(
-                            'feature not founded in this connexion send to a delete this feature value  ' . print_r(
+                            'feature not founded in this connection when sending this feature value to be deleted ' .
+                            print_r(
                                 $feature,
                                 1
                             ) . ' $features_founded->' . print_r($features_founded, 1),
@@ -4018,7 +4019,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             }
         } catch (Exception $e) {
             $this->debbug(
-                '## Error.  Remove all features that have not been received in the
+                '## Error.  Removing all features that have not been received in the
                  product. ' . $occurence . '  problem found->' . print_r(
                     $e->getMessage(),
                     1
@@ -4058,7 +4059,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                     foreach ($feature_values_existing as $feature_value_existing) {
                         if ($value == $feature_value_existing['value']) {
                             $this->debbug(
-                                'Feature founded  return id $feature_value_existing ->' . print_r(
+                                'Feature found, returning id $feature_value_existing ->' . print_r(
                                     $feature_value_existing,
                                     1
                                 ),
@@ -4092,7 +4093,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             ); // $id_product // create default value and overwrite is after create
         } catch (Exception $e) {
             $this->debbug(
-                '## Error. save new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1),
+                '## Error. Saving new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1),
                 'syncdata'
             );
         }

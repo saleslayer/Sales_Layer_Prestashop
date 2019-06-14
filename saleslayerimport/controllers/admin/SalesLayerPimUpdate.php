@@ -49,29 +49,29 @@ class SalesLayerPimUpdate extends SalesLayerImport
         if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
             $this->debbug(
                 "There are still " . $items_processing['sl_cuenta_registros']
-                . " items processing, wait until is finished and synchronize again."
+                . " items processing, wait until hey have finished and synchronize again."
             );
 
             return "There are still " . $items_processing['sl_cuenta_registros']
-                . " items processing, wait until is finished and synchronize again.";
+                . " items processing, wait until they have finished and synchronize again.";
         }
 
         $this->sl_time_ini_process = microtime(1);
 
         $this->debbug(" ==== Store Sync Data INIT ==== ");
-        $this->debbug('conector_id :' . print_r($connector_id, 1) . ' last_sync->' . print_r($last_sync, 1));
+        $this->debbug('connector_id :' . print_r($connector_id, 1) . ' last_sync->' . print_r($last_sync, 1));
 
         if ($last_sync == null) {
             $last_sync = date('Y-m-d H:i:s');
         }
 
         $this->debbug(
-            'before update conector_id :' . print_r($connector_id, 1) . ' last_sync->' . print_r($last_sync, 1)
+            'before update connector_id :' . print_r($connector_id, 1) . ' last_sync->' . print_r($last_sync, 1)
         );
         $this->setConnectorData($connector_id, 'last_sync', $last_sync);
 
         $update_all = microtime(1);
-        $this->debbug(' Empezando la syncronización');
+        $this->debbug(' Starting to synchronisation');
         //$this->checkDB();
 
         $conn_info = $this->sl_updater->getConnectorsInfo($connector_id);
@@ -113,7 +113,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
 
 
-        $this->debbug('Datos de languages ' . print_r($data_returned['schema']['languages'], 1));
+        $this->debbug('Language data ' . print_r($data_returned['schema']['languages'], 1));
 
 
         $this->debbug('Language api_data iso codes  ->' . print_r($data_returned['schema']['languages'], 1));
@@ -223,9 +223,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $contextShopID = Shop::getContextShopID();
 
         if (!empty($shops)) {
-            if ($this->debugmode > 1) {
-                $this->debbug('Total count of delete elements to store: ' . count($catalogue_items_del));
-            }
+            $this->debbug('Total count of elements to be deleted stored: ' . count($catalogue_items_del));
+
             $timer_delete_data = microtime(1);
 
             $sync_type = 'delete';
@@ -237,12 +236,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $time_ini_store_items_delete = microtime(1);
                 if (!empty($catalogue_items_del)) {
                     $item_type = 'category';
-                    if ($this->debugmode > 1) {
-                        $this->debbug('Total count of delete categories to store: ' . count($catalogue_items_del));
-                    }
-                    if ($this->debugmode > 1) {
-                        $this->debbug('Delete categories data to store: ' . print_r($catalogue_items_del, 1));
-                    }
+
+                    $this->debbug('Total count of categories to be deleted stored: ' . count($catalogue_items_del));
+
+                    $this->debbug('Deleted category data to be stored: ' . print_r($catalogue_items_del, 1));
+
                     $arrayReturn['categories_to_delete'] = count($catalogue_items_del);
                     foreach ($catalogue_items_del as $catalog) {
                         $item_data = array();
@@ -258,10 +256,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $item_type = 'product';
 
                     if ($this->debugmode > 1) {
-                        $this->debbug('Total count of delete products to store: ' . count($product_items_del));
+                        $this->debbug('Total count of deleted products to be stored: ' . count($product_items_del));
                     }
                     if ($this->debugmode > 1) {
-                        $this->debbug('Delete products data to store: ' . print_r($product_items_del, 1));
+                        $this->debbug('Deleted product data to be stored: ' . print_r($product_items_del, 1));
                     }
                     $arrayReturn['products_to_delete'] = count($product_items_del);
 
@@ -280,12 +278,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                     if ($this->debugmode > 1) {
                         $this->debbug(
-                            'Total count of delete product formats to store: ' . count($product_formats_items_del)
+                            'Total count of deleted product variants to be stored: ' . count($product_formats_items_del)
                         );
                     }
                     if ($this->debugmode > 1) {
                         $this->debbug(
-                            'Delete product formats data to store: ' . print_r($product_formats_items_del, 1)
+                            'Deleted product variant data to be stored: ' . print_r($product_formats_items_del, 1)
                         );
                     }
                     $arrayReturn['product_formats_to_delete'] = count($product_formats_items_del);
@@ -308,21 +306,21 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
             $this->insertSyncdataSql(true);
 
-            $this->debbug('Despues de delete apì data  ->' . (microtime(1) - $timer_delete_data) . 's');
+            $this->debbug('After deleting apì data  ->' . (microtime(1) - $timer_delete_data) . 's');
             $this->clearDebugContent();
 
             $timer_sync_apidata = microtime(1);
 
             if (count($catalogue_items) > 0 || count($product_items) > 0 || count($product_formats_items) > 0) {
                 if ($this->debugmode > 2) {
-                    $this->debbug('Total count of modified elements to store: ' . count($catalogue_items_del));
+                    $this->debbug('Total count of modified elements to be stored: ' . count($catalogue_items_del));
                 }
                 $sync_type = 'update';
                 // $time_ini_store_items_update = microtime(1);
 
 
                 $this->debbug(
-                    ' Empezando con la syncronizacion y enviando la info a la tienda con el shops_ids ->' . print_r(
+                    ' Starting synchronisation and sending information to the shops with ids: ->' . print_r(
                         $shops,
                         1
                     )
@@ -375,10 +373,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $item_type = 'product';
 
                     if ($this->debugmode > 1) {
-                        $this->debbug('Total count of sync products to store: ' . count($product_items));
+                        $this->debbug('Total count of synced products to store: ' . count($product_items));
                     }
                     if ($this->debugmode > 2) {
-                        $this->debbug('Sync products data to store: ' . print_r($product_items, 1));
+                        $this->debbug('Synced products data to store: ' . print_r($product_items, 1));
                     }
 
                     $this->product_accessories = array();
@@ -411,11 +409,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                     if ($this->debugmode > 1) {
                         $this->debbug(
-                            'Total count of sync product formats to store: ' . count($product_formats_items)
+                            'Total count of synced product formats to store: ' . count($product_formats_items)
                         );
                     }
                     if ($this->debugmode > 2) {
-                        $this->debbug('Product formats data: ' . print_r($product_formats_items, 1));
+                        $this->debbug('Product variants data: ' . print_r($product_formats_items, 1));
                     }
 
                     $sync_params['conn_params']['data_schema_info'] =
@@ -463,7 +461,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->clearDebugContent();
         $this->debbug(
-            '==== Store Sync Data END  duration of process  ->' . (microtime(1) - $update_all) . 's  at ' . date(
+            '==== Store Sync Data END - duration of process  ->' . (microtime(1) - $update_all) . 's  at ' . date(
                 'd-m-Y H:i:s'
             )
         );
@@ -970,22 +968,22 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $response = $this->urlSendCustomJson('GET', $url);
         // $extension =   $this->getExensionFile($url);
         if ($response[0]) {
-            $this->debbug('file temp generado para imagen :' . ($tmpfile), 'syncdata');
+            $this->debbug('temporary file name generate fo image :' . ($tmpfile), 'syncdata');
             $response = file_put_contents($tmpfile, $response[1]);
             if ($response) {
                 unset($response);
-                $this->debbug('sending file filled with the file :' . $tmpfile, 'syncdata');
+                $this->debbug('sending the real file with the empty file :' . $tmpfile, 'syncdata');
 
                 return $tmpfile;
             } else {
-                $this->debbug('Image error could not be saved on downloaded :' . $tmpfile, 'syncdata');
+                $this->debbug('Image error, could not be saved on downloaded :' . $tmpfile, 'syncdata');
                 unlink($tmpfile);
                 unset($response);
 
                 return false;
             }
         } else {
-            $this->debbug('Error imaen no ha podido ser descargado :' . $tmpfile, 'syncdata');
+            $this->debbug('Error image could not be downloaded :' . $tmpfile, 'syncdata');
             unset($tmpfile);
 
             return false;
@@ -1241,7 +1239,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 $tablas[$keyTab]['data'][$index_name] = $tablas[$keyTab]['data'][$keyStruct];
                             } else {
                                 $this->debbug(
-                                    'No es multilanguage ' . print_r(
+                                    'This is not multi-language ' . print_r(
                                         $campoStruct['language_code'],
                                         1
                                     ) . ' $keyStruct[data]-> ' . print_r($keyStruct, 1)
@@ -1278,7 +1276,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $connector_id,
         $comp_id
     ) {
-        $this->debbug(' entra con shops ->' . print_r($conn_shops, 1));
+        $this->debbug(' Entered with shops ->' . print_r($conn_shops, 1));
 
 
         $formats_update_shops = array();
@@ -1454,7 +1452,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                 Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
             } else {
-                $this->debbug('Name of group attribute newest ->' . print_r($keyStruct, 1));
+                $this->debbug('Name of newest attribute group  ->' . print_r($keyStruct, 1));
 
                 $schemaAttrGroup = " SELECT agl.`id_attribute_group`, name, public_name " .
                     " FROM " . $this->attribute_group_lang_table . " AS agl " .
@@ -1513,7 +1511,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         )
                     );
                 } else {
-                    $this->debbug('Name of group attribute newest ->' . print_r($keyStruct, 1));
+                    $this->debbug('Name of newest group attribute ->' . print_r($keyStruct, 1));
                     $in_search = array('color', 'texture');
                     $is_color_attribute = false;
 
@@ -1726,7 +1724,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     }
                 } else {
                     $this->debbug(
-                        'Registro slyr inválido al actualizar tiendas para el formato con ID: ' . $format_id,
+                        'Invalid slyr register when updating shops for the variant with ID: ' . $format_id,
                         'error'
                     );
                 }
@@ -2073,7 +2071,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 unlink($url);
             }
 
-            $this->debbug('## Error. There is not enough memory space to process the image', 'syncdata');
+            $this->debbug('## Error. There is not enough memory available to process the image', 'syncdata');
 
             return false;
         }
@@ -2082,7 +2080,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
         if (!$isfile) {
             $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
             $this->debbug(
-                'no es file .' . print_r($url, 1) . ' of entity ' . $entity . 'ha generado' . $tmpfile,
+                'This is not a file .' . print_r($url, 1) . ' for entity ' . $entity .
+                ' This as been generate -> ' . $tmpfile,
                 'syncdata'
             );
             if (ini_get('allow_url_fopen')) {
@@ -2122,7 +2121,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         } else {
             unlink($resultado);
             $this->debbug(
-                '## Error. Process image error result false.  time to process:' . (microtime(
+                '## Error. Process image error result false.  time to be processed:' . (microtime(
                     1
                 ) - $timing_process_image),
                 'syncdata'
@@ -2133,7 +2132,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         unlink($resultado);
         $this->debbug(
-            'Process image complete. time to process:' . (microtime(1) - $timing_process_image),
+            'Process image complete. time to be processed:' . (microtime(1) - $timing_process_image),
             'syncdata'
         );
 
@@ -2166,7 +2165,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         );
 
         if (!$format_exists) {
-            $this->debbug('After search id atribute group from field name ->' . print_r($fieldName, 1), 'syncdata');
+            $this->debbug('After search id attribute group from field name ->' . print_r($fieldName, 1), 'syncdata');
             if (isset($this->listAttrGroupCased[$fieldName])) {
                 return $this->listAttrGroupCased[$fieldName];
             }
@@ -2178,7 +2177,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
             if (count($regsAttrGroup) > 0) {
                 $this->debbug(
-                    'After select id atribute group ' . $this->attribute_group_lang_table . ' field name  ->' . print_r(
+                    'After select id attribute group ' . $this->attribute_group_lang_table .
+                    ' field name  ->' . print_r(
                         $fieldName,
                         1
                     ),

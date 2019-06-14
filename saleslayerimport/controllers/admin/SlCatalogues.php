@@ -85,7 +85,7 @@ class SlCatalogues extends SalesLayerPimUpdate
         $syncCat = true;
 
         $this->debbug(
-            'Entry to synchronize->' . print_r($catalog, 1) . ' Conector id-> ' . print_r(
+            'Entry to synchronize->' . print_r($catalog, 1) . ' Connector id-> ' . print_r(
                 $connector_id,
                 1
             ) . '  $shops ->' . print_r($shops, 1) . '  $defaultCategory -> ' . print_r(
@@ -99,7 +99,7 @@ class SlCatalogues extends SalesLayerPimUpdate
             empty($currentLanguage) ||
             empty($shops) ||
             empty($defaultCategory)) {
-            $this->debbug('## Error. Missing some of the data is not filled in correctly ', 'syncdata');
+            $this->debbug('## Error. Some data has not been completed correctly ', 'syncdata');
 
             return 'item_not_updated';
         }
@@ -935,7 +935,7 @@ class SlCatalogues extends SalesLayerPimUpdate
             }
 
             if (!$found) {
-                $this->debbug('Add id shop to this category ->' . print_r($shop_id, 1), 'syncdata');
+                $this->debbug('Add shop ID to this category ->' . print_r($shop_id, 1), 'syncdata');
                 $cat->addShop($shop_id);
             }
 
@@ -987,7 +987,7 @@ class SlCatalogues extends SalesLayerPimUpdate
             //Revisamos las sobrantes
             if (count($category_shops) > 0) {
                 $this->debbug(
-                    'goes to shop elimination review $category_shops->' . print_r(
+                    'go to shop elimination review $category_shops->' . print_r(
                         $category_shops,
                         1
                     ) . ' $sl_category_info_conns-> ' . print_r(
@@ -1006,7 +1006,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                     if (is_array($sl_category_info_conns) && count($sl_category_info_conns) > 0) {
                         foreach ($sl_category_info_conns as $sl_category_info_conn => $sl_category_info_conn_shops) {
                             $this->debbug(
-                                'pasando por el  $sl_category_info_conn_shops->' . print_r(
+                                'passing to  $sl_category_info_conn_shops->' . print_r(
                                     $sl_category_info_conn_shops,
                                     1
                                 ) . '  $sl_category_info_conn->' . $sl_category_info_conn . '  != ' . print_r(
@@ -1055,7 +1055,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                     if (!$found) {
                         $this->debbug(
-                            'Eliminando shops id de category->' . print_r($category_shop['id_shop'], 1),
+                            'Deleting shop ID from category->' . print_r($category_shop['id_shop'], 1),
                             'syncdata'
                         );
                         $cat->deleteFromShop($category_shop['id_shop']);
