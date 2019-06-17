@@ -936,7 +936,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                                   break;*/
                             default:
-                                $comb->key = $value;
+                                $comb->{$key} = $value;
                                 break;
                         }
                     }

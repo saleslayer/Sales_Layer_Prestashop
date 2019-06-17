@@ -303,7 +303,7 @@ class SalesLayerImport extends Module
     public function getConfiguration(
         $configuration_name
     ) {
-        $sql_sel = "SELECT * FROM ".$this->saleslayer_aditional_config.
+        $sql_sel = "SELECT * FROM " . $this->saleslayer_aditional_config .
             " WHERE configname = '$configuration_name'";
         $res = $this->slConnectionQuery('read', $sql_sel);
         if (!empty($res)) {
@@ -2906,7 +2906,15 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                     'Set Max execution time from cron register limit ' . $restand_seconds_for,
                     'syncdata'
                 );
-                $this->max_execution_time = round($restand_seconds_for - 5);
+                if ($restand_seconds_for > 0) {
+                    $this->max_execution_time = round($restand_seconds_for - 5);
+                } else {
+                    $this->debbug(
+                        'Set Max execution time from default-> ' .
+                        "because chron's frequency does not seem to be correct ->" . $restand_seconds_for,
+                        'syncdata'
+                    );
+                }
             }
         }
     }
