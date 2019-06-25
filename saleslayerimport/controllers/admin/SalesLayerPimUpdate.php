@@ -93,7 +93,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
-        $this->allocateMemory();
+        @ini_set('memory_limit', '-1');
 
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
@@ -103,8 +103,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
 
         $data_returned = $api->getDataReturned();
-
-        $this->allocateMemory();
 
         if ($api->hasResponseError()) {
             $this->debbug('## Error. : ' . $api->getResponseError() . ' Msg: ' . $api->getResponseErrorMessage());
