@@ -157,37 +157,64 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $data_schema = $this->getDataSchema($api);
         $table_data = $api->getResponseTableData();
 
+        if (isset($table_data['catalogue']['modified'], $data_returned['data_schema_info']['catalogue'])) {
+            $catalogue_items = $this->organizarIndicesTablas(
+                $table_data['catalogue']['modified'],
+                $data_returned['data_schema_info']['catalogue']
+            );
+        } else {
+            $catalogue_items = array();
+        }
 
-        $catalogue_items = $this->organizarIndicesTablas(
-            $table_data['catalogue']['modified'],
-            $data_returned['data_schema_info']['catalogue']
-        );
-        $product_items = $this->organizarIndicesTablas(
-            $table_data['products']['modified'],
-            $data_returned['data_schema_info']['products']
-        );
-        $product_formats_items = $this->organizarIndicesTablas(
-            $table_data['product_formats']['modified'],
-            $data_returned['data_schema_info']['product_formats']
-        );
+        if (isset($table_data['products']['modified'], $data_returned['data_schema_info']['products'])) {
+            $product_items = $this->organizarIndicesTablas(
+                $table_data['products']['modified'],
+                $data_returned['data_schema_info']['products']
+            );
+        } else {
+            $product_items = array();
+        }
+
+        if (isset($data_returned['data_schema_info']['product_formats'], $table_data['product_formats']['modified'])) {
+            $product_formats_items = $this->organizarIndicesTablas(
+                $table_data['product_formats']['modified'],
+                $data_returned['data_schema_info']['product_formats']
+            );
+        } else {
+            $product_formats_items = array();
+        }
 
 
-        $catalogue_items_del = $table_data['catalogue']['deleted'];
-        $product_items_del = $table_data['products']['deleted'];
-        $product_formats_items_del = $table_data['product_formats']['deleted'];
+        if (isset($table_data['catalogue']['deleted'])) {
+            $catalogue_items_del = $table_data['catalogue']['deleted'];
+            $catalogue_items_del = $this->organizarIndicesTablas(
+                $catalogue_items_del,
+                $data_returned['data_schema_info']['catalogue']
+            );
+        } else {
+            $catalogue_items_del = array();
+        }
 
-        $catalogue_items_del = $this->organizarIndicesTablas(
-            $catalogue_items_del,
-            $data_returned['data_schema_info']['catalogue']
-        );
-        $product_items_del = $this->organizarIndicesTablas(
-            $product_items_del,
-            $data_returned['data_schema_info']['products']
-        );
-        $product_formats_items_del = $this->organizarIndicesTablas(
-            $product_formats_items_del,
-            $data_returned['data_schema_info']['product_formats']
-        );
+        if (isset($table_data['products']['deleted'])) {
+            $product_items_del = $table_data['products']['deleted'];
+            $product_items_del = $this->organizarIndicesTablas(
+                $product_items_del,
+                $data_returned['data_schema_info']['products']
+            );
+        } else {
+            $product_items_del = array();
+        }
+
+        if (isset($table_data['product_formats']['deleted'])) {
+            $product_formats_items_del = $table_data['product_formats']['deleted'];
+            $product_formats_items_del = $this->organizarIndicesTablas(
+                $product_formats_items_del,
+                $data_returned['data_schema_info']['product_formats']
+            );
+        } else {
+            $product_formats_items_del = array();
+        }
+
 
 
         $sync_params = $arrayReturn = array();
