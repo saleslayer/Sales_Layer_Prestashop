@@ -21,7 +21,7 @@ class AddConnectorsController extends ModuleAdminController
     {
         $this->show_toolbar = true;
         $this->display = 'Add New Conector Sales Layer';
-        $this->meta_title = 'How to use';
+        $this->meta_title = 'Add New Conector';
         $this->toolbar_title = 'How to use Sales Layer';
         parent::__construct();
         $this->bootstrap = true;
@@ -72,13 +72,22 @@ class AddConnectorsController extends ModuleAdminController
 
             $api = new SalesLayerConn($conn_code, $conn_secret);
             // $api->set_API_version('1.16');
+            ini_set('memory_limit', '-1');
             $api->setGroupMulticategory(true);
             $api->getInfo();
 
             if ($api->hasResponseError()) {
+                $error_MESSAGE = $this->SLimport->sl_updater->getResponseErrorMessage();
+
+                $this->SLimport->debbug('## Error. Conexion error num->' . print_r(
+                    $this->SLimport->sl_updater->getResponseError(),
+                    1
+                ) . ' ->' . print_r($error_MESSAGE, 1), 'syncdata', true);
+
                 $this->context->smarty->assign(
                     array(
                         'SLY_HAS_ERRORS' => true,
+                        'sly_conex_error' => Tools::ucfirst($error_MESSAGE),
                         'api_client' => $conn_code,
                         'api_key' => $conn_secret,
                         'ajax_link' => $this->context->link->getModuleLink('saleslayerimport', 'ajax'),
@@ -90,6 +99,11 @@ class AddConnectorsController extends ModuleAdminController
                     )
                 );
 
+                $this->SLimport->debbug('## Error. Conexion error num->' . print_r(
+                    $this->SLimport->sl_updater->getResponseError(),
+                    1
+                ) . ' ->' . print_r($error_MESSAGE, 1), 'syncdata', true);
+
                 return $this->module->display(
                     _PS_MODULE_DIR_ . 'saleslayerimport',
                     'views/templates/admin/index.tpl'
@@ -99,9 +113,22 @@ class AddConnectorsController extends ModuleAdminController
                 $response_connector_type = $response_connector_schema['connector_type'];
 
                 if ($response_connector_type != $this->SLimport->connector_type) {
+                    $error_MESSAGE = 'The version you are trying to connect is not the same';
+
+                    $this->SLimport->debbug(
+                        '## Error. Conexion error num->' . print_r(
+                            $this->SLimport->sl_updater->getResponseError(),
+                            1
+                        ) . ' ->' . print_r($error_MESSAGE, 1) . ' version of connector from response ->' .
+                        $response_connector_type . '  expected version -> ' .
+                        $this->SLimport->connector_type,
+                        'syncdata',
+                        true
+                    );
                     $this->context->smarty->assign(
                         array(
                             'SLY_HAS_ERRORS' => true,
+                            'sly_conex_error' => $error_MESSAGE,
                             'api_client' => $conn_code,
                             'api_key' => $conn_secret,
                             'ajax_link' => $this->context->link->getModuleLink('saleslayerimport', 'ajax'),
@@ -122,7 +149,6 @@ class AddConnectorsController extends ModuleAdminController
                     );
                 } else {
                     try {
-                        @ini_set('memory_limit', '-1');
                         $this->SLimport->sl_updater->setIdentification($conn_code, $conn_secret);
                         $this->SLimport->sl_updater->getConnectorsInfo($conn_code);
                         $this->SLimport->sl_updater->update(true, null, true);

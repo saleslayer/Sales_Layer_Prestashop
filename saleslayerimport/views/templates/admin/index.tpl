@@ -42,7 +42,7 @@
 
     {if isset($SLY_HAS_ERRORS)}
       <div class="sy-alert sy-danger mar-top-btt-40 text-center">
-        <p>Error! Wrong credentials.</p>
+        <p>Error! {$sly_conex_error|escape:'htmlall':'UTF-8'}.</p>
       </div>
     {/if}
 

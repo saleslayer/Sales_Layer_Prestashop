@@ -93,7 +93,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
-        @ini_set('memory_limit', '-1');
+        ini_set('memory_limit', '-1');
 
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
