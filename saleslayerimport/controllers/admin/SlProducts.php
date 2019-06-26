@@ -1414,8 +1414,12 @@ class SlProducts extends SalesLayerPimUpdate
                              * Create Manufacturer if not exist
                              */
 
+                            $manufacturer->name       = $product_manufacturer;
 
-                            $manufacturer->name = $product_manufacturer;
+                            if (!isset($manufacturer->meta_title)|| empty($manufacturer->meta_title)) {
+                                $manufacturer->meta_title = $product_manufacturer;
+                            }
+
                             $manufacturer->active = 1;
                             $manufacturer->link_rewrite = Tools::link_rewrite($product_manufacturer);
 
@@ -3770,6 +3774,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                     }
 
 
+
+
                     try {
                         $new_feature->add();
                         $features_founded[] = $new_feature->id;
@@ -4089,7 +4095,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                 reset($values),
                 $id_product,
                 null,
-                true
+                $this->create_new_features_as_custom
             ); // $id_product // create default value and overwrite is after create
         } catch (Exception $e) {
             $this->debbug(

@@ -441,11 +441,11 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             }
         }
 
-        $res = Db::getInstance()->executeS('SELECT `id_attribute` FROM `' . _DB_PREFIX_ . 'attribute_group` ');
+        $res = Db::getInstance()->executeS('SELECT `id_attribute_group` FROM `' . _DB_PREFIX_ . 'attribute_group` ');
         $SLimport->allocateMemory();
         if ($res) {
             foreach ($res as $row) {
-                $attr = new AttributeGroup($row['id_attribute']);
+                $attr = new AttributeGroup($row['id_attribute_group']);
                 $attr->delete();
             }
         }

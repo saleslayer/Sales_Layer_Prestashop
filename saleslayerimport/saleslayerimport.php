@@ -87,6 +87,9 @@ class SalesLayerImport extends Module
 
     ###############################################################
 
+
+    public $create_new_features_as_custom = false;
+
     public $deleteProductOnHide = false;  // only for debug, false == deactivate product, true == delete product
     public $rewrite_execution_frequency = true;
     public $log_module_path = _PS_MODULE_DIR_ . 'saleslayerimport/logs/';
@@ -240,7 +243,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.1';
+        $this->version = '1.4.2';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -2060,6 +2063,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                 $this->debbug('Server information ================================================ ', 'syncdata', true);
                 $this->debbug('PS VERSION: ' . print_r(_PS_VERSION_, 1), 'syncdata', true);
                 $this->debbug('php Version: ' . print_r(phpversion(), 1), 'syncdata', true);
+                $this->debbug('Plugin Version: ' . print_r($this->version, 1), 'syncdata', true);
                 $this->debbug('max execution time: ' . print_r(ini_get('max_execution_time'), 1), 'syncdata', true);
                 $this->debbug('SERVER_SOFTWARE: ' . print_r($_SERVER["SERVER_SOFTWARE"], 1), 'syncdata', true);
                 $this->debbug('display_errors: ' . ini_get('display_errors'), 'syncdata', true);
