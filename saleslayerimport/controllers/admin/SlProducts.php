@@ -585,17 +585,18 @@ class SlProducts extends SalesLayerPimUpdate
 
                     $product_desc_short_index = '';
                     $product_desc_short_index_search = 'product_description_short_' . $lang['iso_code'];
-                    if (isset($product['data']['product_description'])
-                        && !empty($product['data']['product_description'])
-                        && !isset($schema['product_description']['language_code'])) {
-                        $product_desc_short_index = 'product_description';
+
+                    if (isset($product['data']['product_description_short'])
+                        && !empty($product['data']['product_description_short'])
+                        && !isset($schema['product_description_short']['language_code'])) {
+                        $product_desc_short_index = 'product_description_short';
                     } elseif (isset(
                         $product['data'][$product_desc_short_index_search],
                         $schema[$product_desc_short_index_search]['language_code']
                     )
                         && !empty($product['data'][$product_desc_short_index_search])
                         && $schema[$product_desc_short_index_search]['language_code'] == $lang['iso_code']) {
-                        $product_desc_short_index = 'product_description_' . $lang['iso_code'];
+                        $product_desc_short_index = 'product_description_short_' . $lang['iso_code'];
                     }
 
                     if (isset($product['data'][$product_desc_short_index])
@@ -608,8 +609,9 @@ class SlProducts extends SalesLayerPimUpdate
                     if (Tools::strlen($product_description_short) > 800) {
                         $product_description_short = Tools::substr($product_description_short, 0, 800);
                     }
+
                     if ($product_description_short != ''
-                        && $productObject->description_short[$lang['id_lang']] != $product_description_short) {
+                        && (!isset($productObject->description_short[$lang['id_lang']]) || (isset($productObject->description_short[$lang['id_lang']]) && $productObject->description_short[$lang['id_lang']] != $product_description_short))) {
                         $productObject->description_short[$lang['id_lang']] = $product_description_short;
                     }
 
@@ -675,7 +677,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                     if (isset($product['data'][$meta_description_index])
                         && $product['data'][$meta_description_index] != '') {
-                        $meta_description = $product['data']['meta_description'];
+                        $meta_description = $product['data'][$meta_description_index];
                     } else {
                         $meta_description = $product_description_short;
                     }
@@ -3123,7 +3125,6 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 )
                             );  // and id_product = "%s" -> $id_product
 
-
                             if ($id_feature_value != 0) {
                                 $featureValue = new FeatureValue($id_feature_value);
 
@@ -3718,9 +3719,20 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 '_' . $lang_sub['iso_code'];
                             if (isset($schema[$index_another_language]['language_code']) &&
                                 $schema[$index_another_language]['language_code'] == $lang_sub['iso_code']) {
-                                $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst(
-                                    $schema[$index_another_language]['title']
-                                );
+
+                                if (isset($schema[$index_another_language]['title']) && !empty($schema[$index_another_language]['title'])){
+
+                                    $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst(
+                                        $schema[$index_another_language]['title']
+                                    );
+
+                                }else{
+
+                                    $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst(
+                                        $schema[$index_another_language]['basename']
+                                    );
+
+                                }
                             }
                         }
                     } else {
@@ -3772,9 +3784,6 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             'syncdata'
                         );
                     }
-
-
-
 
                     try {
                         $new_feature->add();
@@ -4088,25 +4097,60 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             );
         }
 
+        $value_to_add = '';   
 
-        try {
-            $id_feature_value = $featureValue->addFeatureValueImport(
-                $id_feature,
-                reset($values),
-                $id_product,
-                null,
-                $this->create_new_features_as_custom
-            ); // $id_product // create default value and overwrite is after create
-        } catch (Exception $e) {
-            $this->debbug(
-                '## Error. Saving new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1),
-                'syncdata'
-            );
+        if (is_array($values) && !empty($values)){
+
+            $value_to_add = reset($values);
+
+            if (is_array($value_to_add) && !empty($value_to_add)){
+               
+                $value_to_add = reset($value_to_add);
+
+            }
+            
+        }else{
+
+            $value_to_add = $values;
+
         }
+
+        if ($value_to_add !== '' && !is_null($value_to_add)){
+
+            try {
+                $id_feature_value = $featureValue->addFeatureValueImport(
+                    $id_feature,
+                    $value_to_add,
+                    $id_product,
+                    null,
+                    $this->create_new_features_as_custom
+                ); // $id_product // create default value and overwrite is after create
+                // reset($values),
+            } catch (Exception $e) {
+                $this->debbug(
+                    '## Error. Saving new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1),
+                    'syncdata'
+                );
+            }
+
+        }
+
         if ($id_feature_value != null) {
             $feature_value = new FeatureValue($id_feature_value);
             foreach ($values as $id_language => $value) {
-                $feature_value->value[$id_language] = $value;
+
+                if (is_array($value) && !empty($value)){ 
+
+                    $value = reset($value); 
+
+                }
+                
+                if ($value !== '' && !is_null($value)){
+                    
+                    $feature_value->value[$id_language] = $value;
+
+                }
+
             }
             $feature_value->save();
         }

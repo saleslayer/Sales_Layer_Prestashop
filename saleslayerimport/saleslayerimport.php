@@ -2521,7 +2521,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
     public function saveStatAccessories()
     {
-        if (count($this->product_accessories)) {
+        if (isset($this->product_accessories) && is_array($this->product_accessories) && count($this->product_accessories)){
             $item_type = 'accessories';
             $sync_type = 'update';
             try {
@@ -2559,13 +2559,16 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
         //Process to update accessories once all products have been generated.
         if (!empty($this->product_accessories)) {
+
+            $saleslayerpimupdate = new SalesLayerPimUpdate();
+
             foreach ($this->product_accessories as $product_accessories) {
                 $product_accessories_ids = array();
 
                 if (!empty($product_accessories)) {
                     foreach ($product_accessories as $product_accessory_reference) {
                         //Eliminamos carácteres especiales de la referencia
-                        $product_accessory_reference = $this->sl_validate_reference($product_accessory_reference);
+                        $product_accessory_reference = $saleslayerpimupdate->slValidateReference($product_accessory_reference);
 
                         //find product with the same reference
                         $schemaRef = "SELECT id_product FROM ".$this->product_table.

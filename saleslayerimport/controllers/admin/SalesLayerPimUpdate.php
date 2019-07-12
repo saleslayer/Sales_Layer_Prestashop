@@ -97,7 +97,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
-        //$api->get_info(null, null, null, true);
         } else {
             $api->getInfo(null, null, null, true);
         }
