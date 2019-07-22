@@ -2521,7 +2521,8 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
     public function saveStatAccessories()
     {
-        if (isset($this->product_accessories) && is_array($this->product_accessories) && count($this->product_accessories)){
+        if (isset($this->product_accessories) && is_array($this->product_accessories) &&
+            count($this->product_accessories)) {
             $item_type = 'accessories';
             $sync_type = 'update';
             try {
@@ -2533,7 +2534,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
                 if (!$res) {
                     $sql_query_to_insert = "INSERT INTO "._DB_PREFIX_."slyr_syncdata".
-                        " ( sync_type, item_type, item_data ) VALUES ".
+                        ' ( sync_type, item_type, item_data ) VALUES '.
                         "('".$sync_type."', '".$item_type."', '".addslashes($item_data_to_insert)."')";
                     $this->slConnectionQuery('-', $sql_query_to_insert);
                 } else {
@@ -2559,7 +2560,6 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
         //Process to update accessories once all products have been generated.
         if (!empty($this->product_accessories)) {
-
             $saleslayerpimupdate = new SalesLayerPimUpdate();
 
             foreach ($this->product_accessories as $product_accessories) {
@@ -2568,10 +2568,11 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                 if (!empty($product_accessories)) {
                     foreach ($product_accessories as $product_accessory_reference) {
                         //Eliminamos carácteres especiales de la referencia
-                        $product_accessory_reference = $saleslayerpimupdate->slValidateReference($product_accessory_reference);
+                        $product_accessory_reference =
+                            $saleslayerpimupdate->slValidateReference($product_accessory_reference);
 
                         //find product with the same reference
-                        $schemaRef = "SELECT id_product FROM ".$this->product_table.
+                        $schemaRef = 'SELECT id_product FROM '.$this->product_table.
                             " WHERE reference = '".$product_accessory_reference."'";
                         $regsRef = Db::getInstance()->executeS($schemaRef);
 
@@ -2998,7 +2999,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             } else {
                 // $this->debbug('Insert data flag: '.$this->syncdata_pid, 'syncdata');
                 $sl_query_flag_to_insert = " INSERT INTO " . $this->saleslayer_syncdata_flag_table .
-                    " ( syncdata_pid, syncdata_last_date) VALUES ".
+                    ' ( syncdata_pid, syncdata_last_date) VALUES '.
                     "('" . $this->syncdata_pid . "', '" . $date_now . "')";
 
                 $this->slConnectionQuery('-', $sl_query_flag_to_insert);
