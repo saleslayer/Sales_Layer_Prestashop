@@ -66,6 +66,7 @@
           <th class="text-center"><h4>Preferred time</h4></th>
           <th class="text-center"><h4>Overwrite stock status</h4></th>
           <th class="text-center"><h4>Remove connector</h4></th>
+          <th class="text-center"><h4>Store data now</h4></th>
           {$SLY_DEVELOPMENT|escape:"quotes"}
         </tr>
         </thead>
@@ -154,15 +155,14 @@
         success: function (data_return) {
           check_status();
           if (command == 'delete_now') {
-            $('#connector_register_' + connector_id).html()
+            document.getElementById('connector_register_' + connector_id).remove();
           } else {
             $('.server_time').html(data_return['server_time']);
-            showMessage(data_return['message_type'], data_return['message'])
-
+            showMessage(data_return['message_type'], data_return['message']);
           }
         },
         error: function (data_return) {
-          showMessage(data_return['message_type'], data_return['message'])
+          showMessage(data_return['message_type'], data_return['message']);
         }
       })
     }

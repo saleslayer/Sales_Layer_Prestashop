@@ -56,7 +56,7 @@ class AllConnectorsController extends ModuleAdminController
 
         $hours_range = range(0, 23);
         $developmentButton = '';
-        if ($this->SLimport->debugmode || $this->SLimport->i_am_a_developer) {
+        if ($this->SLimport->i_am_a_developer) {
             /**
              * Create test button
              */
@@ -155,26 +155,40 @@ class AllConnectorsController extends ModuleAdminController
                  * Delete form options
                  */
                 $table .= '<td class="text-center">';
-                $table .= '<form class="form-group" action="" method="post" autocomplete="off" role="form" >';
                 $table .= '<input type="hidden" name="saleslayerimport[action]" value="logout"/>';
                 $table .= '<div class="mar-top-btt-10 slyr-form-field-block">';
                 $table .= '<button onclick="update_command(this);" name="delete_now" id="delete_now_' .
                     $connector['conn_code'] .
                     '" class="btn btn-danger"><i class="fa fa-trash text-left" aria-hidden="true"></i> Remove</button>';
                 $table .= '</div>';
-                $table .= '</form>';
+                $table .= '</td>';
+
+                /**
+                 * Store data now button
+                 */
+                $table .= '<td class="form-group text-center">';
+                $table .= '<div class="mar-top-btt-10 slyr-form-field-block">';
+                $table .= '<button id="store_data_now_' . $connector['conn_code'] .
+
+                    '" name="store_data_now" onclick="update_command(this);"
+ title="Download and store data now and wait for cron sync."
+type="button" class="btn btn-success"><i class="fa fa-cloud-download text-left" 
+aria-hidden="true"></i> Download data</button>';
+                $table .= '</div>';
                 $table .= '</td>';
 
 
-                if ($this->SLimport->debugmode || $this->SLimport->i_am_a_developer) {
+                if ($this->SLimport->i_am_a_developer) {
                     /**
                      * Creating test button
                      */
                     $table .= '<td class="form-group text-center">';
                     $table .= '<div class="mar-top-btt-10 slyr-form-field-block">';
                     $table .= '<button id="update_command_' . $connector['conn_code'] .
-                        '" name="update_command" onclick="update_command(this);" title="simulate cron execution"
-type="button" class="btn btn-success"><i class="fa fa-refresh text-left" aria-hidden="true"></i> Force Start </button>';
+                        '" name="update_command" onclick="update_command(this);" 
+title="simulate cron execution with immediate synchronization."
+type="button" class="btn btn-success"><i class="fa fa-refresh text-left"
+ aria-hidden="true"></i> Force Start </button>';
                     $table .= '</div>';
                     $table .= '</td>';
                 }

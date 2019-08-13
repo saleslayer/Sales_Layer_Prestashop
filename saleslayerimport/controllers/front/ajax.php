@@ -94,7 +94,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 $return['message'] = $returnUpdate['message'];
             } else {
                 $return['message_type'] = 'error';
-                $return['message'] = 'Error in update this conector.';
+                $return['message'] = 'Error in update this connector.';
             }
 
 
@@ -103,9 +103,30 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
         }
 
         /**
-         * Delete connector
+         * Command for store data now  from this connector
          */
 
+        if ($command == 'store_data_now') {
+            $connector_id = Tools::getValue('connector_id');
+
+            $returnUpdate = $this->updateConector($connector_id);
+            if ($returnUpdate['stat']) {
+                $return['message_type'] = 'success';
+                $return['message'] = $returnUpdate['message'];
+            } else {
+                $return['message_type'] = 'error';
+                $return['message'] = 'Error in store data of this connector.';
+            }
+
+
+            $return['server_time'] = 'Server time: ' . date('H:i');
+            die(Tools::jsonEncode($return));
+        }
+
+
+        /**
+         * Delete connector
+         */
 
         if ($command == 'delete_now') {
             $connector_id = Tools::getValue('connector_id');
@@ -116,7 +137,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
             if (empty($resultDelete)) { // error
                 $return['message_type'] = 'error';
-                $return['message'] = 'Error in update this conector.';
+                $return['message'] = 'Error in update this connector.';
             } else {
                 $return['message_type'] = 'success';
                 $return['message'] = 'Connector removed correctly';
@@ -154,7 +175,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $SLimport->slConnectionQuery('-', $sql_processing);
 
             $return['message_type'] = 'success';
-            $return['message'] = 'Deleted all from syncronization';
+            $return['message'] = 'Deleted all from synchronization';
 
             $return['server_time'] = 'Server time: ' . date('H:i');
             die(Tools::jsonEncode($return));
@@ -188,7 +209,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                             $return['message'] = 'An error occurred in saving changes in the connector.';
                         }
                     } else {
-                        $SLimport->debbug('cut conection  ' . print_r($field_name, 1));
+                        $SLimport->debbug('cut connection  ' . print_r($field_name, 1));
                         $return['message_type'] = 'error';
                         $return['message'] = 'Not valid value for save.';
 
@@ -256,7 +277,8 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
     }
 
     public function updateConector(
-        $conn_code
+        $conn_code,
+        $onlystore = false
     ) {
         $SLimport = new SalesLayerImport();
         $SLimport->debbug('Start update from AJAX command to process connector: ' . print_r($conn_code, 1));
@@ -285,7 +307,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             }
         } else {
             try {
-                $returnUpdate = $sync_libs->storeSyncData($conn_code);
+                $returnUpdate = $sync_libs->storeSyncData($conn_code, $onlystore);
 
                 if (is_array($returnUpdate)) {
                     if (count($returnUpdate)) {

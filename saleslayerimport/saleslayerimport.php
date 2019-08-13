@@ -95,7 +95,7 @@ class SalesLayerImport extends Module
     public $log_module_path = _PS_MODULE_DIR_ . 'saleslayerimport/logs/';
     public $cpu_max_limit_for_retry_call = 1.40;
     private $max_execution_time = 290;
-    private $memory_min_limit = 200;
+    private $memory_min_limit = 300;
     private $sql_insert_limit = 5;
     // After so many days the debug files will be deleted
     private $logfile_delete_days = 15;
@@ -243,7 +243,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.2';
+        $this->version = '1.4.3';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -351,16 +351,16 @@ class SalesLayerImport extends Module
         } catch (Exception $e) {
             if (!empty($params)) {
                 $this->debbug(
-                    '## Error. SL SQL type: '.$type.' - query: '.$query.' - params: '.print_r(
+                    '## Error. SL SQL type: ' . $type . ' - query: ' . $query . ' - params: ' . print_r(
                         $params,
                         1
                     )
                 );
             } else {
-                $this->debbug('## Error. SL SQL type: '.$type.' - query: '.$query);
+                $this->debbug('## Error. SL SQL type: ' . $type . ' - query: ' . $query);
             }
 
-            $this->debbug('## Error. SL SQL error message: '.$e->getMessage());
+            $this->debbug('## Error. SL SQL error message: ' . $e->getMessage());
         }
 
         if (!$resultado) {
@@ -443,8 +443,8 @@ class SalesLayerImport extends Module
                     }
                 }
 
-                $mensaje = 'Line:' . $func[0]['line'].$separator.'> '.$func[1]['function']
-                    .'()'.$separator_function.'> '.trim(
+                $mensaje = 'Line:' . $func[0]['line'] . $separator . '> ' . $func[1]['function']
+                    . '()' . $separator_function . '> ' . trim(
                         $mensaje
                     );
             }
@@ -455,7 +455,7 @@ class SalesLayerImport extends Module
                     $file_last = end($filename_array);
                     $line_chars_functions_file = 30;
                     $separator_function_file = '';
-                    $discount_chart_function_file = Tools::strlen('['.$file_last.']');
+                    $discount_chart_function_file = Tools::strlen('[' . $file_last . ']');
                     if ($discount_chart_function_file < $line_chars_functions_file) {
                         for (; $discount_chart_function_file < $line_chars_functions_file;
                                $discount_chart_function_file++) {
@@ -463,7 +463,7 @@ class SalesLayerImport extends Module
                         }
                     }
 
-                    $mensaje = 'from:['.$file_last.'] '.$separator_function_file.$mensaje;
+                    $mensaje = 'from:[' . $file_last . '] ' . $separator_function_file . $mensaje;
                 }
             }
             if (!$this->debugmode && $error_content && !$force_print) {
@@ -501,25 +501,25 @@ class SalesLayerImport extends Module
                 $error_write = false;
                 if ($error_content) {
                     $error_write = true;
-                    $error_file = DEBBUG_PATH_LOG.'_error_debbug_log_saleslayer_'.date('Y-m-d').'.dat';
+                    $error_file = DEBBUG_PATH_LOG . '_error_debbug_log_saleslayer_' . date('Y-m-d') . '.dat';
                 }
 
 
                 switch ($type_file) {
                     case 'timer':
-                        $file = DEBBUG_PATH_LOG.'_debbug_log_saleslayer_timers_'.date('Y-m-d').'.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_timers_' . date('Y-m-d') . '.dat';
                         break;
 
                     case 'autosync':
-                        $file = DEBBUG_PATH_LOG.'_debbug_log_saleslayer_auto_sync_'.date('Y-m-d').'.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_auto_sync_' . date('Y-m-d') . '.dat';
                         break;
 
                     case 'syncdata':
-                        $file = DEBBUG_PATH_LOG.'_debbug_log_saleslayer_sync_data_'.date('Y-m-d').'.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_sync_data_' . date('Y-m-d') . '.dat';
                         break;
 
                     default:
-                        $file = DEBBUG_PATH_LOG.'_debbug_log_saleslayer_'.date('Y-m-d').'.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_' . date('Y-m-d') . '.dat';
                         break;
                 }
 
@@ -727,10 +727,10 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
     public function install()
     {
         try {
-            if (!parent::install()  //|| !$this->registerHook('actionCronJob')
+            if (!$this->registerHook('actionCronJob')
+                  && !parent::install()
             ) {
                 $this->_errors[] = 'Install error ';
-
                 return false;
             }
             if (!file_exists(DEBBUG_PATH_LOG)) {
@@ -739,13 +739,13 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
             $this->checkDB();
             $this->createTabLink();
-
-            $this->debbug('Install test result-> :'.print_r($this->_errors, 1));
+            $this->registerHook('displayBackOfficeHeader');
+            $this->debbug('Install test result-> :' . print_r($this->_errors, 1));
 
             return true;
         } catch (Exception $e) {
-            $this->debbug('Install error '.$e->getMessage());
-            $this->_errors[] = 'Install error  :'.$e->getMessage();
+            $this->debbug('Install error ' . $e->getMessage());
+            $this->_errors[] = 'Install error  :' . $e->getMessage();
 
             return false;
         }
@@ -1019,8 +1019,12 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
         $this->installTab('AddConnectors', 'Add New Connector', 'SalesLayerImport');
         $this->installTab('HowToUse', 'How To Use', 'SalesLayerImport');
         $this->installTab('AdminDiagtools', 'Diagnostics', 'SalesLayerImport');
-
         return true;
+    }
+
+    public function hookDisplayBackOfficeHeader()
+    {
+        $this->context->controller->addCss($this->_path . 'views/css/tab.css', 'all');
     }
 
     /**
@@ -1047,7 +1051,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             $tab->name[$lang['id_lang']] = $tabName;
         }
         if ($tabParentName) {
-            $tab->id_parent = (int)Tab::getIdFromClassName($tabParentName);
+            $tab->id_parent = (int) Tab::getIdFromClassName($tabParentName);
         } else {
             $tab->id_parent = 0;
         }
@@ -1060,19 +1064,12 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
      * Uninstal plugin from prestashop
      * @return bool
      */
-
-
     public function uninstall()
     {
         try {
-            if (parent::uninstall() == false) {
-                return false;
-            }
-
             /**
              * Delete images that are not assigned to any product and have been imported from sales layer
              */
-
             $connectors = $this->sl_updater->getConnectorsInfo(null, true);
             if (!empty($connectors)) {
                 foreach ($connectors as $connector) {
@@ -1080,22 +1077,21 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                 }
                 $this->sl_updater->deleteAll(true);
             }
+
             $this->deleteTabLink();
             $this->deleteSlcronRegister();
             $this->deleteSlyrTables();
-
-            if (!parent::uninstall()) {
+            $this->unregisterHook('displayBackOfficeHeader');
+            if (!parent::uninstall()
+            ) {
                 $this->_errors[] = 'Error uninstall module';
-                $this->debbug('Ocurred errors on uninstalling '.print_r($this->_errors, 1));
-
+                $this->debbug('## Error. Ocurred errors on uninstalling ' . print_r($this->_errors, 1));
                 return false;
             }
-
-
             return true;
         } catch (Exception $e) {
-            $this->debbug('Uninstaling error '.$e->getMessage());
-
+            $this->debbug('Uninstall error ' . $e->getMessage() . ' line->' . $e->getLine()
+                          . ' track->' . print_r($e->getTrace(), 1));
             return false;
         }
     }
@@ -1117,10 +1113,10 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
         $field_value
     ) {
         if ($connector_id != null && $field_name != null) {
-            $sql_FUPD = "UPDATE "._DB_PREFIX_."slyr_".$this->sl_updater->table_config.
-                " SET ".$field_name." = '$field_value' WHERE conn_code = '".addslashes(
+            $sql_FUPD = "UPDATE " . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config .
+                " SET " . $field_name . " = '$field_value' WHERE conn_code = '" . addslashes(
                     $connector_id
-                )."'  limit 1 ";
+                ) . "' limit 1 ";
             $shops_info = Db::getInstance()->execute($sql_FUPD);
 
             if ($shops_info) {
@@ -1150,7 +1146,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             $tab->delete();
         } catch (Exception $e) {
             $this->debbug(
-                '## Error. There was an error in the removal of the sales layer menu.'.print_r(
+                '## Error. There was an error in the removal of the sales layer menu.' . print_r(
                     $e->getMessage(),
                     1
                 ),
@@ -1165,8 +1161,8 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
     public function deleteSlcronRegister()
     {
-        $sql_delete_query = "DELETE FROM ".$this->prestashop_cron_table.
-            " WHERE task LIKE '%saleslayerimport-cron%' ";
+        $sql_delete_query = 'DELETE FROM ' . $this->prestashop_cron_table .
+                            " WHERE task LIKE '%saleslayerimport-cron%' ";
         $this->slConnectionQuery('-', $sql_delete_query);
     }
 
@@ -1211,17 +1207,17 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                     } else {
                         $result_test = 'fa-exclamation text-danger';
                     }
-                    $return_table[$extension_value['public_name']] = '<i class="fa '.$result_test.
+                    $return_table[$extension_value['public_name']] = '<i class="fa ' . $result_test .
                         '" aria-hidden="true"></i>';
                 } elseif ($extension_value['test'] == 'module') {
-                    $file_extension = _PS_MODULE_DIR_.DIRECTORY_SEPARATOR.$extension_name.
-                        DIRECTORY_SEPARATOR.$extension_name.'.php';
+                    $file_extension = _PS_MODULE_DIR_ . DIRECTORY_SEPARATOR . $extension_name .
+                        DIRECTORY_SEPARATOR . $extension_name . '.php';
                     if (file_exists($file_extension)) {
                         $result_test = 'fa-check text-success';
                     } else {
                         $result_test = 'fa-exclamation text-danger';
                     }
-                    $return_table[$extension_value['public_name']] = '<i class="fa '.$result_test.
+                    $return_table[$extension_value['public_name']] = '<i class="fa ' . $result_test .
                         '" aria-hidden="true"></i>';
                 } elseif ($extension_value['test'] == 'setfunction') {
                     $return_stat = $this->{$extension_name}();
@@ -1238,7 +1234,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                         }
                         $result_test = 'fa-exclamation text-danger';
                     }
-                    $return_table[$extension_value['public_name']] = '<i class="fa '.$result_test.
+                    $return_table[$extension_value['public_name']] = '<i class="fa ' . $result_test .
                         '" aria-hidden="true"></i>';
                 }
             }
@@ -1261,7 +1257,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
         $this->context->smarty->assign(
             array(
-                'SLY_LOGOS_PATH' => $this->module_path.'views/img/',
+                'SLY_LOGOS_PATH' => $this->module_path . 'views/img/',
                 'SLY_ASSETS_PATH' => $this->_path,
                 'link_all_connectors' => $this->context->link->getAdminLink('AllConnectors'),
                 'add_connectors' => $this->context->link->getAdminLink('AddConnectors'),
@@ -1311,28 +1307,28 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                     ) .
                     '&token=' . Configuration::getGlobalValue('CRONJOBS_EXECUTION_TOKEN') . '"';
                 $this->debbug(
-                    '## Error. The activity of Prestashop cron has not been detected.'.
-                    ' Last time the SL cron needed for synchronization was executed ->'.print_r(
+                    '## Error. The activity of Prestashop cron has not been detected.' .
+                    ' Last time the SL cron needed for synchronization was executed ->' . print_r(
                         date('d/m/Y H:i:s', $updated_time),
                         1
-                    ).
-                    'It is necessary that you activate on your server the cron job '.
+                    ) .
+                    'It is necessary that you activate on your server the cron job ' .
                     'that performs the prestashop tasks in order to execute ' .
-                    'the automatic synchronizations of prestashop.'.
-                    'Add the following command to the cronjobs on your server: '.$construct_prestashop_cron_url
+                    'the automatic synchronizations of prestashop.' .
+                    'Add the following command to the cronjobs on your server: ' . $construct_prestashop_cron_url
                 );
                 $return['stat'] = false;
                 $return['message'] = 'The activity of Prestashop cron has not been detected.<br>';
-                $return['message'] .= 'It is necessary that you activate on your server the cron job '.
-                                        'that performs the prestashop tasks '.
-                                            'in order to execute the automatic synchronizations Sales '.
+                $return['message'] .= 'It is necessary that you activate on your server the cron job ' .
+                                        'that performs the prestashop tasks ' .
+                                            'in order to execute the automatic synchronizations Sales ' .
                     'layer plugin.<br>';
-                $return['message'] .= 'Add the following command to your cronjobs on your server: <br> '.
+                $return['message'] .= 'Add the following command to your cronjobs on your server: <br> ' .
                     $construct_prestashop_cron_url;
             }
         } else {
             $task_url = urlencode(
-                _PS_BASE_URL_._MODULE_DIR_.'saleslayerimport/saleslayerimport-cron.php?token='.Tools::substr(
+                _PS_BASE_URL_ . _MODULE_DIR_ . 'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
                     Tools::encrypt('saleslayerimport'),
                     0,
                     10
@@ -1371,17 +1367,17 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             $id_shop = 1;
             $id_shop_group = (int)Shop::getContextShopGroupID();
 
-            $query = 'INSERT INTO '.$this->prestashop_cron_table.
+            $query = 'INSERT INTO ' . $this->prestashop_cron_table .
                 '(`description`, `task`, `hour`, `day`, `month`, `day_of_week`,
-                 `updated_at`, `active`, `id_shop`, `id_shop_group`)'.
-                'VALUES (\''.$description.'\', \''.$task.'\', \''.$hour.'\', \''.$day.'\', \''.$month.'\',
-                \''.$day_of_week.'\', NULL, TRUE, '.$id_shop.', '.$id_shop_group.')';
-
+                 `updated_at`, `active`, `id_shop`, `id_shop_group`)' .
+                'VALUES (\'' . $description . '\', \'' . $task . '\', \'' . $hour . '\', \''
+                     . $day . '\', \'' . $month . '\',
+                \'' . $day_of_week . '\', NULL, TRUE, ' . $id_shop . ', ' . $id_shop_group . ')';
 
             try {
                 $result = Db::getInstance()->execute($query);
             } catch (Exception $e) {
-                $this->debbug('## Error. query ->'.print_r($query, 1).' exception->  '.$e->getMessage());
+                $this->debbug('## Error. query ->' . print_r($query, 1) . ' exception->  ' . $e->getMessage());
             }
 
             if (!$result) {
@@ -1408,8 +1404,8 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
 
         $categoriesDelete = Db::getInstance()->executeS(
-            "SELECT sl.id FROM `"._DB_PREFIX_.'slyr_category_product`  sl
-            LEFT JOIN `'._DB_PREFIX_."category`  ca ON (ca.id_category = sl.ps_id )
+            "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_category_product`  sl
+            LEFT JOIN `' . _DB_PREFIX_ . "category`  ca ON (ca.id_category = sl.ps_id )
             WHERE  sl.ps_type = 'slCatalogue' AND ca.id_category is null"
         );
 
@@ -1419,15 +1415,15 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             foreach ($categoriesDelete as $categoryDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM '._DB_PREFIX_.'slyr_category_product  WHERE id = "%s"',
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"',
                         $categoryDelete['id']
                     )
                 );
             }
         }
 
-        $schemaProds = " SELECT sl.id FROM `"._DB_PREFIX_."slyr_category_product`  sl ".
-            " LEFT JOIN `".$this->product_table."` p ON (p.id_product = sl.ps_id ) ".
+        $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
+            " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
             " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
         $productsDelete = Db::getInstance()->executeS($schemaProds);
 
@@ -1437,7 +1433,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             foreach ($productsDelete as $productDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM '._DB_PREFIX_.'slyr_category_product  WHERE id = "%s"',
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"',
                         $productDelete['id']
                     )
                 );
@@ -2088,7 +2084,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                     true
                 );
             }
-            
+
             //Clear exceeded attemps
             $sql_delete = " DELETE FROM "._DB_PREFIX_."slyr_syncdata WHERE sync_tries >= 3";
             $this->slConnectionQuery('-', $sql_delete);
@@ -2534,7 +2530,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
                 if (!$res) {
                     $sql_query_to_insert = "INSERT INTO "._DB_PREFIX_."slyr_syncdata".
-                        ' ( sync_type, item_type, item_data ) VALUES '.
+                        " ( sync_type, item_type, item_data ) VALUES ".
                         "('".$sync_type."', '".$item_type."', '".addslashes($item_data_to_insert)."')";
                     $this->slConnectionQuery('-', $sql_query_to_insert);
                 } else {
@@ -2557,7 +2553,6 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
     public function syncAccesories()
     {
-
         //Process to update accessories once all products have been generated.
         if (!empty($this->product_accessories)) {
             $saleslayerpimupdate = new SalesLayerPimUpdate();
@@ -2572,7 +2567,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
                             $saleslayerpimupdate->slValidateReference($product_accessory_reference);
 
                         //find product with the same reference
-                        $schemaRef = 'SELECT id_product FROM '.$this->product_table.
+                        $schemaRef = "SELECT id_product FROM ".$this->product_table.
                             " WHERE reference = '".$product_accessory_reference."'";
                         $regsRef = Db::getInstance()->executeS($schemaRef);
 
@@ -2999,7 +2994,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
             } else {
                 // $this->debbug('Insert data flag: '.$this->syncdata_pid, 'syncdata');
                 $sl_query_flag_to_insert = " INSERT INTO " . $this->saleslayer_syncdata_flag_table .
-                    ' ( syncdata_pid, syncdata_last_date) VALUES '.
+                    " ( syncdata_pid, syncdata_last_date) VALUES ".
                     "('" . $this->syncdata_pid . "', '" . $date_now . "')";
 
                 $this->slConnectionQuery('-', $sl_query_flag_to_insert);

@@ -281,9 +281,10 @@ class SlProducts extends SalesLayerPimUpdate
                                 $pack_product_id = $pack_quantity = 0;
                                 $pack_format_ref = '';
 
-                                if (is_array(
-                                    $product['data'][$pack_format]
-                                )
+                                if (isset($product['data'][$pack_format]) &&
+                                    is_array(
+                                        $product['data'][$pack_format]
+                                    )
                                     && !empty($product['data'][$pack_format])
                                 ) {
                                     $pack_format_ref = reset($product['data'][$pack_format]);
@@ -352,7 +353,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $pack_format_id = $pack_product_id = $pack_quantity = 0;
                                 $pack_product_ref = '';
 
-                                if (is_array(
+                                if (isset($product['data'][$pack_product]) && is_array(
                                     $product['data'][$pack_product]
                                 )
                                     && !empty($product['data'][$pack_product])
@@ -609,10 +610,11 @@ class SlProducts extends SalesLayerPimUpdate
                     if (Tools::strlen($product_description_short) > 800) {
                         $product_description_short = Tools::substr($product_description_short, 0, 800);
                     }
+
                     if ($product_description_short != ''
                         && (!isset($productObject->description_short[$lang['id_lang']]) ||
                             (isset($productObject->description_short[$lang['id_lang']]) &&
-                                $productObject->description_short[$lang['id_lang']] != $product_description_short))) {
+                             $productObject->description_short[$lang['id_lang']] != $product_description_short))) {
                         $productObject->description_short[$lang['id_lang']] = $product_description_short;
                     }
 
@@ -1175,6 +1177,14 @@ class SlProducts extends SalesLayerPimUpdate
                     )
                 ) {
                     $productObject->available_date = $product['data']['product_available_date'];
+                }
+
+                if (isset($product['data']['product_customizable'])
+                    && Validate::isBool(
+                        $product['data']['product_customizable']
+                    )
+                ) {
+                    $productObject->customizable = (int) $product['data']['product_customizable'];
                 }
 
                 $productObject->price = $price;
@@ -3283,7 +3293,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                         $featureValue->save();
 
                                         if ($count_values == 0) {
-                                            $features_founded[] = $id_feature;
+                                            $features_founded[] = $id_feature_value;
                                             /**
                                              * This value has not been found in any of the languages we will
                                              * verify if the product exists and if it is not selected
@@ -3517,7 +3527,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 continue;
                                             }
 
-                                            if (is_array($product['data'][$feature_name_index])) {
+                                            if (isset($product['data'][$feature_name_index]) &&
+                                                is_array($product['data'][$feature_name_index])) {
                                                 $value = implode(',', $product['data'][$feature_name_index]);
                                             } else {
                                                 if (isset($product['data'][$feature_name_index])) {
@@ -3591,7 +3602,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                         }
 
                                         if ($id_feature_value != 0) {
-                                            $features_founded[] = $id_feature;
+                                            $features_founded[] = $id_feature_value;
 
                                             try {
                                                 $feature_value_exist = Db::getInstance()->executeS(
@@ -3784,7 +3795,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                     try {
                         $new_feature->add();
-                        $features_founded[] = $new_feature->id;
+
                         $this->debbug(
                             'After saving new id of this element feature ->' . print_r($features_founded, 1),
                             'syncdata'
@@ -3848,6 +3859,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 null,
                                 $prepare_values_feature
                             ); // $id_product
+                            $features_founded[] = $id_feature_value;
                             $this->debbug(
                                 'After searchFeature $id_feature_value->' .
                                 $id_feature_value . '  Value->' . print_r(
@@ -4004,10 +4016,10 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             );
 
             if (count($product_features)) {
-                $this->debbug('Test before deleting $features_founded->' .
+                $this->debbug('Test before deleting $features_founded as id_feature_value->' .
                     print_r($features_founded, 1), 'syncdata');
                 foreach ($product_features as $feature) {
-                    if (!in_array($feature['id_feature'], $features_founded, false)) {
+                    if (!in_array($feature['id_feature_value'], $features_founded, false)) {
                         $this->debbug(
                             'feature not founded in this connection when sending this feature value to be deleted ' .
                             print_r(
@@ -4098,7 +4110,6 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
         if (is_array($values) && !empty($values)) {
             $value_to_add = reset($values);
-
             if (is_array($value_to_add) && !empty($value_to_add)) {
                 $value_to_add = reset($value_to_add);
             }
@@ -4130,7 +4141,6 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                 if (is_array($value) && !empty($value)) {
                     $value = reset($value);
                 }
-
                 if ($value !== '' && !is_null($value)) {
                     $feature_value->value[$id_language] = $value;
                 }

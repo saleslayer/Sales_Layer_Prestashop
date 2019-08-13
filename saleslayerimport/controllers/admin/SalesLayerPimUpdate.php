@@ -31,7 +31,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
     /**
      * Gets all the info from a connector and send it to update
-     * @param  $connector_id string|null id from connector
+     * @param  $connector_id string code of connector
+     * @param  $last_sync string|null time of latest connection
+     * @param  $onlystore bool true of only store data without sync starting immediately
      * @return bool|int|string $last_update_save last update date
      * @throws PrestaShopDatabaseException
      * @throws PrestaShopException
@@ -40,7 +42,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
     public function storeSyncData(
         $connector_id,
-        $last_sync = null
+        $last_sync = null,
+        $onlystore = false
     ) {
         $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " . _DB_PREFIX_ . "slyr_syncdata";
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
@@ -97,7 +100,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
-        //$api->get_info(null, null, null, true);
         } else {
             $api->getInfo(null, null, null, true);
         }
@@ -479,7 +481,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             $this->sl_updater->setConnectorLastUpdate($connector_id, $last_update_save);
 
             //call to cron for sincronize all cached data
-            if ($this->checkRegistersForProccess()) {
+            if (!$onlystore && $this->checkRegistersForProccess()) {
                 $this->verifyRetryCall(true);
             }
         }

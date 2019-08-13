@@ -895,7 +895,7 @@ class SalesLayerUpdater extends SalesLayerConn
     ) {
         $this->getDatabaseTables();
 
-        if (count($this->database_tables)) {
+        if (isset($this->database_config['data_schema']) && count($this->database_tables)) {
             $tables = (count($this->database_config['data_schema']) ? array_keys(
                 $this->database_config['data_schema']
             ) : []);

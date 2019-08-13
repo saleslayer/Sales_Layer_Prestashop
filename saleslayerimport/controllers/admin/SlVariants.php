@@ -111,9 +111,9 @@ class SlVariants extends SalesLayerPimUpdate
 
         if ($product_id == null || $product_id == '') {
             $this->debbug(
-                '## Error. ' . $occurence . ' It has not been possible to find the Product ID of the variant,'.
-                 'It may necessary to make the parent product of this variant visible and'.
-                  'visible again so that its synchronization is possible.'.
+                '## Error. ' . $occurence . ' It has not been possible to find the Product ID of the variant,' .
+                 'It may necessary to make the parent product of this variant visible and' .
+                  'visible again so that its synchronization is possible.' .
                   'Variant ID:' . $product_format_id . ',  ID product: ' .
                 $slyr_product_id . ',  company ID: ' . $comp_id,
                 'syncdata'
@@ -261,7 +261,7 @@ class SlVariants extends SalesLayerPimUpdate
                         unset($product_format['data'][$attributeGroupName]);
                         $attributeGroupName = $schema[$attributeGroupName]['basename'];
                     }
-
+                    $attribute_group_id = null;
                     try {
                         $attribute_group_id = $this->getAttributeGroupId($attributeGroupName, $comp_id);
                     } catch (Exception $e) {
@@ -391,10 +391,10 @@ class SlVariants extends SalesLayerPimUpdate
             }
 
 
-            $schemaProdAttrs = 'SELECT `pa`.`id_product_attribute` '.
-                ' FROM '. $this->product_attribute_table .' pa '.
-                ' WHERE id_product = '. $product_id .
-                ' GROUP BY `pa`.`id_product_attribute` '.
+            $schemaProdAttrs = 'SELECT `pa`.`id_product_attribute` ' .
+                ' FROM ' . $this->product_attribute_table . ' pa ' .
+                ' WHERE id_product = ' . $product_id .
+                ' GROUP BY `pa`.`id_product_attribute` ' .
                 ' ORDER BY `pa`.`id_product_attribute` ';
             $productAttributes = Db::getInstance()->executeS($schemaProdAttrs);
 
@@ -424,21 +424,21 @@ class SlVariants extends SalesLayerPimUpdate
 
                         // }
 
-                        $schemaAttrs = 'SELECT `a`.`id_attribute` '.
-                            ' FROM '. $this->product_attribute_table .' pa '.
-                            ' LEFT JOIN '. $this->product_attribute_combination_table .
-                            ' pac ON pac.id_product_attribute = pa.id_product_attribute '.
-                            ' LEFT JOIN '. $this->attribute_table .' a ON a.id_attribute = pac.id_attribute '.
-                            ' LEFT JOIN '. $this->attribute_group_table
-                            .' ag ON ag.id_attribute_group = a.id_attribute_group '.
-                            ' LEFT JOIN '. $this->attribute_lang_table . " al
+                        $schemaAttrs = 'SELECT `a`.`id_attribute` ' .
+                            ' FROM ' . $this->product_attribute_table . ' pa ' .
+                            ' LEFT JOIN ' . $this->product_attribute_combination_table .
+                            ' pac ON pac.id_product_attribute = pa.id_product_attribute ' .
+                            ' LEFT JOIN ' . $this->attribute_table . ' a ON a.id_attribute = pac.id_attribute ' .
+                            ' LEFT JOIN ' . $this->attribute_group_table .
+                            ' ag ON ag.id_attribute_group = a.id_attribute_group ' .
+                            ' LEFT JOIN ' . $this->attribute_lang_table . " al
                              ON (a.id_attribute = al.id_attribute AND al.id_lang = '" . $lang['id_lang'] . "') " .
-                            ' LEFT JOIN '. $this->attribute_group_lang_table . " agl 
+                            ' LEFT JOIN ' . $this->attribute_group_lang_table . " agl 
                             ON (ag.id_attribute_group = agl.id_attribute_group
                              AND agl.id_lang = '" . $lang['id_lang'] . "') " .
-                            ' WHERE `pa`.`id_product` = '. $product_id .
-                            ' and `pa`.`id_product_attribute` = '. $value['id_product_attribute'] .
-                            ' GROUP BY `pa`.`id_product_attribute`, `ag`.`id_attribute_group` '.
+                            ' WHERE `pa`.`id_product` = ' . $product_id .
+                            ' and `pa`.`id_product_attribute` = ' . $value['id_product_attribute'] .
+                            ' GROUP BY `pa`.`id_product_attribute`, `ag`.`id_attribute_group` ' .
                             ' ORDER BY `pa`.`id_product_attribute`; ';
 
 
@@ -678,7 +678,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                 $format_img_ids = array();
                 $update_mostrar = $mostrar = false;
-
+                $current_supplier_collection = array();
                 if (!empty($fieldsBase)) {
                     try {
                         $current_supplier_collection = ProductSupplier::getSupplierCollection($product_id, false);
@@ -1163,7 +1163,7 @@ class SlVariants extends SalesLayerPimUpdate
 
     /**
      * Synchronize an attribute
-     * @param        $attributeGroupName string name of attribute group
+     * @param        $attribute_group_id int  attribute_group_id
      * @param        $attributeValue     string value of attribute
      * @param        $attribute_id       string if of attribute
      * @param string $connector_id
@@ -1237,17 +1237,17 @@ class SlVariants extends SalesLayerPimUpdate
             }
 
             //Buscamos id de atributo con padre,nombre e idioma ya existente
-            $schemaAttribute = 'SELECT al.`id_attribute` '.
-                'FROM '. $this->attribute_group_table .' ag '.
-                'LEFT JOIN '. $this->attribute_group_lang_table .' agl '.
+            $schemaAttribute = 'SELECT al.`id_attribute` ' .
+                'FROM ' . $this->attribute_group_table . ' ag ' .
+                'LEFT JOIN ' . $this->attribute_group_lang_table . ' agl ' .
                 '	ON (ag.`id_attribute_group` = agl.`id_attribute_group`
-                 AND agl.`id_lang` '. $left_group_lang .' ) '.
-                'LEFT JOIN '. $this->attribute_table .' a '.
-                '	ON a.`id_attribute_group` = ag.`id_attribute_group` '.
-                'LEFT JOIN '. $this->attribute_lang_table .' al '.
-                '	ON (a.`id_attribute` = al.`id_attribute` AND al.`id_lang` '. $left_group_lang .') '.
-                "WHERE  ag.`id_attribute_group` = '" . $attribute_group_id . "'  AND " . $left_group_value .'   '.
-                ' GROUP BY al.`id_attribute` '.
+                 AND agl.`id_lang` ' . $left_group_lang . ' ) ' .
+                'LEFT JOIN ' . $this->attribute_table . ' a ' .
+                '	ON a.`id_attribute_group` = ag.`id_attribute_group` ' .
+                'LEFT JOIN ' . $this->attribute_lang_table . ' al ' .
+                '	ON (a.`id_attribute` = al.`id_attribute` AND al.`id_lang` ' . $left_group_lang . ') ' .
+                "WHERE  ag.`id_attribute_group` = '" . $attribute_group_id . "'  AND " . $left_group_value . '   ' .
+                ' GROUP BY al.`id_attribute` ' .
                 'ORDER BY agl.`name` ASC, a.`position` ASC';
 
             $isAttribute = Db::getInstance()->executeS($schemaAttribute);
@@ -1271,8 +1271,8 @@ class SlVariants extends SalesLayerPimUpdate
              * Not exist this attribute
              */
 
-            $schemaGroupAttributeColor = 'SELECT `is_color_group` '.
-                ' FROM '. $this->attribute_group_table .
+            $schemaGroupAttributeColor = 'SELECT `is_color_group` ' .
+                ' FROM ' . $this->attribute_group_table .
                 " WHERE `id_attribute_group` = '" . $attribute_group_id . "' ";
 
             $isColorGroupAttribute = Db::getInstance()->executeS($schemaGroupAttributeColor);
@@ -1296,8 +1296,9 @@ class SlVariants extends SalesLayerPimUpdate
                     foreach ($multilanguage as $id_lang => $att_value) {
                         $attribute->name[$id_lang] = Tools::ucfirst($att_value);
                         if ($is_color && $show_color == '#ffffff') {
-                            $picked = $this->stringToColorCode(Tools::strtolower($att_value));
+                            $picked = $this->stringToColorCode($att_value, $id_lang);
                             if ($picked != null) {
+                                $this->debbug('color encontrado ->' . print_r($picked, 1), 'syncdata');
                                 $show_color = $picked;
                             }
                         }
@@ -1316,7 +1317,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                     $attribute->name[$currentLanguage] = Tools::ucfirst($attributeValue);
                     if ($is_color && $show_color == '#ffffff') { // is color? how to pick color from word
-                        $picked = $this->stringToColorCode($attributeValue);
+                        $picked = $this->stringToColorCode($attributeValue, $currentLanguage);
                         if ($picked != null) {
                             $show_color = $picked;
                         }
@@ -1353,7 +1354,7 @@ class SlVariants extends SalesLayerPimUpdate
             } catch (Exception $e) {
                 $this->debbug(
                     '## Error. ' . print_r($multilanguage, 1) . '  Creating New attribute ->' . print_r(
-                        $e->getMessage(),
+                        $e->getMessage() . ' line->' . print_r($e->getLine(), 1),
                         1
                     ),
                     'syncdata'
@@ -1529,15 +1530,15 @@ class SlVariants extends SalesLayerPimUpdate
                 'syncdata'
             );
             //Actualizamos tiendas
-            $schemaAttrExtra = ' SELECT sl.id, sl.shops_info FROM '. _DB_PREFIX_ .'slyr_category_product sl'.
-                ' WHERE sl.ps_id = '. $attribute_value_id .'
-                 AND sl.ps_attribute_group_id = '. $attribute_group_id .' 
-                 AND sl.comp_id = '. $comp_id . " AND sl.ps_type = 'product_format_value'";
+            $schemaAttrExtra = ' SELECT sla.id, sla.shops_info  FROM ' . _DB_PREFIX_ . 'slyr_category_product sla' .
+                ' WHERE sla.ps_id = ' . $attribute_value_id  . '
+                 AND sla.ps_attribute_group_id = ' . $attribute_group_id . ' 
+                 AND sla.comp_id = ' . $comp_id . " AND sla.ps_type = 'product_format_value' ";
 
             $attrsInfo = Db::getInstance()->executeS($schemaAttrExtra);
 
-            $schemaAttrShops = ' SELECT sh.id_shop FROM '. $this->attribute_shop_table .
-                ' sh WHERE sh.id_attribute = '. $attribute_value_id;
+            $schemaAttrShops = ' SELECT sh.id_shop FROM ' . $this->attribute_shop_table .
+                ' sh WHERE sh.id_attribute = ' . $attribute_value_id;
 
             $attr_shops = Db::getInstance()->executeS($schemaAttrShops);
 
@@ -1630,9 +1631,9 @@ class SlVariants extends SalesLayerPimUpdate
 
             // foreach ($multilanguage as $id_lang => $value){
             //Actualizamos unicamente el registro de este atributo
-            $schemaAttrExtra = ' SELECT sl.id, sl.shops_info FROM '. _DB_PREFIX_ . 'slyr_category_product sl' .
-                ' WHERE sl.ps_id = '. $attribute_value_id .' AND sl.ps_attribute_group_id = '. $attribute_group_id .
-                ' AND sl.slyr_id = '. $attribute_id .' AND sl.comp_id = '. $comp_id .
+            $schemaAttrExtra = ' SELECT sl.id, sl.shops_info FROM ' . _DB_PREFIX_ . 'slyr_category_product sl' .
+                ' WHERE sl.ps_id = ' . $attribute_value_id . ' AND sl.ps_attribute_group_id = ' . $attribute_group_id .
+                ' AND sl.slyr_id = ' . $attribute_id . ' AND sl.comp_id = ' . $comp_id .
                 " AND sl.ps_type = 'product_format_value'  "; //   AND id_lang = '".$id_lang ."'
 
             $attrInfo = Db::getInstance()->executeS($schemaAttrExtra);
@@ -1673,161 +1674,66 @@ class SlVariants extends SalesLayerPimUpdate
         return $attribute_value_id;
     }
 
+    /**
+     *Load the predefined colors in the colors folder and look for color name to attach the hex code
+     * @param $str string name of color as string
+     * @param string $language_code
+     *
+     * @return string|null
+     * @throws PrestaShopDatabaseException
+     */
     private function stringToColorCode(
-        $str
+        $str,
+        $language_code
     ) {
-        $colors_arr = array(
-            'black' => '#000000',
-            'silver' => '#c0c0c0',
-            'gray' => '#808080',
-            'white' => '#ffffff',
-            'maroon' => '#800000',
-            'red' => '#ff0000',
-            'purple' => '#800080',
-            'fuchsia' => '#ff00ff',
-            'green' => '#008000',
-            'lime' => '#00ff00',
-            'olive' => '#808000',
-            'yellow' => '#ffff00',
-            'navy' => '#000080',
-            'blue' => '#0000ff',
-            'teal' => '#008080',
-            'aqua' => '#00ffff',
-            'orange' => '#ffa500',
-            'aliceblue' => '#f0f8ff',
-            'antiquewhite' => '#faebd7',
-            'aquamarine' => '#7fffd4',
-            'azure' => '#f0ffff',
-            'beige' => '#f5f5dc',
-            'bisque' => '#ffe4c4',
-            'blanchedalmond' => '#ffe4c4',
-            'blueviolet' => '#8a2be2',
-            'brown' => '#a52a2a',
-            'burlywood' => '#deb887',
-            'cadetblue' => '#5f9ea0',
-            'chartreuse' => '#7fff00',
-            'chocolate' => '#d2691e',
-            'coral' => '#ff7f50',
-            'cornflowerblue' => '#6495ed',
-            'cornsilk' => '#fff8dc',
-            'crimson' => '#dc143c',
-            'darkblue' => '#00008b',
-            'darkcyan' => '#008b8b',
-            'darkgoldenrod' => '#b8860b',
-            'darkgray' => '#a9a9a9',
-            'darkgreen' => '#006400',
-            'darkgrey' => '#a9a9a9',
-            'darkkhaki' => '#bdb76b',
-            'darkmagenta' => '#8b008b',
-            'darkolivegreen' => '#556b2f',
-            'darkorange' => '#ff8c00',
-            'darkorchid' => '#9932cc',
-            'darkred' => '#8b0000',
-            'darksalmon' => '#e9967a',
-            'darkseagreen' => '#8fbc8f',
-            'darkslateblue' => '#483d8b',
-            'darkslategray' => '#2f4f4f',
-            'darkslategrey' => '#2f4f4f',
-            'darkturquoise' => '#00ced1',
-            'darkviolet' => '#9400d3',
-            'deeppink' => '#ff1493',
-            'deepskyblue' => '#00bfff',
-            'dimgray' => '#696969',
-            'dimgrey' => '#696969',
-            'dodgerblue' => '#1e90ff',
-            'firebrick' => '#b22222',
-            'floralwhite' => '#fffaf0',
-            'forestgreen' => '#228b22',
-            'gainsboro' => '#dcdcdc',
-            'ghostwhite' => '#f8f8ff',
-            'gold' => '#ffd700',
-            'goldenrod' => '#daa520',
-            'greenyellow' => '#adff2f',
-            'grey' => '#808080',
-            'honeydew' => '#f0fff0',
-            'hotpink' => '#ff69b4',
-            'indianred' => '#cd5c5c',
-            'indigo' => '#4b0082',
-            'ivory' => '#fffff0',
-            'khaki' => '#f0e68c',
-            'lavender' => '#e6e6fa',
-            'lavenderblush' => '#fff0f5',
-            'lawngreen' => '#7cfc00',
-            'lemonchiffon' => '#fffacd',
-            'lightblue' => '#add8e6',
-            'lightcoral' => '#f08080',
-            'lightcyan' => '#e0ffff',
-            'lightgoldenrodyellow' => '#fafad2',
-            'lightgray' => '#d3d3d3',
-            'lightgreen' => '#90ee90',
-            'lightgrey' => '#d3d3d3',
-            'lightpink' => '#ffb6c1',
-            'lightsalmon' => '#ffa07a',
-            'lightseagreen' => '#20b2aa',
-            'lightskyblue' => '#87cefa',
-            'lightslategray' => '#778899',
-            'lightslategrey' => '#778899',
-            'lightsteelblue' => '#b0c4de',
-            'lightyellow' => '#ffffe0',
-            'limegreen' => '#32cd32',
-            'linen' => '#faf0e6',
-            'mediumaquamarine' => '#66cdaa',
-            'mediumblue' => '#0000cd',
-            'mediumorchid' => '#ba55d3',
-            'mediumpurple' => '#9370db',
-            'mediumseagreen' => '#3cb371',
-            'mediumslateblue' => '#7b68ee',
-            'mediumspringgreen' => '#00fa9a',
-            'mediumturquoise' => '#48d1cc',
-            'mediumvioletred' => '#c71585',
-            'midnightblue' => '#191970',
-            'mintcream' => '#f5fffa',
-            'mistyrose' => '#ffe4e1',
-            'moccasin' => '#ffe4b5',
-            'navajowhite' => '#ffdead',
-            'oldlace' => '#fdf5e6',
-            'olivedrab' => '#6b8e23',
-            'orangered' => '#ff4500',
-            'orchid' => '#da70d6',
-            'palegoldenrod' => '#eee8aa',
-            'palegreen' => '#98fb98',
-            'paleturquoise' => '#afeeee',
-            'palevioletred' => '#db7093',
-            'papayawhip' => '#ffefd5',
-            'peachpuff' => '#ffdab9',
-            'peru' => '#cd853f',
-            'pink' => '#ffc0cb',
-            'plum' => '#dda0dd',
-            'powderblue' => '#b0e0e6',
-            'rosybrown' => '#bc8f8f',
-            'royalblue' => '#4169e1',
-            'saddlebrown' => '#8b4513',
-            'salmon' => '#fa8072',
-            'sandybrown' => '#f4a460',
-            'seagreen' => '#2e8b57',
-            'seashell' => '#fff5ee',
-            'sienna' => '#a0522d',
-            'skyblue' => '#87ceeb',
-            'slateblue' => '#6a5acd',
-            'slategray' => '#708090',
-            'slategrey' => '#708090',
-            'snow' => '#fffafa',
-            'springgreen' => '#00ff7f',
-            'steelblue' => '#4682b4',
-            'tan' => '#d2b48c',
-            'thistle' => '#d8bfd8',
-            'tomato' => '#ff6347',
-            'turquoise' => '#40e0d0',
-            'violet' => '#ee82ee',
-            'wheat' => '#f5deb3',
-            'whitesmoke' => '#f5f5f5',
-            'yellowgreen' => '#9acd32',
-            'rebeccapurple' => '#663399',
+        $language_code = Language::getIsoById($language_code);
+        $colors_arr = array();
+        if (preg_match('/:#/', $str)) {
+            $separate = explode(':', $str);
+            return $separate[1];
+        }
+        $color_file = DEBBUG_PATH_LOG . '../colors/' . $language_code . '.txt';
+        $this->debbug(
+            'Checking if file exists ->' . $color_file,
+            'syncdata'
         );
 
-        return (isset($colors_arr[Tools::strtolower($str)]) ? $colors_arr[Tools::strtolower($str)] : null);
+        if (file_exists($color_file)) {
+            $opencolors = file($color_file, FILE_SKIP_EMPTY_LINES);
+            if ($opencolors && count($opencolors)) {
+                foreach ($opencolors as $line) {
+                    $line = str_replace(array("'",','), '', $line);
+                    $linearr = explode(':', $line);
+                    $colors_arr[str_replace(' ', '', trim($linearr[0]))] = trim($linearr[1]);
+                }
+            }
+        } else {
+            $this->debbug(
+                '## warning Color - hex  link file does not exist for language as file->' . $language_code . '.txt' .
+                'you can create a custom one in language that you need on the route ->' .
+                _PS_MODULE_DIR_ . '/saleslayerimport/colors/',
+                'syncdata'
+            );
+        }
+
+        $str =  str_replace(array(' ', '  '), '', Tools::strtolower($this->removeAccents($str)));
+
+        return isset($colors_arr[$str]) ?
+            (string) $colors_arr[$str] : null;
     }
 
+    /**
+     * Move images from variant from SL to parent product of prestashop
+     * @param $images
+     * @param $id_lang
+     * @param $product_id
+     * @param $product_name
+     * @param $variant_id
+     *
+     * @return array
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     private function syncVariantImageToProduct(
         $images,
         $id_lang,
@@ -1947,7 +1853,6 @@ class SlVariants extends SalesLayerPimUpdate
                                 $variant_ids = array();
                                 if ($slyr_image['ps_variant_id'] != null) {
                                     $variant_ids = json_decode($slyr_image['ps_variant_id'], 1);
-                                } else {
                                 }
 
                                 if ($slyr_image['image_reference'] == $image_reference &&
@@ -2271,7 +2176,7 @@ class SlVariants extends SalesLayerPimUpdate
                 'syncdata'
             );
             $slyr_images = Db::getInstance()->executeS(
-                'SELECT * FROM '. _DB_PREFIX_ . "slyr_image im 
+                'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im 
                 WHERE  im.ps_product_id = '" . $product_id . "' "
             );
 
