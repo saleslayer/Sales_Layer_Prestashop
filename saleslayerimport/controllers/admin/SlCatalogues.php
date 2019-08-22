@@ -1249,8 +1249,10 @@ class SlCatalogues extends SalesLayerPimUpdate
 
             Db::getInstance()->execute(
                 sprintf(
-                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
-                      WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
+                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+                             WHERE slyr_id = "%s"
+                             AND comp_id = "%s"
+                             AND ps_type = "slCatalogue"',
                     $catalog,
                     $comp_id
                 )

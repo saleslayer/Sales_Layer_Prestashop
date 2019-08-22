@@ -474,8 +474,10 @@ class SlProducts extends SalesLayerPimUpdate
                  */
                 $this->debbug(' Updating all shops languages ' . print_r($this->first_sync_shop, 1), 'syncdata');
 
+                $customization_multi_language = array();
+
                 foreach ($this->shop_languages as $lang) {
-                    $defaultLenguage = (int)$this->defaultLanguage;
+                    $defaultLenguage = (int) $this->defaultLanguage;
 
                     $friendly_url = '';
                     $available_now = '';
@@ -692,13 +694,53 @@ class SlProducts extends SalesLayerPimUpdate
                         && $productObject->meta_description[$lang['id_lang']] != $meta_description) {
                         $productObject->meta_description[$lang['id_lang']] = $meta_description;
                     }
-
                     /**
-                     *
-                     * Available now
+                     * Load  customization variable with all languages
                      */
 
+                    $customization_index = '';
+                    $customization_index_search = 'product_customizable_'. $lang['iso_code'];
 
+                    if (isset(
+                        $product['data'][$customization_index_search],
+                        $schema[$customization_index_search]['language_code']
+                    )&&
+                        !empty($product['data'][$customization_index_search])
+                        && $schema[$customization_index_search]['language_code'] == $lang['iso_code']) {
+                        $customization_index = 'product_customizable_' . $lang['iso_code'];
+                    } elseif (isset($product['data']['product_customizable'])
+                              && !empty($product['data']['product_customizable'])
+                              && !isset($schema['product_customizable']['language_code'])) {
+                        $customization_index = 'product_customizable';
+                    }
+
+                    if ($customization_index != '' && isset($product['data'][$customization_index])
+                        && $product['data'][$customization_index] != '') {
+                        if (!is_array($product['data'][$customization_index])) {
+                            if (preg_match('/,/', $product['data'][$customization_index])) {
+                                $number_of_fields_arr = explode(',', $product['data'][$customization_index]);
+                                $product['data'][$customization_index] = $number_of_fields_arr;
+                            }
+                            $testtrue = $this->slValidateBoolean($product['data'][$customization_index]);
+                            $this->debbug(
+                                'After test bool  $testtrue->' . print_r($testtrue, 1),
+                                'syncdata'
+                            );
+                            if ($product['data'][$customization_index] === false || $testtrue) {
+                                $this->debbug(
+                                    'convert to boolean  $testtrue->' . print_r($testtrue, 1),
+                                    'syncdata'
+                                );
+                                $product['data'][$customization_index] = $testtrue;
+                            }
+                        }
+
+                        $customization_multi_language[$lang['id_lang']] = $product['data'][$customization_index];
+                    }
+
+                    /**
+                     * Available now
+                     */
                     $product_available_now_index = '';
                     $product_available_now_index_search = 'available_now_' . $lang['iso_code'];
                     if (isset(
@@ -981,7 +1023,8 @@ class SlProducts extends SalesLayerPimUpdate
                             if ($product_name_index != '' && isset($product['data'][$product_name_index])
                                 && !empty($product['data'][$product_name_index])) {
                                 $this->debbug(
-                                    'Search for name in several languages : ' . $product_name_index . ' ->' . print_r(
+                                    'Search for name in several languages : ' . $product_name_index . ' ->' .
+                                    print_r(
                                         $product['data'][$product_name_index],
                                         1
                                     ) . ' language ->' . print_r($shop_language['iso_code'], 1),
@@ -1148,14 +1191,12 @@ class SlProducts extends SalesLayerPimUpdate
                 } else {
                     if (isset($product['data']['product_price']) && $product['data']['product_price'] != 0
                         && $product['data']['product_price'] != '') {
-                        //$price = round(floatval(str_replace(',', '.', $product['data']['product_price'])), 6);
                         $price = $this->priceForamat($product['data']['product_price']);
                     } else {
                         $price = 0;
                         $active = false;
                     }
                 }
-
 
                 if (isset($product['data']['product_active']) && $product['data']['product_active'] != '') {
                     $productObject->active = $this->slValidateBoolean($product['data']['product_active']);
@@ -1179,12 +1220,486 @@ class SlProducts extends SalesLayerPimUpdate
                     $productObject->available_date = $product['data']['product_available_date'];
                 }
 
-                if (isset($product['data']['product_customizable'])
-                    && Validate::isBool(
-                        $product['data']['product_customizable']
-                    )
-                ) {
-                    $productObject->customizable = (int) $product['data']['product_customizable'];
+                /**
+                 * Customizable text field
+                 */
+
+                if (!empty($customization_multi_language)) {
+                    try {
+                        $this->debbug('Entry to process customizable fields. with value -> ' .
+                                           print_r(
+                                               $customization_multi_language,
+                                               1
+                                           ), 'syncdata');
+
+                        $max_values = 0;
+                        $one_element = '';
+                        foreach (array_keys($customization_multi_language) as $id_lang) {
+                            $this->debbug('Element is array  set all line as array-> ' .
+                                               print_r(
+                                                   $customization_multi_language[$id_lang],
+                                                   1
+                                               ), 'syncdata');
+                            $count_values = count($customization_multi_language[$id_lang]);
+                            if ($count_values > $max_values) {
+                                $max_values = $count_values;
+                                $one_element = $customization_multi_language[$id_lang];
+                            }
+                        }
+                        $this->debbug('one element selected -> ' . print_r(
+                            $one_element,
+                            1
+                        ), 'syncdata');
+                        $is_bool_test = $this->slValidateBoolean($one_element);
+
+                        if (!is_array($one_element) && Validate::isBool($is_bool_test)) {
+                            $this->debbug('element is a boolean  -> ' . print_r(
+                                $is_bool_test,
+                                1
+                            ), 'syncdata');
+                            if ($is_bool_test) {
+                                $productObject->customizable     = 1;
+                                $productObject->text_fields      = 1;
+                                $productObject->uploadable_files = 0;
+                            } else {
+                                $productObject->customizable     = 0;
+                                $productObject->text_fields      = 0;
+                                $productObject->uploadable_files = 0;
+                            }
+                        } else {
+                            $productObject->customizable = 1;
+                            if (is_array($one_element)) {
+                                $this->debbug('element is array one element  -> ' . print_r(
+                                    $one_element,
+                                    1
+                                ), 'syncdata');
+                                $number_of_text_fields = 0;
+                                $number_of_file_fields = 0;
+                                if (count($one_element)) {
+                                    foreach ($one_element as $field) {
+                                        $this->debbug('procesing field -> ' . print_r(
+                                            $field,
+                                            1
+                                        ), 'syncdata');
+                                        if (preg_match('/:/', $field)) {
+                                            $field_arr = explode(':', $field);
+                                            $field_arr = array_map('trim', $field_arr);
+                                        } else {
+                                            $field_arr = array($field);
+                                        }
+                                        $field_arr = array_map('strtolower', $field_arr);
+                                        if (in_array('file', $field_arr, false)||
+                                                 in_array('files', $field_arr, false)||
+                                                 in_array('archivo', $field_arr, false)) {
+                                            $number_of_file_fields ++;
+                                        } else {
+                                            $number_of_text_fields ++;
+                                        }
+                                    }
+                                }
+                                $this->debbug('creating filefields -> ' . print_r(
+                                    $number_of_file_fields,
+                                    1
+                                ).' Text fields -> '.print_r($number_of_text_fields, 1), 'syncdata');
+                                $productObject->text_fields      = $number_of_text_fields;
+                                $productObject->uploadable_files = $number_of_file_fields;
+                            } else {
+                                $number_of_text_fields = 0;
+                                $number_of_file_fields = 0;
+                                if (preg_match('/:/', $one_element)) {
+                                    $field_arr = explode(':', $one_element);
+                                    $field_arr = array_map('trim', $field_arr);
+                                } else {
+                                    $field_arr = array($one_element);
+                                }
+                                $field_arr = array_map('strtolower', $field_arr);
+                                if (in_array('file', $field_arr, false) ||
+                                         in_array('files', $field_arr, false)||
+                                         in_array('archivo', $field_arr, false)) {
+                                    $number_of_file_fields ++;
+                                } else {
+                                    $number_of_text_fields ++;
+                                }
+                                $productObject->text_fields      = $number_of_text_fields;
+                                $productObject->uploadable_files = $number_of_file_fields;
+                            }
+                        }
+                        if (!$productObject->createLabels(
+                            (int) $productObject->uploadable_files,
+                            (int) $productObject->text_fields
+                        )) {
+                            $this->debbug(
+                                '## Error. An error occurred while creating customization fields.',
+                                'syncdata'
+                            );
+                        }
+
+                        $productObject->updateLabels();
+
+                        $customization_fields = Db::getInstance()->executeS('SELECT cf.`id_customization_field`,
+                                                        cf.`type`, cf.`required`, cfl.`name`, cfl.`id_lang`
+                                                        FROM `' . _DB_PREFIX_ . 'customization_field` cf
+                                                        NATURAL JOIN `' . _DB_PREFIX_ . 'customization_field_lang` cfl 
+                                                        WHERE cf.`id_product` = ' . $productObject->id .
+                                                        ' AND cfl.`id_shop` = ' .  $shop_id .
+                                                        ' AND cf.`is_deleted` = "0"  '.
+                                                        'ORDER BY cf.`id_customization_field`');
+
+                        $this->debbug(
+                            'Values of custom fields from BD ->'.print_r($customization_fields, 1),
+                            'syncdata'
+                        );
+                        if (count($customization_fields)) {
+                            $count_fields = null;
+                            $last_field = 0;
+
+                            foreach ($customization_fields as $key_number => $value_field) {
+                                $this->debbug(
+                                    'before check  if is different id as is saved $last_field->' .
+                                                   print_r($last_field, 1).'  id in variable ->  ' .
+                                                   print_r($value_field['id_customization_field'], 1),
+                                    'syncdata'
+                                );
+                                if ($last_field != $value_field['id_customization_field']) {
+                                    $required = 0;
+                                    $type = 1;
+                                    $one_line = '';
+                                    if ($count_fields === null) {
+                                        $count_fields = 0;
+                                    } else {
+                                        $count_fields++;
+                                    }
+                                    $this->debbug(
+                                        'Up number of key $count_fields->' .
+                                                       print_r($count_fields, 1),
+                                        'syncdata'
+                                    );
+                                    $last_field = $value_field['id_customization_field'];
+                                }
+                                $this->debbug(
+                                    'fields for process from bd $key_number>' .
+                                                   print_r($key_number, 1) . '  $value_field-> ' .
+                                                   print_r($value_field, 1).
+                                                   ' values in this position ->' .
+                                                   print_r((isset($customization_multi_language[$value_field['id_lang']]
+                                                       [$count_fields]) ?
+                                                       $customization_multi_language[$value_field['id_lang']]
+                                                       [$count_fields] : 'empty'), 1),
+                                    'syncdata'
+                                );
+
+                                $name_for_save = '';
+                                $boleantest = reset($customization_multi_language);
+
+                                if ($boleantest === true) {
+                                    $this->debbug(
+                                        'Set empty name but value is boolean in true->' .
+                                                       print_r($id_lang, 1),
+                                        'syncdata'
+                                    );
+                                    $one_line = '';
+                                } elseif ($boleantest === false) {
+                                    $this->debbug(
+                                        'Set empty name but value is boolean to false,' .
+                                                       ' delete all fields ->'.print_r($id_lang, 1),
+                                        'syncdata'
+                                    );
+                                    $one_line = '';
+
+                                    $productObject->customizable = 0;
+                                    $productObject->text_fields = 0;
+                                    $productObject->uploadable_files = 0;
+                                    $productObject->updateLabels();
+                                    break;
+                                } else {
+                                    if (isset($customization_multi_language[$value_field['id_lang']]) &&
+                                           is_array($customization_multi_language[$value_field['id_lang']])) {
+                                        if (isset($customization_multi_language[$value_field['id_lang']][$count_fields])
+                                               &&
+                                            !empty($customization_multi_language[$value_field['id_lang']]
+                                            [$count_fields])) {
+                                            $one_line = $customization_multi_language[$value_field['id_lang']]
+                                            [$count_fields];
+                                            $this->debbug(
+                                                'Set custom name from multi-language->' .
+                                                               print_r($one_line, 1).'  id_lang-> ' .
+                                                               print_r($value_field['id_lang'], 1),
+                                                'syncdata'
+                                            );
+                                        } elseif (isset($customization_multi_language[$defaultLenguage][$count_fields])
+                                                    && !empty($customization_multi_language[$defaultLenguage]
+                                            [$count_fields])) {
+                                            $one_line = $customization_multi_language[$defaultLenguage][$count_fields];
+                                            $this->debbug(
+                                                'Set custom name from default-language->' .
+                                                               print_r($one_line, 1).'  id_lang-> ' .
+                                                               print_r($value_field['id_lang'], 1),
+                                                'syncdata'
+                                            );
+                                        } else {
+                                            foreach ($customization_multi_language as $id_lang => $line) {
+                                                $this->debbug(
+                                                    'Search any value for set-language->' .
+                                                                   print_r($id_lang, 1).'  id_lang-> ' .
+                                                                   print_r($line, 1),
+                                                    'syncdata'
+                                                );
+                                                if (isset($customization_multi_language[$id_lang][$count_fields]) &&
+                                                       !empty($customization_multi_language[$id_lang][$count_fields])) {
+                                                    $one_line = $customization_multi_language[$id_lang][$count_fields];
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (isset($customization_multi_language[$value_field['id_lang']])) {
+                                            $one_line = $customization_multi_language[$value_field['id_lang']];
+                                            $this->debbug(
+                                                'set entire line ->' . print_r($one_line, 1) .
+                                                               '  id_lang-> '.print_r($value_field['id_lang'], 1),
+                                                'syncdata'
+                                            );
+                                        } elseif (isset($customization_multi_language[$defaultLenguage][$count_fields])
+                                                  &&
+                                                 !empty($customization_multi_language[$defaultLenguage]
+                                                 [$count_fields])) {
+                                            $one_line = $customization_multi_language[$defaultLenguage][$count_fields];
+                                            $this->debbug(
+                                                'Set custom name from default-language->' .
+                                                               print_r($one_line, 1) . '  id_lang-> ' .
+                                                               print_r($value_field['id_lang'], 1),
+                                                'syncdata'
+                                            );
+                                        } else {
+                                            foreach ($customization_multi_language as $id_lang => $line) {
+                                                $this->debbug(
+                                                    'Search any value for set-language->' .
+                                                                   print_r($id_lang, 1) . '  id_lang-> ' .
+                                                                   print_r($line, 1),
+                                                    'syncdata'
+                                                );
+                                                if (isset($customization_multi_language[$id_lang][$count_fields]) &&
+                                                       !empty($customization_multi_language[$id_lang][$count_fields])) {
+                                                    $one_line = $customization_multi_language[$id_lang][$count_fields];
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (is_array($one_line) &&
+                                        count($one_line)) {
+                                    if (isset($one_line[$key_number]) &&
+                                            !empty($one_line[$key_number])) {
+                                        $name_for_save = $one_line[$key_number];
+                                        if (preg_match('/:/', $name_for_save)) {
+                                            $field_arr     = explode(':', $name_for_save);
+                                            $field_arr = array_map('trim', $field_arr);
+                                            $this->debbug(
+                                                'test before test array $field_arr->' .
+                                                print_r($field_arr, 1),
+                                                'syncdata'
+                                            );
+                                            $name_for_save = $field_arr[0];
+                                            $field_arr = array_map('strtolower', $field_arr);
+                                            if (in_array('file', $field_arr, false) ||
+                                                         in_array('files', $field_arr, false)||
+                                                         in_array('archivo', $field_arr, false)) {
+                                                $this->debbug(
+                                                    'command file in array->' .
+                                                                       print_r($field_arr, 1),
+                                                    'syncdata'
+                                                );
+                                                $type = 0;
+                                            }
+                                            if (in_array('required', $field_arr, false) ||
+                                                         in_array('require', $field_arr, false)||
+                                                         in_array('requerido', $field_arr, false)) {
+                                                $this->debbug(
+                                                    'command required in array->' .
+                                                                       print_r($field_arr, 1),
+                                                    'syncdata'
+                                                );
+                                                $required = 1;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    $this->debbug(
+                                        'Entry as string for save->' . print_r($one_line, 1),
+                                        'syncdata'
+                                    );
+                                    if (preg_match('/,/', $one_line)) {
+                                        $name_for_save_arr = explode(
+                                            ',',
+                                            $one_line
+                                        );
+                                        if (!empty($name_for_save_arr[$key_number])) {
+                                            $name_for_save = $name_for_save_arr[$key_number];
+                                            if (preg_match('/:/', $name_for_save)) {
+                                                $field_arr     = explode(':', $name_for_save);
+                                                $field_arr = array_map('trim', $field_arr);
+                                                $this->debbug(
+                                                    'test before test array $field_arr->' .
+                                                                   print_r($field_arr, 1),
+                                                    'syncdata'
+                                                );
+                                                $name_for_save = $field_arr[0];
+                                                $field_arr = array_map('strtolower', $field_arr);
+                                                if (in_array('file', $field_arr, false) ||
+                                                         in_array('files', $field_arr, false) ||
+                                                         in_array('archivo', $field_arr, false)) {
+                                                    $this->debbug(
+                                                        'command file in array->' .
+                                                                       print_r($field_arr, 1),
+                                                        'syncdata'
+                                                    );
+                                                    $type = 0;
+                                                }
+                                                if (in_array('required', $field_arr, false) ||
+                                                         in_array('require', $field_arr, false) ||
+                                                         in_array('requerido', $field_arr, false)) {
+                                                    $this->debbug(
+                                                        'command required in array->' .
+                                                                       print_r($field_arr, 1),
+                                                        'syncdata'
+                                                    );
+                                                    $required = 1;
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (preg_match('/:/', $one_line)) {
+                                            $field_arr     = explode(':', $one_line);
+                                            $field_arr = array_map('trim', $field_arr);
+                                            $this->debbug(
+                                                'test before test array $field_arr->' .
+                                                               print_r($field_arr, 1),
+                                                'syncdata'
+                                            );
+                                            $name_for_save = $field_arr[0];
+                                            $field_arr = array_map('strtolower', $field_arr);
+                                            if (in_array('file', $field_arr, false)||
+                                                     in_array('files', $field_arr, false)||
+                                                     in_array('archivo', $field_arr, false)) {
+                                                $this->debbug(
+                                                    'command file in array->' .
+                                                                   print_r($field_arr, 1),
+                                                    'syncdata'
+                                                );
+                                                $type = 0;
+                                            }
+                                            if (in_array('required', $field_arr, false) ||
+                                                     in_array('require', $field_arr, false)||
+                                                     in_array('requerido', $field_arr, false)) {
+                                                $this->debbug(
+                                                    'command required in array->' .
+                                                                   print_r($field_arr, 1),
+                                                    'syncdata'
+                                                );
+                                                $required = 1;
+                                            }
+                                        } else {
+                                            $name_for_save = $one_line;
+                                        }
+                                    }
+                                }
+
+                                if ($value_field['type'] != $type || $required != $value_field['required']) {
+                                    $this->debbug(
+                                        'update type of field to  $type->' .
+                                                       print_r($type, 1)
+                                                       . ' required ->' . print_r(
+                                                           $required,
+                                                           1
+                                                       ),
+                                        'syncdata'
+                                    );
+                                    $query = 'UPDATE `' . _DB_PREFIX_ . 'customization_field`
+                                                SET '.
+                                                 ($value_field['type'] != $type ? '`type` = "' . $type . '" ':'').
+                                                 ($value_field['type'] != $type &&
+                                                  $required != $value_field['required']? ',':'').
+                                                 ($required != $value_field['required']?
+                                                     ' `required` = "' . $required . '" ':'') .
+                                                'WHERE `id_customization_field` = ' .
+                                             (int) $value_field['id_customization_field'];
+                                    if (!Db::getInstance()->execute($query)) {
+                                        $this->debbug(
+                                            '## Warning. it was not possible to change the '.
+                                                           'type of custom field. $customization_fields->' .
+                                                           print_r(
+                                                               $customization_fields,
+                                                               1
+                                                           ) . ' in $type ->' . print_r(
+                                                               $type,
+                                                               1
+                                                           ) . ' required ->' . print_r(
+                                                               $required,
+                                                               1
+                                                           ) . ' $query ->' . print_r(
+                                                               $query,
+                                                               1
+                                                           ),
+                                            'syncdata'
+                                        );
+                                    }
+                                }
+                                $this->debbug('Proccesing with value -> ' . print_r(
+                                    $value_field['name'],
+                                    1
+                                ) . ' and id -> ' . $value_field['id_customization_field'] .
+                                                   ' and save this-> ' . print_r(
+                                                       $name_for_save,
+                                                       1
+                                                   ), 'syncdata');
+                                $query = 'UPDATE `' . _DB_PREFIX_ . 'customization_field_lang`
+                                            SET `name` = "' . pSQL(trim($name_for_save)) . '" ' .
+                                            'WHERE `id_customization_field` = "' .
+                                         (int) $value_field['id_customization_field'] .'"'.
+                                            ' AND `id_shop` = "' . (int) $shop_id.'" '.
+                                            ' AND `id_lang` = "' . (int) $value_field['id_lang'].'" ';
+
+                                if (!Db::getInstance()->execute($query)) {
+                                    $this->debbug(
+                                        '## Warning. actual creating customization fields. '.
+                                                       '$customization_fields->' . print_r(
+                                                           $customization_fields,
+                                                           1
+                                                       ) . ' in language ->' . print_r(
+                                                           $value_field['id_lang'],
+                                                           1
+                                                       ) . ' $query ->' . print_r($query, 1),
+                                        'syncdata'
+                                    );
+                                }
+                            }
+                        }
+
+                        if (!ObjectModel::updateMultishopTable(
+                            'product',
+                            array( 'customizable' => 2 ),
+                            'a.id_product = ' . (int) $productObject->id
+                        )) {
+                            $this->debbug(
+                                '## Warning. the multi-shop table could not be corrected ',
+                                'syncdata'
+                            );
+                        }
+                    } catch (Exception $e) {
+                        $this->debbug('## Error. '.$occurence.' Some problems have been detected in '.
+                                           'custom field creation ->' . $e->getMessage().' and line->' .
+                                           print_r($e->getLine(), 1) .
+                                           ' and track ->'.print_r($e->getTrace(), 1), 'syncdata');
+                    }
+                } else {
+                    // corregir cuando se agrega campo file
+                    if ($productObject->customizable == 1) {
+                        $this->debbug('Deleting custom fields', 'syncdata');
+                        $productObject->customizable = 0;
+                        $productObject->text_fields = 0;
+                        $productObject->uploadable_files = 0;
+                        $productObject->updateLabels();
+                    }
                 }
 
                 $productObject->price = $price;
@@ -1219,7 +1734,8 @@ class SlProducts extends SalesLayerPimUpdate
                 if ($avoid_stock_update || $is_new_product) {
                     if (isset($product['data']['product_quantity']) && $product['data']['product_quantity'] != 0) {
                         $this->debbug(
-                            'quantity for save->' . $product['data']['product_quantity'] . ' to shop ->' . $shop_id,
+                            'quantity for save->' . $product['data']['product_quantity'] . ' to shop ->' .
+                            $shop_id,
                             'syncdata'
                         );
                         try {
@@ -1306,7 +1822,8 @@ class SlProducts extends SalesLayerPimUpdate
                                     );
                                 } catch (Exception $e) {
                                     $this->debbug(
-                                        '## Error. ' . $occurence . ' Set product_out_of_stock for product ID:' .
+                                        '## Error. ' . $occurence .
+                                        ' Set product_out_of_stock for product ID:' .
                                         $product['ID'] . ' ->' . print_r(
                                             $e->getMessage(),
                                             1
@@ -1329,7 +1846,8 @@ class SlProducts extends SalesLayerPimUpdate
                         $additional_output['product_psid'] = $productObject->id;
                         $additional_output['product_accessories'] = $product['data']['product_accessories'];
                         $this->debbug(
-                            'is accessories as array->' . print_r($product['data']['product_accessories'], 1),
+                            'is accessories as array->' .
+                            print_r($product['data']['product_accessories'], 1),
                             'syncdata'
                         );
                         unset($product['data']['product_accessories']);
@@ -1345,7 +1863,8 @@ class SlProducts extends SalesLayerPimUpdate
                                 $product['data']['product_accessories']
                             );
                             $this->debbug(
-                                'is accessories as string ->' . print_r($product['data']['product_accessories'], 1),
+                                'is accessories as string ->' .
+                                print_r($product['data']['product_accessories'], 1),
                                 'syncdata'
                             );
                         }
@@ -2427,8 +2946,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
             Db::getInstance()->execute(
                 sprintf(
-                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
-                    WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "product"',
+                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+                    WHERE slyr_id = "%s" 
+                    AND comp_id = "%s" 
+                    AND ps_type = "product"',
                     $product,
                     $comp_id
                 )

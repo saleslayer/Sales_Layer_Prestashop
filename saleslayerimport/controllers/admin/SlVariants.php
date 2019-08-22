@@ -847,7 +847,8 @@ class SlVariants extends SalesLayerPimUpdate
                                             $syncCat = false;
                                             $this->debbug(
                                                 '## Error. ' . $occurence . ' In syncVariantImageToProduct->' . print_r(
-                                                    $e->getMessage(),
+                                                    $e->getMessage() . ' line->' . print_r($e->getLine(), 1) .
+                                                    ' track->' . print_r($e->getTrace(), 1),
                                                     1
                                                 ),
                                                 'syncdata'
@@ -957,7 +958,6 @@ class SlVariants extends SalesLayerPimUpdate
                     $comb->minimal_quantity = 1;
                 }
 
-
                 try {
                     if ($comb->low_stock_alert == null) {
                         $comb->low_stock_alert = false;
@@ -1011,29 +1011,6 @@ class SlVariants extends SalesLayerPimUpdate
 
                     $comb->setImages($format_img_ids);
                     $comb->associateTo($all_shops_image);
-
-//                $check_column = Db::getInstance()->executeS(sprintf('SELECT * FROM information_schema.COLUMNS
-//                   WHERE TABLE_SCHEMA = "'._DB_NAME_.'" AND TABLE_NAME = "'.$this->product_attribute_image_table.'"
-//                   AND COLUMN_NAME = "img_portada"'));
-//
-//                if (!empty($check_column)){
-//
-//                    $portada_asignada = '';
-//                    foreach($format_img_ids as $format_img_id) {
-//                        $this->debbug('Asignacion de imagenes como portada de formato  '
-//.print_r($format_img_id,1),'syncdata' );
-//                      /*  $portada_asignada = Db::getInstance()->execute(
-//                            sprintf('UPDATE '.$this->product_attribute_image_table.'
-// SET img_portada = "1" WHERE id_product_attribute = "%s" AND id_image = "%s"',
-//                                $comb->id,
-//                                $format_img_id
-//                            ));*/
-//
-//                        if ($portada_asignada){ break; }
-//
-//                    }
-//
-//                }
                 } else {
                     $this->debbug(
                         'This Variant does not have any images  ->' . $comb->id . ' status of ids images-> ' . print_r(
@@ -1141,7 +1118,10 @@ class SlVariants extends SalesLayerPimUpdate
                 } catch (Exception $e) {
                     $this->debbug(
                         '## Error. In removing variant image from product : ' . $format_ps_id . '  error->' . print_r(
-                            $e->getMessage(),
+                            $e->getMessage() . ' line->' .
+                            $e->getLine() .
+                            ' track ->' .
+                            print_r($e->getTrace(), 1),
                             1
                         ),
                         'syncdata'
@@ -1152,8 +1132,10 @@ class SlVariants extends SalesLayerPimUpdate
 
             Db::getInstance()->execute(
                 sprintf(
-                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product sl 
-                     WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "combination"',
+                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+                     WHERE slyr_id = "%s"
+                      AND comp_id = "%s"
+                      AND ps_type = "combination"',
                     $product_format,
                     $comp_id
                 )
@@ -1294,7 +1276,6 @@ class SlVariants extends SalesLayerPimUpdate
                      */
 
                     foreach ($multilanguage as $id_lang => $att_value) {
-                        $attribute->name[$id_lang] = Tools::ucfirst($att_value);
                         if ($is_color && $show_color == '#ffffff') {
                             $picked = $this->stringToColorCode($att_value, $id_lang);
                             if ($picked != null) {
@@ -1302,7 +1283,12 @@ class SlVariants extends SalesLayerPimUpdate
                                 $show_color = $picked;
                             }
                         }
-
+                        if (preg_match('/:#/', $att_value)) {
+                            $separate = explode(':', $att_value);
+                            $att_value = $separate[0];
+                            $show_color = $separate[1];
+                        }
+                        $attribute->name[$id_lang] = Tools::ucfirst($att_value);
                         if ($id_lang != $this->defaultLanguage) {
                             if ($attribute->name[$this->defaultLanguage] == null
                                 || $attribute->name[$this->defaultLanguage] == '') {
@@ -1315,14 +1301,18 @@ class SlVariants extends SalesLayerPimUpdate
                      * Only one language
                      */
 
-                    $attribute->name[$currentLanguage] = Tools::ucfirst($attributeValue);
                     if ($is_color && $show_color == '#ffffff') { // is color? how to pick color from word
                         $picked = $this->stringToColorCode($attributeValue, $currentLanguage);
                         if ($picked != null) {
                             $show_color = $picked;
                         }
                     }
-
+                    if (preg_match('/:#/', $attributeValue)) {
+                        $separate = explode(':', $attributeValue);
+                        $attributeValue = $separate[0];
+                        $show_color = $separate[1];
+                    }
+                    $attribute->name[$currentLanguage] = Tools::ucfirst($attributeValue);
                     if ($currentLanguage != $this->defaultLanguage) {
                         if (!isset($attribute->name[$this->defaultLanguage])
                             || $attribute->name[$this->defaultLanguage] == null
@@ -1382,6 +1372,9 @@ class SlVariants extends SalesLayerPimUpdate
                  */
                 $update_needed = false;
                 $attribute = new AttributeCore($attribute_value_id);
+
+
+
                 foreach ($multilanguage as $id_lang => $Value) {
                     if (($attribute->name[$id_lang] == null
                             || $attribute->name[$id_lang] == '') && $Value != '' && $Value != null) {
@@ -1389,7 +1382,13 @@ class SlVariants extends SalesLayerPimUpdate
                         /**
                          * Any translate is diferent?
                          */
+                        if (preg_match('/:#/', $Value)) {
+                            $separate = explode(':', $Value);
+                            $Value = $separate[0];
+                        }
+
                         $attribute->name[$id_lang] = Tools::ucfirst($Value);
+
                         $update_needed = true;
                         $this->debbug(
                             'Setting name for attribute in another language need update...' . print_r(
@@ -1482,7 +1481,7 @@ class SlVariants extends SalesLayerPimUpdate
 
             if ($attribute_exists_id != $attribute_value_id) {
                 $this->debbug(
-                    ' register  founded, updating $attribute_exists_id != $attribute_value_id,
+                    'Register  founded, updating $attribute_exists_id != $attribute_value_id,
                     $attribute_exists_id ->' . print_r(
                         $attribute_exists_id,
                         1
@@ -1523,7 +1522,7 @@ class SlVariants extends SalesLayerPimUpdate
 
         if (count($conn_shops) > 0) {
             $this->debbug(
-                ' updating shop records ->  count($conn_shops) > 0 ->' . print_r(
+                'Updating shop records ->  count($conn_shops) > 0 ->' . print_r(
                     $conn_shops,
                     1
                 ) . ', $attribute_group_id->' . $attribute_group_id,
@@ -1662,7 +1661,7 @@ class SlVariants extends SalesLayerPimUpdate
                     . $attribute_group_id . '
                      $attribute_id = slyr_id->' . $attribute_id . ' comp_id->' . $comp_id .
                     '. This is not a serious problem but working with several connectors' .
-                    ' and stores at the same time could lose track.',
+                    ' and stores at the same time could lose track. ->' . print_r($attrInfo, 1),
                     'syncdata'
                 );
             }
@@ -1750,7 +1749,8 @@ class SlVariants extends SalesLayerPimUpdate
 
         $image_ids = array();
         $this->debbug(
-            'Entering to a synchronize images from variant to product image array for this $images->' . print_r(
+            'Variant ' . $occurence . ' Entering to a synchronize images from variant ' .
+            'to product image array for this $images->' . print_r(
                 $images,
                 1
             ) . '  $id_lang->' . print_r($id_lang, 1) . ' $product_name-> ' . print_r(
@@ -1779,10 +1779,10 @@ class SlVariants extends SalesLayerPimUpdate
                 if (is_array($image_list)) {
                     /**
                      * Check correct sizes and filter images
-                     * Revisar correctos  y filtrar los
+                     * Revisar corectos  y filtrar
                      */
                     $this->debbug(
-                        ' checking correct sizes of image references ->' . $image_reference . ' value ->' . print_r(
+                        'Checking correct sizes of image references ->' . $image_reference . ' value ->' . print_r(
                             $image_list,
                             1
                         ),
@@ -1802,11 +1802,9 @@ class SlVariants extends SalesLayerPimUpdate
 
             if (!empty($catch_images)) {
                 // imagenes elegidos para subir a este formato buscar en producto padre si en ya hay este imagen
-
                 /**
                  * How to a search images cached in SL table for MD5 hash
                  */
-                $this->debbug(' Searching images cached in SL table for MD5 hash ', 'syncdata');
 
                 $catch_images_references = "'" . implode("','", array_keys($catch_images)) . "'";
                 $slyr_images = Db::getInstance()->executeS(
@@ -1814,14 +1812,15 @@ class SlVariants extends SalesLayerPimUpdate
                     WHERE image_reference IN (' . $catch_images_references . ")
                       AND ps_product_id = '" . $product_id . "' "
                 );
+                $this->debbug('Searching images cached in SL table for MD5 hash ->' .
+                              print_r($slyr_images, 1), 'syncdata');
             }
-
 
             /**
              * Process images from this connection
              */
             $this->debbug(
-                'before processing prepared images for update stat of array  ->' . print_r($catch_images, 1),
+                'Before processing prepared images for update stat of array  ->' . print_r($catch_images, 1),
                 'syncdata'
             );
             $ps_images = Image::getImages($id_lang, $product_id);
@@ -1831,12 +1830,13 @@ class SlVariants extends SalesLayerPimUpdate
                 $cover = false;
             }
 
+
             foreach ($catch_images as $image_reference => $image_url) {
                 $this->debbug(
                     'Processing images of variant and setting it to a product from this connection ->' . print_r(
                         $image_reference,
                         1
-                    ) . '  ' . print_r($image_url, 1),
+                    ) . ' image url-> ' . print_r($image_url, 1) . ' is cover->' . print_r($cover, 1),
                     'syncdata'
                 );
                 $time_ini_image = microtime(1);
@@ -1854,7 +1854,13 @@ class SlVariants extends SalesLayerPimUpdate
                                 if ($slyr_image['ps_variant_id'] != null) {
                                     $variant_ids = json_decode($slyr_image['ps_variant_id'], 1);
                                 }
-
+                                $this->debbug(
+                                    'Before Verify Processing image ->' . print_r(
+                                        $slyr_image,
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
                                 if ($slyr_image['image_reference'] == $image_reference &&
                                     $slyr_image['md5_image'] !== '') {
                                     /**
@@ -1862,14 +1868,32 @@ class SlVariants extends SalesLayerPimUpdate
                                      */
 
                                     unset($slyr_images[$keySLImg]);
-
+                                    $this->debbug(
+                                        'Before test md5 Processing image ->' . print_r(
+                                            $slyr_image['md5_image'],
+                                            1
+                                        ) . ' <-> ' . print_r($md5_image, 1),
+                                        'syncdata'
+                                    );
                                     if ($slyr_image['md5_image'] !== $md5_image) {
-
+                                        $this->debbug(
+                                            'Image is different ->' . print_r(
+                                                $slyr_image['md5_image'],
+                                                1
+                                            ) . ' <-> ' . print_r($md5_image, 1),
+                                            'syncdata'
+                                        );
                                         /**
                                          * Image with same name but different md5
                                          */
-
-                                        if (in_array($variant_id, $variant_ids, false)) {
+                                        $this->debbug(
+                                            'Before check variants ids ->' . print_r(
+                                                $variant_id,
+                                                1
+                                            ) . ' <-> ' . print_r($variant_ids, 1),
+                                            'syncdata'
+                                        );
+                                        if (in_array((string)$variant_id, $variant_ids, false)) {
                                             /**
                                              * Verify if is needed delete this file
                                              */
@@ -1877,38 +1901,79 @@ class SlVariants extends SalesLayerPimUpdate
                                             $new_array = array();
                                             foreach ($variant_ids as $variant_id_in_search) {
                                                 if ($variant_id_in_search != $variant_id) {
-                                                    $new_array[] = $variant_id_in_search;
+                                                    $new_array[] = (string) $variant_id_in_search;
                                                 }
                                             }
+                                            $this->debbug(
+                                                'Verify if is needed delete this file  ->' . print_r(
+                                                    $slyr_image['id_image'],
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
 
-                                            $variant_ids = $new_array;
+                                            $variant_ids =  $new_array;
                                             if (empty($variant_ids)) {
                                                 // this variant  is unique variant in use this file
-                                                if ($slyr_image['origin'] == 'frmt' || empty($slyr_image['origin'])) { // if origin if the image is this variant delete it  from product
+                                                if ($slyr_image['origin'] == 'frmt' || empty($slyr_image['origin'])) {
+                                                    // if origin if the image is this variant delete it  from product
                                                     $image_delete = new Image($slyr_image['id_image']);
                                                     $image_delete->delete();
+                                                    $this->debbug(
+                                                        'Deleting Image  ->' . print_r(
+                                                            $slyr_image['id_image'],
+                                                            1
+                                                        ) . ' <-> ' . print_r($md5_image, 1),
+                                                        'syncdata'
+                                                    );
                                                     break;
                                                 }
                                             }
+                                        } else {
+                                            $this->debbug(
+                                                'Image is from different variant id_image ->' .
+                                                print_r($slyr_image['id_image'], 1),
+                                                'syncdata'
+                                            );
                                         }
                                     } else {
                                         /**
                                          * Image found / Update this image if is needed
                                          */
+                                        $this->debbug(
+                                            'Image is the same check only information ' .
+                                            ' of alt attribute if $variant_id->' .
+                                            print_r($variant_id, 1) .
+                                            ' in variants ids -> ' . print_r($variant_ids, 1),
+                                            'syncdata'
+                                        );
                                         if (in_array(
-                                            $variant_id,
+                                            (string) $variant_id,
                                             $variant_ids,
                                             false
                                         )
-                                        ) { // image is the same and this variant is inthe array
+                                        ) { // image is the same and this variant is in the array
+                                            $this->debbug(
+                                                'image is the same and this variant is in the array->' .
+                                                print_r($variant_id, 1) .
+                                                ' in variants ids -> ' . print_r($variant_ids, 1),
+                                                'syncdata'
+                                            );
+                                            $image_ids[] = $slyr_image['id_image'];
                                         } else {
+                                            $this->debbug(
+                                                'Not in the array ->' .
+                                                print_r($variant_id, 1) .
+                                                ' in variants ids -> ' . print_r($variant_ids, 1),
+                                                'syncdata'
+                                            );
                                             // set this variant it to the foto
                                             /**
                                              *
                                              * aqui continuar con editcion de imagen
                                              */
 
-                                            $variant_ids[] = $variant_id;
+                                            $variant_ids[] = (string) $variant_id;
                                             $need_update = false;
 
                                             $image_cover = new Image($slyr_image['id_image']);
@@ -1923,10 +1988,10 @@ class SlVariants extends SalesLayerPimUpdate
                                                     ) {
                                                         $need_update = true;
                                                         $image_cover->legend[$shop_language['id_lang']] = $product_name;
-                                                    // $this->debbug('Set image alt atribute  need update this image
-                                                        // info ->' .
-                                                        // print_r($image_cover->legend[$shop_language['id_lang']], 1) .
-                                                        // '  !=  ' . print_r($product_name, 1), 'syncdata');
+                                                        $this->debbug('Set image alt atribute need update this image ' .
+                                                          'info ->' .
+                                                          print_r($image_cover->legend[$shop_language['id_lang']], 1) .
+                                                          '  !=  ' . print_r($product_name, 1), 'syncdata');
                                                     } else {
                                                         $this->debbug(
                                                             'Image is the same, image alt attribute not is needed 
@@ -1999,7 +2064,7 @@ class SlVariants extends SalesLayerPimUpdate
                                         }
                                         unlink($temp_image);
                                         unset($image_cover);
-
+                                        $this->debbug('Before continue to level 2', 'syncdata');
                                         // exit from  second loop
                                         continue 2;
                                     }
@@ -2012,7 +2077,7 @@ class SlVariants extends SalesLayerPimUpdate
                          */
                         try {
                             $image = new Image();
-                            $variant_ids = array($variant_id);
+                            $variant_ids = array((string) $variant_id);
                             $image->id_product = (int)$product_id;
                             $image->position = Image::getHighestPosition($product_id) + 1;
 
@@ -2121,15 +2186,12 @@ class SlVariants extends SalesLayerPimUpdate
                             }
 
 
-                            // file_exists doesn't work with HTTP protocol
                             if ($validate_fields === true && $validate_language === true && $result_save_image) {
                                 if (!$this->copyImg($product_id, $image->id, $temp_image, 'products', true, true)) {
                                     $image->delete();
                                 } else {
                                     $all_shops_image = Shop::getShops(true, null, true);
                                     $image->associateTo($all_shops_image);
-
-
                                     $variant_ids = json_encode($variant_ids);
 
                                     /**
@@ -2155,86 +2217,110 @@ class SlVariants extends SalesLayerPimUpdate
                             $this->debbug(
                                 '## Error. ' . $occurence . ' Error in creating new format 
                                 image problem found->' . print_r(
-                                    $e->getMessage(),
+                                    $e->getMessage() . ' line->' .
+                                    print_r($e->getLine(), 1) .
+                                    ' track->' . print_r($e->getTrace(), 1),
                                     1
                                 ),
                                 'syncdata'
                             );
                         }
-
-
                         unset($image);
                     }
                 }
                 $this->debbug('END processing this image. Timing ->' . ($time_ini_image - microtime(1)), 'syncdata');
             }
+
             unset($image);
-        } else {
-            // el formato ya no tiene imagenes debemos eliminar si tiene en prestashop asignada alguna imagen
-            $this->debbug(
-                'We will check if any of the images have been imported in the past with this variant',
-                'syncdata'
-            );
-            $slyr_images = Db::getInstance()->executeS(
-                'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im 
+        }
+        // el formato ya no tiene imagenes debemos eliminar si tiene en prestashop asignada alguna imagen
+        $this->debbug(
+            'We will check if any of the images have been imported in the past with this variant',
+            'syncdata'
+        );
+        $slyr_images = Db::getInstance()->executeS(
+            'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im 
                 WHERE  im.ps_product_id = '" . $product_id . "' "
-            );
+        );
 
-            if (!empty($slyr_images)) {
-                foreach ($slyr_images as $keySLImg => $slyr_image) {
-                    $this->debbug('Testing if it is needed to delete this image ' .
-                        print_r($slyr_image, 1), 'syncdata');
+        if (!empty($slyr_images)) {
+            foreach ($slyr_images as $keySLImg => $slyr_image) {
+                $this->debbug('Testing if it is needed to delete this image ' .
+                        print_r($slyr_image, 1) . ' variants ids ->' .
+                        print_r($slyr_image['ps_variant_id'], 1), 'syncdata');
 
-                    $variant_ids = array();
-                    if ($slyr_image['ps_variant_id'] != null) {
-                        $variant_ids = json_decode($slyr_image['ps_variant_id'], 1);
+                $variant_ids = array();
+                if ($slyr_image['ps_variant_id'] != null) {
+                    $variant_ids = json_decode((string) $slyr_image['ps_variant_id'], 1);
+                }
+
+                if (in_array((string) $variant_id, $variant_ids, false)) {
+                    $this->debbug(
+                        'Image->' . $slyr_image['id_image'] .
+                        ' Id of this variant ' . $variant_id . ' is in variants array-> ' . print_r(
+                            $variant_ids,
+                            1
+                        ) . ' protected ids ->' . print_r($image_ids, 1),
+                        'syncdata'
+                    );
+                    /**
+                     * Verify if is needed delete this file
+                     */
+
+                    $new_array = array();
+                    foreach ($variant_ids as $variant_id_in_search) {
+                        if ($variant_id_in_search != $variant_id ||
+                            in_array($slyr_image['id_image'], $image_ids, false)) {
+                            $new_array[] = (string) $variant_id_in_search;
+                        }
                     }
-
-                    if (in_array($variant_id, $variant_ids, false)) {
+                    $this->debbug(
+                        'Image->' . $slyr_image['id_image'] .
+                        ' Variant ids after filter ' . print_r(
+                            $new_array,
+                            1
+                        ) . ' protected ids ->' . print_r($image_ids, 1),
+                        'syncdata'
+                    );
+                    $variant_ids = $new_array;
+                    if (empty($variant_ids)) {
+                        // this variant  is unique variant in use this file
                         $this->debbug(
-                            'Id of this variant ' . $variant_id . ' is in variants array-> ' . print_r(
-                                $variant_ids,
-                                1
-                            ),
+                            'Image->' . $slyr_image['id_image'] .
+                            ' Array is empty how to a send this image to delete, ' .
+                              'but before test if is upload from product or variant  -> ' .
+                                          print_r($variant_ids, 1),
                             'syncdata'
                         );
-                        /**
-                         * Verify if is needed delete this file
-                         */
-
-                        $new_array = array();
-                        foreach ($variant_ids as $variant_id_in_search) {
-                            if ($variant_id_in_search != $variant_id) {
-                                $new_array[] = $variant_id_in_search;
-                            }
-                        }
-
-
-                        $variant_ids = $new_array;
-                        if (empty($variant_ids)) {// this variant  is unique variant in use this file
-                            //  $this->debbug('Array is empty how to a send this image,
-                            // but before test if is  upload from product or  -> '.print_r($variant_ids,1),'syncdata');
-                            if ($slyr_image['origin'] == 'frmt' || empty($slyr_image['origin'])) {
-                                // if origin if the image is this variant delete it  from product
-                                //  $this->debbug('Deleting image because the image has been
-                                // sent from this format and now no longer has this format no photo','syncdata');
-                                $image_delete = new Image($slyr_image['id_image']);
-                                $image_delete->delete();
-                                Db::getInstance()->execute(
-                                    'DELETE FROM ' . _DB_PREFIX_ . "slyr_image 
+                        if (($slyr_image['origin'] == 'frmt' || empty($slyr_image['origin'])) &&
+                            !in_array($slyr_image['id_image'], $image_ids, false)) {
+                            //if origin if the image is this variant delete it  from product
+                            $this->debbug('Image->' . $slyr_image['id_image'] .
+                                          ' Deleting image because the image has been ' .
+                                 'sent from this format and now no longer has this format no photo', 'syncdata');
+                            $image_delete = new Image($slyr_image['id_image']);
+                            $image_delete->delete();
+                            Db::getInstance()->execute(
+                                'DELETE FROM ' . _DB_PREFIX_ . "slyr_image 
                                     WHERE id_image = '" . $slyr_image['id_image'] . "' "
-                                );
-                                unset($image_delete);
-                            }
+                            );
+                            unset($image_delete);
                         }
-
-                        $variant_ids = json_encode($variant_ids);
-
-                        Db::getInstance()->execute(
-                            'UPDATE ' . _DB_PREFIX_ . "slyr_image SET ps_variant_id ='" . $variant_ids
-                            . "' WHERE id_image = '" . $slyr_image['id_image'] . "' "
-                        );
                     }
+
+                    $variant_ids = json_encode($variant_ids);
+                    $this->debbug(
+                        'Image->' . $slyr_image['id_image'] .
+                        'Before save variants ids array-> ' . print_r(
+                            $variant_ids,
+                            1
+                        ) . ' protected ids ->' . print_r($image_ids, 1),
+                        'syncdata'
+                    );
+                    Db::getInstance()->execute(
+                        'UPDATE ' . _DB_PREFIX_ . "slyr_image SET ps_variant_id ='" . $variant_ids
+                            . "' WHERE id_image = '" . $slyr_image['id_image'] . "' "
+                    );
                 }
             }
         }

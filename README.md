@@ -93,6 +93,28 @@ This button will help you to eliminate in bulk all the categories, products and 
 
 <p>a true value to unlock the button.</p>
 </div>
+<div>
+<h2>Creation of Custom Fields</h2>
+
+<p>To create custom fields we can use the <b>customizable</b> field in the configuration of the connector in the Sales Layer cloud. The plugin recognizes internal commands that we can add after he value we set as the field name, this appears behind the field "YOUR TEXT FOR FIELD:file". This Command makes it so that the field is created as a required one, and so the client has to fill in the desired field "YOUR TEXT FOR FIELD:required" . The fields can be created as comma separated text, attribute lists, or completed with a formula such as comma separated text. If we want to send it in several languages we must choose the text field.</p>
+ <h5>Example:</h5>
+<b>My Custom Field:file, My other custom field:required, My field for images:file:required</b>
+<h5>this will create fields in prestashop on the product:</h5>
+
+<ul>
+<li><b>My Custom Field</b> - Field to upload images.</li>
+<li><b>My other custom field</b> - Text field with mandatory settings to be filled in by the customer.</li>
+<li><b>My field for images</b> - Field to upload mandatory images to be filled in when sending the order.</li>
+</ul>
+</div>
+<div>
+<h2>Custom colors</h2>
+<p>The plugin contains, from version 1.4.3, a folder called colors which contains a small database of colors that it recognizes for each language. This folder is used to recognize attributes of non-existent colors in prestashop for variants. This means that if Sales layer comes with a light green variant in Spanish, the plugin will try to find the file es.txt, remove the accents and spaces, and then look for the color light green and assigns it the color value #90ee90 that is predefined in the file. These files can be customized for your needs. The reason for this is that each company uses different names and different color maps in several languages ​to recognize colors. This allows you to always have your file and with each update simply copy and paste your colored files into the plugin. It is enough to have a file in a language that we are going to use to recognize colors and assign them the first time the attribute was created.</p>
+
+<b>Another way to send colors is to send the color as text so:</b>
+ <b>light green:#90ee90</b> <p>The plugin accepts everything before "<b>:#</b>" as a name and everything after ":" as color "<b>#90ee90</b>".</p>
+</div>
+
 
 
 

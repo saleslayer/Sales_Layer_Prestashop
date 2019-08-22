@@ -243,7 +243,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.3';
+        $this->version = '1.4.4';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -681,7 +681,7 @@ class SalesLayerImport extends Module
     public function testSlcronExist()
     {
         $task_url = urlencode(
-            _PS_BASE_URL_._MODULE_DIR_ . 'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+            _PS_BASE_URL_ . _MODULE_DIR_ . 'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
                 Tools::encrypt('saleslayerimport'),
                 0,
                 10
@@ -696,11 +696,11 @@ class SalesLayerImport extends Module
 
         foreach ($task as $where_keys => $where_values) {
             $counter++;
-            $where .= ' '.$where_keys.' = \''.$where_values.'\' '.($counter != count($task) ? ' AND ' : ' ');
+            $where .= ' ' . $where_keys . ' = \'' . $where_values . '\' ' . ($counter != count($task) ? ' AND ' : ' ');
         }
 
         $query_full = 'SELECT id_cronjob,updated_at,NOW() as timeBD 
-FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
+FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         return Db::getInstance()->executeS($query_full);
     }
@@ -714,7 +714,7 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
     public function checkCronProcessExecutionTime()
     {
         $latest_cron_execution = $this->getConfiguration('LATEST_CRON_EXECUTION');
-        $this->debbug(' LATEST_CRON_EXECUTION ->'.$latest_cron_execution, 'autosync');
+        $this->debbug(' LATEST_CRON_EXECUTION ->' . $latest_cron_execution, 'autosync');
 
         return $latest_cron_execution;
     }
@@ -744,9 +744,9 @@ FROM '.$this->prestashop_cron_table.$where.' LIMIT 1';
 
             return true;
         } catch (Exception $e) {
-            $this->debbug('Install error ' . $e->getMessage());
+            $this->debbug('Install error ' . $e->getMessage() . ' line->' . $e->getLine() .
+                          ' Trace->' . print_r($e->getTrace(), 1));
             $this->_errors[] = 'Install error  :' . $e->getMessage();
-
             return false;
         }
     }
