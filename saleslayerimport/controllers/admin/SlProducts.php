@@ -578,8 +578,8 @@ class SlProducts extends SalesLayerPimUpdate
 
                     if ($product_description_index != '' && isset($product['data'][$product_description_index])
                         && !empty($product['data'][$product_description_index])) {
-                        $product_description = $product['data'][$product_description_index];
-
+                        $product_description =
+                            $product['data'][$product_description_index];
                         $productObject->description[$lang['id_lang']] = $product_description;
                     }
                     /**
@@ -610,7 +610,8 @@ class SlProducts extends SalesLayerPimUpdate
                     }
 
                     if (Tools::strlen($product_description_short) > 800) {
-                        $product_description_short = Tools::substr($product_description_short, 0, 800);
+                        $product_description_short =
+                            Tools::substr($product_description_short, 0, 800);
                     }
 
                     if ($product_description_short != ''
@@ -684,7 +685,7 @@ class SlProducts extends SalesLayerPimUpdate
                         && $product['data'][$meta_description_index] != '') {
                         $meta_description = $product['data'][$meta_description_index];
                     } else {
-                        $meta_description = $product_description_short;
+                        $meta_description =  strip_tags($product_description_short);
                     }
                     if (Tools::strlen($meta_description) > 180) {
                         $meta_description = Tools::substr($meta_description, 0, 180);
