@@ -243,7 +243,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.4';
+        $this->version = '1.4.5';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -272,6 +272,14 @@ class SalesLayerImport extends Module
         );
         $this->loadDebugMode();
         $this->defaultLanguage = (int)Configuration::get('PS_LANG_DEFAULT');
+
+        if (defined('_PS_ADMIN_DIR_')) {
+            $admin = explode('/', _PS_ADMIN_DIR_);
+            $admin_folder_arr = array_slice($admin, -1);
+            $admin_folder = reset($admin_folder_arr);
+            $configuration = array('ADMIN_DIR' => $admin_folder);
+            $this->saveConfiguration($configuration);
+        }
     }
 
     /**
@@ -3364,9 +3372,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     private function callIndexer()
     {
-        $admin = explode('/', $this->context->link->getAdminLink('AdminCronJobs', false));
-        $admin_folder_arr = array_slice($admin, -1);
-        $admin_folder = reset($admin_folder_arr);
+        $admin_folder = $this->getConfiguration('ADMIN_DIR');
+        $this->debbug('admin index directory ->'.print_r($admin_folder, 1), 'syncdata');
         $adminurl = _PS_BASE_URL_ . __PS_BASE_URI__ . $admin_folder . '/searchcron.php?full=1&token=' .
             Tools::substr(
                 _COOKIE_KEY_,
@@ -3374,7 +3381,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 8
             );
 
-        $this->debbug('Calling indexer to start reindex all', 'syncdata');
+        $this->debbug('Calling indexer to start reindex all ->'.print_r($adminurl, 1), 'syncdata');
         $this->urlSendCustomJson('GET', $adminurl, null, false);
     }
 

@@ -1185,7 +1185,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return true;
         }
 
-        return false;
+        return $value;
     }
 
     /**

@@ -3646,185 +3646,271 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             $count_values = 0;
 
 
-                            // $this->debbug('there is a feature in the product ->'.$lang['id_lang'].
-                            //' lg_code -> '.print_r($lang['iso_code'],1),'syncdata');
-
-                            $id_feature_value = (int)Db::getInstance()->getValue(
+                            $ids_feature_values = Db::getInstance()->executeS(
                                 sprintf(
                                     'SELECT id_feature_value FROM ' . $this->feature_product_table . '
                                     where id_feature = "%s"  AND id_product = "€s" ',
                                     $id_feature,
                                     $id_product
                                 )
-                            );  // and id_product = "%s" -> $id_product
+                            );
+                            $this->debbug(
+                                'After search feature values ->' . print_r(
+                                    $ids_feature_values,
+                                    1
+                                ),
+                                'syncdata'
+                            );
 
-                            if ($id_feature_value != 0) {
-                                $featureValue = new FeatureValue($id_feature_value);
+                            if (count($ids_feature_values)) {
+                                foreach ($ids_feature_values as $num_of_position => $featureValue) {
+                                    $id_feature_value = $featureValue['id_feature_value'];
+                                    $featureValue = new FeatureValue($id_feature_value);
 
-                                $this->debbug(
-                                    'Feature found by the id and these are its values in all languages ->' . print_r(
-                                        $featureValue->value,
-                                        1
-                                    ) . ' in the current language ->' . $featureValue->value[$lang['id_lang']],
-                                    'syncdata'
-                                );
-
-
-                                foreach ($this->shop_languages as $lang_sub) {
-                                    /**
-                                     * In the product there is characteristica with the same name
-                                     */
-
-                                    $feature_name_index = '';
-                                    $feature_name_index_search = $new_name . '_' . $lang_sub['iso_code'];
-                                    $sanitized_name_index_search = $this->removeAccents(
-                                        Tools::strtolower($new_name)
-                                    );
-                                    $sanitized_name_index_search_languae = $sanitized_name_index_search .
-                                        '_' . $lang_sub['iso_code'];
-                                    $sanitized_ant_version = str_replace(
-                                        '_',
-                                        ' ',
-                                        $sanitized_name_index_search
-                                    ) . '_' . $lang['iso_code'];
-                                    $sanitized_ant_version_space = $sanitized_name_index_search .
-                                        '_' . $lang['iso_code'];
                                     $this->debbug(
-                                        'In Search ->' . print_r($feature_name_index_search, 1),
-                                        'syncdata'
-                                    );
-                                    if (isset(
-                                        $product['data'][$feature_name_index_search],
-                                        $schema[$feature_name_index_search]['language_code']
-                                    ) &&
-                                        $schema[$feature_name_index_search]['language_code'] == $lang_sub['iso_code']) {
-                                        $this->debbug(
-                                            'Entering by $feature_name_index_search->' . print_r(
-                                                $feature_name_index_search,
-                                                1
-                                            ),
-                                            'syncdata'
-                                        );
-                                        $feature_name_index = $feature_name_index_search;
-                                    } elseif (isset($product['data'][$new_name]) && !empty($product['data'][$new_name])
-                                        && !isset($schema[$new_name]['language_code'])) {
-                                        $this->debbug('Entro por $new_name->' . print_r($new_name, 1), 'syncdata');
-                                        $feature_name_index = $new_name;
-                                    } elseif (isset($product['data'][$sanitized_name_index_search])
-                                        && !empty($product['data'][$sanitized_name_index_search])) {
-                                        $feature_name_index = $sanitized_name_index_search;
-                                        $this->debbug(
-                                            'Entro else $sanitized_name_index_search->' . print_r(
-                                                $sanitized_name_index_search,
-                                                1
-                                            ),
-                                            'syncdata'
-                                        );
-                                    } elseif (isset($product['data'][$sanitized_name_index_search_languae])
-                                        && !empty($product['data'][$sanitized_name_index_search_languae])) {
-                                        $this->debbug(
-                                            'Entro else $sanitized_name_index_search_languae->' . print_r(
-                                                $sanitized_name_index_search_languae,
-                                                1
-                                            ),
-                                            'syncdata'
-                                        );
-                                        $feature_name_index = $sanitized_name_index_search;
-                                    } elseif (isset($product['data'][$sanitized_ant_version])
-                                        && !empty($product['data'][$sanitized_ant_version])) {
-                                        $this->debbug(
-                                            'Entro else $sanitized_ant_version->' . print_r(
-                                                $sanitized_ant_version,
-                                                1
-                                            ),
-                                            'syncdata'
-                                        );
-                                        $feature_name_index = $sanitized_ant_version;
-                                    } elseif (isset($product['data'][$sanitized_ant_version_space])
-                                        && !empty($product['data'][$sanitized_ant_version_space]) &&
-                                        $schema[$sanitized_ant_version_space]['language_code'] ==
-                                        $lang_sub['iso_code']) {
-                                        $this->debbug(
-                                            'Entro else $sanitized_ant_version_space->' . print_r(
-                                                $sanitized_ant_version_space,
-                                                1
-                                            ),
-                                            'syncdata'
-                                        );
-                                        $feature_name_index = $sanitized_ant_version_space;
-                                    } else {
-                                        continue;
-                                    }
-
-
-                                    if (is_array($product['data'][$feature_name_index])) {
-                                        $value = implode(',', $product['data'][$feature_name_index]);
-                                    } else {
-                                        $value = $product['data'][$feature_name_index];
-                                    }
-
-                                    $value = $this->slValidateCatalogName($value);
-
-                                    if (Tools::strlen($value) > 255) {
-                                        $value = Tools::substr($value, 0, 250);
-                                    }
-
-                                    if ((is_string($value) && $value == '') || $value == null
-                                        || (is_numeric(
-                                            $value
-                                        )
-                                            && $value == 0)
-                                    ) {
-                                        $this->debbug(
-                                            'Value of ' . $feature_name_index .
-                                            ' is empty, jumping to another feature ->' . print_r(
-                                                $value,
-                                                1
-                                            ),
-                                            'syncdata'
-                                        );
-                                        //No se puede dejar en blanco un valor custom, se auto-rellena.
-                                        // Podría ser un espacio, pero seguiría mostrando la
-                                        // característica en el front.
-                                        continue;
-                                    }
-                                    if (!empty($value)) {
-                                        $values_for_process[$lang_sub['id_lang']] = $value;
-                                        $count_values++;
-                                    }
-
-
-                                    $featureValue->value[$lang_sub['id_lang']] = $value;
-                                }
-
-                                if ($featureValue->custom == 1) {
-                                    $this->debbug(
-                                        'Is custom value ' . print_r($featureValue->value, 1),
+                                        'Feature found by the id and these are its values in all languages ->'
+                                        . print_r(
+                                            $featureValue->value,
+                                            1
+                                        ) . ' in the current language ->' .
+                                        $featureValue->value[$lang['id_lang']],
                                         'syncdata'
                                     );
 
-                                    try {
+                                    foreach ($this->shop_languages as $lang_sub) {
+                                        /**
+                                         * In the product there is characteristica with the same name
+                                         */
+                                        $feature_name_index                  = '';
+                                        $feature_name_index_search           = $new_name . '_' . $lang_sub['iso_code'];
+                                        $sanitized_name_index_search         = $this->removeAccents(
+                                            Tools::strtolower($new_name)
+                                        );
+                                        $sanitized_name_index_search_languae = $sanitized_name_index_search .
+                                                                           '_' . $lang_sub['iso_code'];
+                                        $sanitized_ant_version               = str_replace(
+                                            '_',
+                                            ' ',
+                                            $sanitized_name_index_search
+                                        ) . '_' . $lang['iso_code'];
+                                        $sanitized_ant_version_space         = $sanitized_name_index_search .
+                                                                           '_' . $lang['iso_code'];
                                         $this->debbug(
-                                            'Saving changes in feature ->' .
-                                            $featureValue->value . ' lg_code -> ' . print_r(
-                                                $lang['iso_code'],
-                                                1
-                                            ),
+                                            'In Search ->' . print_r($feature_name_index_search, 1),
                                             'syncdata'
                                         );
-                                        $featureValue->save();
+                                        if (isset(
+                                            $product['data'][$feature_name_index_search],
+                                            $schema[ $feature_name_index_search ]['language_code']
+                                        ) &&
+                                         $schema[ $feature_name_index_search ]['language_code'] ==
+                                         $lang_sub['iso_code']) {
+                                            $this->debbug(
+                                                'Entering by $feature_name_index_search->' . print_r(
+                                                    $feature_name_index_search,
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                            $feature_name_index = $feature_name_index_search;
+                                        } elseif (isset($product['data'][ $new_name ]) &&
+                                                  !empty($product['data'][ $new_name ])
+                                               && ! isset($schema[ $new_name ]['language_code'])) {
+                                            $this->debbug('Entry from $new_name->' .
+                                                          print_r($new_name, 1), 'syncdata');
+                                            $feature_name_index = $new_name;
+                                        } elseif (isset($product['data'][ $sanitized_name_index_search ])
+                                               && ! empty($product['data'][ $sanitized_name_index_search ])) {
+                                            $feature_name_index = $sanitized_name_index_search;
+                                            $this->debbug(
+                                                'Entry from $sanitized_name_index_search->' . print_r(
+                                                    $sanitized_name_index_search,
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                        } elseif (isset($product['data'][ $sanitized_name_index_search_languae ])
+                                               && ! empty($product['data'][ $sanitized_name_index_search_languae ])) {
+                                            $this->debbug(
+                                                'Entry from $sanitized_name_index_search_languae->' . print_r(
+                                                    $sanitized_name_index_search_languae,
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                            $feature_name_index = $sanitized_name_index_search;
+                                        } elseif (isset($product['data'][ $sanitized_ant_version ])
+                                               && ! empty($product['data'][ $sanitized_ant_version ])) {
+                                            $this->debbug(
+                                                'Entry from $sanitized_ant_version->' . print_r(
+                                                    $sanitized_ant_version,
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                            $feature_name_index = $sanitized_ant_version;
+                                        } elseif (isset($product['data'][ $sanitized_ant_version_space ])
+                                               && ! empty($product['data'][ $sanitized_ant_version_space ]) &&
+                                               $schema[ $sanitized_ant_version_space ]['language_code'] ==
+                                               $lang_sub['iso_code']) {
+                                            $this->debbug(
+                                                'Entry from $sanitized_ant_version_space->' . print_r(
+                                                    $sanitized_ant_version_space,
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                            $feature_name_index = $sanitized_ant_version_space;
+                                        } else {
+                                            continue;
+                                        }
+
+
+                                        if (is_array($product['data'][ $feature_name_index ])) {
+                                            $values_arr = $product['data'][ $feature_name_index ];
+                                            $this->debbug(
+                                                'Content as array print in same line  separated with ' .
+                                                '"," $sanitized_ant_version_space->' . print_r(
+                                                    $product['data'][ $feature_name_index ],
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                        } else {
+                                            $this->debbug(
+                                                'Content as string print in same line ' .
+                                                ' $sanitized_ant_version_space->' . print_r(
+                                                    $product['data'][ $feature_name_index ],
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                            $values_arr = explode(',', $product['data'][ $feature_name_index ]);
+                                        }
+                                        if (isset($values_arr[$num_of_position])) {
+                                            $value = $this->slValidateCatalogName($values_arr[$num_of_position]);
+                                        } else {
+                                            continue;
+                                        }
+
+
+                                        if (Tools::strlen($value) > 255) {
+                                            $value = Tools::substr($value, 0, 250);
+                                        }
+
+                                        if ((is_string($value) && $value == '') || $value == null
+                                         || (is_numeric(
+                                             $value
+                                         )
+                                              && $value == 0)
+                                         ) {
+                                            $this->debbug(
+                                                'Value of ' . $feature_name_index .
+                                                ' is empty, jumping to another feature ->' . print_r(
+                                                    $value,
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                            //No se puede dejar en blanco un valor custom, se auto-rellena.
+                                            // Podría ser un espacio, pero seguiría mostrando la
+                                            // característica en el front.
+                                            continue;
+                                        }
+                                        if (! empty($value)) {
+                                            $values_for_process[ $lang_sub['id_lang'] ] = $value;
+                                            $count_values ++;
+                                        }
+
+
+                                        $featureValue->value[ $lang_sub['id_lang'] ] = $value;
+                                    }
+
+                                    if ($featureValue->custom == 1) {
+                                        $this->debbug(
+                                            'Is custom value ' . print_r($featureValue->value, 1),
+                                            'syncdata'
+                                        );
+
+                                        try {
+                                            $this->debbug(
+                                                'Saving changes in feature ->' .
+                                                $featureValue->value . ' lg_code -> ' . print_r(
+                                                    $lang['iso_code'],
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                            $featureValue->save();
+
+                                            if ($count_values == 0) {
+                                                $features_founded[] = $id_feature_value;
+                                                /**
+                                                 * This value has not been found in any of the languages we will
+                                                 * verify if the product exists and if it is not selected
+                                                 */
+
+                                                $feature_value_exist = Db::getInstance()->executeS(
+                                                    sprintf(
+                                                        'SELECT id_feature_value FROM ' . $this->feature_product_table .
+                                                        ' WHERE id_feature =  "%s"  AND  id_product = "%s"
+                                                        AND id_feature_value = "%s" ',
+                                                        $id_feature,
+                                                        $id_product,
+                                                        $id_feature_value
+                                                    )
+                                                );
+
+                                                if (empty($feature_value_exist)) {
+                                                    $this->debbug(
+                                                        'Value is null, removing the feature from this product ->'
+                                                        . $featureValue->value . ' lg_code -> ' . print_r(
+                                                            $lang['iso_code'],
+                                                            1
+                                                        ),
+                                                        'syncdata'
+                                                    );
+                                                    // Si el valor de la característica del producto es nulo,
+                                                    //eliminamos la relación.
+                                                    Db::getInstance()->execute(
+                                                        sprintf(
+                                                            'DELETE FROM ' . $this->feature_product_table .
+                                                            ' WHERE id_feature = "%s" and id_product = "%s" 
+                                                            and id_feature_value = "%s"',
+                                                            $id_feature,
+                                                            $id_product,
+                                                            $id_feature_value
+                                                        )
+                                                    );
+                                                }
+                                            }
+                                        } catch (Exception $e) {
+                                            $this->debbug(
+                                                '## Error. ' . $occurence . ' save Feature->' . print_r(
+                                                    $e->getMessage(),
+                                                    1
+                                                ),
+                                                'syncdata'
+                                            );
+                                        }
+                                    } else {
+                                        $this->debbug(
+                                            'It is not a custom value  ' . print_r($featureValue->value, 1),
+                                            'syncdata'
+                                        );
 
                                         if ($count_values == 0) {
-                                            $features_founded[] = $id_feature_value;
-                                            /**
-                                             * This value has not been found in any of the languages we will
-                                             * verify if the product exists and if it is not selected
-                                             */
+
+
+                                        /**
+                                         * This value has not been found in any of the languages we will
+                                         * verify if the product exists and if it is not selected
+                                         */
 
                                             $feature_value_exist = Db::getInstance()->executeS(
                                                 sprintf(
                                                     'SELECT id_feature_value FROM ' . $this->feature_product_table .
-                                                    ' WHERE id_feature =  "%s"  AND  id_product = "%s"
+                                                    ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
                                                     AND id_feature_value = "%s" ',
                                                     $id_feature,
                                                     $id_product,
@@ -3834,11 +3920,10 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                                             if (empty($feature_value_exist)) {
                                                 $this->debbug(
-                                                    'Value is null, removing the feature from this product ->'
-                                                    . $featureValue->value . ' lg_code -> ' . print_r(
-                                                        $lang['iso_code'],
+                                                    'Value is null removing the feature from this product ->' . print_r(
+                                                        $featureValue->value,
                                                         1
-                                                    ),
+                                                    ) . ' lg_code -> ' . print_r($lang['iso_code'], 1),
                                                     'syncdata'
                                                 );
                                                 // Si el valor de la característica del producto es nulo,
@@ -3847,106 +3932,51 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                     sprintf(
                                                         'DELETE FROM ' . $this->feature_product_table .
                                                         ' WHERE id_feature = "%s" and id_product = "%s" 
-                                                        and id_feature_value = "%s"',
+                                                        AND id_feature_value = "%s"',
                                                         $id_feature,
                                                         $id_product,
                                                         $id_feature_value
                                                     )
                                                 );
                                             }
-                                        }
-                                    } catch (Exception $e) {
-                                        $this->debbug(
-                                            '## Error. ' . $occurence . ' save Feature->' . print_r(
-                                                $e->getMessage(),
-                                                1
-                                            ),
-                                            'syncdata'
-                                        );
-                                    }
-                                } else {
-                                    $this->debbug(
-                                        'It is not a custom value  ' . print_r($featureValue->value, 1),
-                                        'syncdata'
-                                    );
-
-                                    if ($count_values == 0) {
-
-
-                                        /**
-                                         * This value has not been found in any of the languages we will
-                                         * verify if the product exists and if it is not selected
-                                         */
-
-                                        $feature_value_exist = Db::getInstance()->executeS(
-                                            sprintf(
-                                                'SELECT id_feature_value FROM ' . $this->feature_product_table .
-                                                ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
-                                                AND id_feature_value = "%s" ',
+                                        } else {
+                                            $id_feature_value_update = $this->searchFeatureValue(
                                                 $id_feature,
-                                                $id_product,
-                                                $id_feature_value
-                                            )
-                                        );
+                                                null,
+                                                $values_for_process
+                                            );// $id_product
 
-                                        if (empty($feature_value_exist)) {
-                                            $this->debbug(
-                                                'Value is null removing the feature from this product ->' . print_r(
-                                                    $featureValue->value,
-                                                    1
-                                                ) . ' lg_code -> ' . print_r($lang['iso_code'], 1),
-                                                'syncdata'
-                                            );
-                                            // Si el valor de la característica del producto es nulo,
-                                            //eliminamos la relación.
-                                            Db::getInstance()->execute(
-                                                sprintf(
-                                                    'DELETE FROM ' . $this->feature_product_table .
-                                                    ' WHERE id_feature = "%s" and id_product = "%s" 
-                                                    AND id_feature_value = "%s"',
-                                                    $id_feature,
-                                                    $id_product,
-                                                    $id_feature_value
-                                                )
-                                            );
-                                        }
-                                    } else {
-                                        $id_feature_value_update = $this->searchFeatureValue(
-                                            $id_feature,
-                                            null,
-                                            $values_for_process
-                                        );// $id_product
-
-                                        if ($id_feature_value_update != 0) {
-                                            $this->debbug(
-                                                'Update value ' . print_r(
-                                                    $id_feature,
-                                                    1
-                                                ) . ' value->' . $value . ' id_product ->' . $id_product .
-                                                ' lg_code -> ' . print_r(
-                                                    $lang['iso_code'],
-                                                    1
-                                                ),
-                                                'syncdata'
-                                            );
-                                            try {
-                                                Db::getInstance()->execute(
-                                                    sprintf(
-                                                        'UPDATE ' . $this->feature_product_table .
-                                                        ' SET id_feature_value = "%s" WHERE id_feature = "%s" 
-                                                        AND id_product = "%s" AND id_feature_value = "%s"',
-                                                        $id_feature_value_update,
-                                                        $id_feature,
-                                                        $id_product,
-                                                        $id_feature_value
-                                                    )
-                                                );
-                                            } catch (Exception $e) {
+                                            if ($id_feature_value_update != 0) {
                                                 $this->debbug(
-                                                    '## Error. ' . $occurence . ' Updating feature value->'
-                                                    . $e->getMessage(),
+                                                    'Update value ' . print_r(
+                                                        $id_feature,
+                                                        1
+                                                    ) . ' value->' . $value . ' id_product ->' . $id_product .
+                                                    ' lg_code -> ' . print_r(
+                                                        $lang['iso_code'],
+                                                        1
+                                                    ),
                                                     'syncdata'
                                                 );
+                                                try {
+                                                    Db::getInstance()->execute(
+                                                        sprintf(
+                                                            'UPDATE ' . $this->feature_product_table .
+                                                            ' SET id_feature_value = "%s" WHERE id_feature = "%s" 
+                                                            AND id_product = "%s" AND id_feature_value = "%s"',
+                                                            $id_feature_value_update,
+                                                            $id_feature,
+                                                            $id_product,
+                                                            $id_feature_value
+                                                        )
+                                                    );
+                                                } catch (Exception $e) {
+                                                    $this->debbug(
+                                                        '## Error. ' . $occurence . ' Updating feature value->'
+                                                         . $e->getMessage(),
+                                                        'syncdata'
+                                                    );
+                                                }
                                             }
                                         }
                                     }
@@ -3991,6 +4021,9 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                     'Entering by $feature_name_index_search->' . print_r(
                                                         $feature_name_index_search,
                                                         1
+                                                    ).' value->'.print_r(
+                                                        $product['data'][$feature_name_index_search],
+                                                        1
                                                     ),
                                                     'syncdata'
                                                 );
@@ -3999,7 +4032,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 && !empty($product['data'][$new_name])
                                                 && !isset($schema[$new_name]['language_code'])) {
                                                 $this->debbug(
-                                                    'Entering by $new_name->' . print_r($new_name, 1),
+                                                    'Entering by $new_name->' . print_r($new_name, 1)
+                                                    .' value->'.print_r($product['data'][$new_name], 1),
                                                     'syncdata'
                                                 );
                                                 $feature_name_index = $new_name;
@@ -4010,26 +4044,30 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                     'Entering by $sanitized_name_index_search->' . print_r(
                                                         $sanitized_name_index_search,
                                                         1
-                                                    ),
+                                                    ).' value ->' .
+                                                    print_r($product['data'][$sanitized_name_index_search], 1),
                                                     'syncdata'
                                                 );
                                             } elseif (isset($product['data'][$sanitized_name_index_search_languae])
                                                 && !empty($product['data'][$sanitized_name_index_search_languae])) {
                                                 $this->debbug(
-                                                    'Entering by $sanitized_name_index_search_languae->' . print_r(
+                                                    'Entering by $sanitized_name_index_search_languae->' .
+                                                    print_r(
                                                         $sanitized_name_index_search_languae,
                                                         1
-                                                    ),
+                                                    ).' value ->'.
+                                                    print_r($product['data'][$sanitized_name_index_search_languae], 1),
                                                     'syncdata'
                                                 );
-                                                $feature_name_index = $sanitized_name_index_search;
+                                                $feature_name_index = $sanitized_name_index_search_languae;
                                             } elseif (isset($product['data'][$sanitized_ant_version])
                                                 && !empty($product['data'][$sanitized_ant_version])) {
                                                 $this->debbug(
                                                     'Entering by $sanitized_ant_version->' . print_r(
                                                         $sanitized_ant_version,
                                                         1
-                                                    ),
+                                                    ).' value ->'.
+                                                    print_r($product['data'][$sanitized_ant_version], 1),
                                                     'syncdata'
                                                 );
                                                 $feature_name_index = $sanitized_ant_version;
@@ -4038,32 +4076,17 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 $schema[$sanitized_ant_version_space]['language_code'] ==
                                                 $lang_sub['iso_code']) {
                                                 $this->debbug(
-                                                    'Entering by $sanitized_ant_version_space->' . print_r(
+                                                    'Entering by $sanitized_ant_version_space->' .
+                                                    print_r(
                                                         $sanitized_ant_version_space,
                                                         1
-                                                    ),
+                                                    ).' value ->'.
+                                                    print_r($product['data'][$sanitized_ant_version_space], 1),
                                                     'syncdata'
                                                 );
                                                 $feature_name_index = $sanitized_ant_version_space;
                                             } else {
                                                 continue;
-                                            }
-
-                                            if (isset($product['data'][$feature_name_index]) &&
-                                                is_array($product['data'][$feature_name_index])) {
-                                                $value = implode(',', $product['data'][$feature_name_index]);
-                                            } else {
-                                                if (isset($product['data'][$feature_name_index])) {
-                                                    $value = $product['data'][$feature_name_index];
-                                                } else {
-                                                    $value = '';
-                                                }
-                                            }
-
-                                            $value = $this->slValidateCatalogName($value);
-
-                                            if (Tools::strlen($value) > 255) {
-                                                $value = Tools::substr($value, 0, 250);
                                             }
                                         } catch (Exception $e) {
                                             $this->debbug(
@@ -4075,93 +4098,147 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 'syncdata'
                                             );
                                         }
-                                        if ((is_string($value) && $value == '') || $value == null
-                                            || (is_numeric(
-                                                $value
-                                            )
-                                                && $value == 0)
-                                        ) {
+                                        $this->debbug(
+                                            'Before check array of this Language->' . print_r(
+                                                $feature_name_index,
+                                                1
+                                            ).' id_lang ->'.print_r($lang_sub['id_lang'], 1),
+                                            'syncdata'
+                                        );
+                                        if (isset($product['data'][$feature_name_index]) &&
+                                            is_array($product['data'][$feature_name_index])) {
+                                            $values_arr =  $product['data'][$feature_name_index];
+                                        } else {
+                                            if (isset($product['data'][$feature_name_index])) {
+                                                $explode = explode(',', $product['data'][$feature_name_index]);
+                                                $values_arr = $explode;
+                                            } else {
+                                                $this->debbug(
+                                                    'array is empty '.$feature_name_index.' ->' . print_r(
+                                                        (isset($product['data'][$feature_name_index]) ?
+                                                            $product['data'][$feature_name_index]:'empty'),
+                                                        1
+                                                    ).' id_lang ->'.print_r($lang_sub['id_lang'], 1),
+                                                    'syncdata'
+                                                );
+                                                $values_arr = array();
+                                            }
+                                        }
+                                        $this->debbug(
+                                            'after check values in this language->' . print_r(
+                                                $feature_name_index,
+                                                1
+                                            ).' id_lang ->'.print_r($lang_sub['id_lang'], 1)
+                                            .' value->'.print_r($values_arr, 1),
+                                            'syncdata'
+                                        );
+
+                                        foreach ($values_arr as $value) {
                                             $this->debbug(
-                                                'Value of ' . $feature_name_index . ' is empty, jumping to another
-                                                 feature ->' . print_r(
+                                                'Check value->' . print_r(
                                                     $value,
                                                     1
-                                                ),
+                                                ).' id_lang ->'.print_r($lang_sub['id_lang'], 1),
                                                 'syncdata'
                                             );
-                                            //No se puede dejar en blanco un valor custom, se auto-rellena.
-                                            // Podría ser un espacio, pero seguiría mostrando la
-                                            // característica en el front.
-                                            continue;
-                                        }
 
-                                        if (!empty($value)) {
-                                            $values_for_process[$lang_sub['id_lang']] = $value;
-                                            $count_values++;
-                                        }
+                                            $value = $this->slValidateCatalogName($value);
 
-                                        try {
-                                            $id_feature_value = $this->searchFeatureValue(
-                                                $id_feature,
-                                                $id_product,
-                                                $values_for_process
-                                            );
-                                        } catch (Exception $e) {
-                                            $this->debbug(
-                                                '## Error. ' . $occurence . ' In existing feature
-                                                 searchFeatureValue. ->' . $e->getMessage() . ' line->' . print_r(
-                                                    $e->getLine(),
-                                                    1
-                                                ) . ' $id_feature->' . print_r(
-                                                    $id_feature,
-                                                    1
-                                                ) . ' $id_product->' . print_r(
-                                                    $id_product,
-                                                    1
-                                                ) . ' $values_for_process->' . print_r($values_for_process, 1),
-                                                'syncdata'
-                                            );
-                                        }
+                                            if (Tools::strlen($value) > 255) {
+                                                $value = Tools::substr($value, 0, 250);
+                                            }
 
-                                        if ($id_feature_value != 0) {
-                                            $features_founded[] = $id_feature_value;
+
+                                            if ((is_string($value) && $value == '') || $value == null
+                                                || (is_numeric(
+                                                    $value
+                                                )
+                                                    && $value == 0)
+                                            ) {
+                                                $this->debbug(
+                                                    'Value of ' . $feature_name_index . ' is empty, jumping to another
+                                                     feature ->' . print_r(
+                                                        $value,
+                                                        1
+                                                    ),
+                                                    'syncdata'
+                                                );
+                                                //No se puede dejar en blanco un valor custom, se auto-rellena.
+                                                // Podría ser un espacio, pero seguiría mostrando la
+                                                // característica en el front.
+                                                continue;
+                                            }
+
+                                            if (!empty($value)) {
+                                                $values_for_process[$lang_sub['id_lang']] = $value;
+                                                $count_values++;
+                                            }
 
                                             try {
-                                                $feature_value_exist = Db::getInstance()->executeS(
-                                                    sprintf(
-                                                        'SELECT id_feature_value FROM ' .
-                                                        $this->feature_product_table .
-                                                        ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
-                                                        AND id_feature_value = "%s" ',
-                                                        $id_feature,
-                                                        $id_product,
-                                                        $id_feature_value
-                                                    )
+                                                $id_feature_value = $this->searchFeatureValue(
+                                                    $id_feature,
+                                                    $id_product,
+                                                    $values_for_process
                                                 );
+                                            } catch (Exception $e) {
+                                                $this->debbug(
+                                                    '## Error. ' . $occurence . ' In existing feature
+                                                     searchFeatureValue. ->' . $e->getMessage() . ' line->' . print_r(
+                                                        $e->getLine(),
+                                                        1
+                                                    ) . ' $id_feature->' . print_r(
+                                                        $id_feature,
+                                                        1
+                                                    ) . ' $id_product->' . print_r(
+                                                        $id_product,
+                                                        1
+                                                    ) . ' $values_for_process->' . print_r($values_for_process, 1),
+                                                    'syncdata'
+                                                );
+                                            }
 
-                                                if (empty($feature_value_exist)) {
-                                                    Db::getInstance()->execute(
+                                            if ($id_feature_value != 0) {
+                                                $features_founded[] = $id_feature_value;
+
+                                                try {
+                                                    $feature_value_exist = Db::getInstance()->executeS(
                                                         sprintf(
-                                                            'INSERT INTO ' . $this->feature_product_table .
-                                                            '(id_feature, id_product, id_feature_value)
-                                                             VALUES("%s", "%s", "%s")',
+                                                            'SELECT id_feature_value FROM ' .
+                                                            $this->feature_product_table .
+                                                            ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
+                                                            AND id_feature_value = "%s" ',
                                                             $id_feature,
                                                             $id_product,
                                                             $id_feature_value
                                                         )
                                                     );
+
+                                                    if (empty($feature_value_exist)) {
+                                                        Db::getInstance()->execute(
+                                                            sprintf(
+                                                                'INSERT INTO ' . $this->feature_product_table .
+                                                                '(id_feature, id_product, id_feature_value)
+                                                                 VALUES("%s", "%s", "%s")',
+                                                                $id_feature,
+                                                                $id_product,
+                                                                $id_feature_value
+                                                            )
+                                                        );
+                                                    }
+                                                } catch (Exception $e) {
+                                                    $this->debbug(
+                                                        '## Error. ' . $occurence . ' Inserting 
+                                                        feature value ->' . $e->getMessage(),
+                                                        'syncdata'
+                                                    );
                                                 }
-                                            } catch (Exception $e) {
-                                                $this->debbug(
-                                                    '## Error. ' . $occurence . ' Inserting 
-                                                    feature value ->' . $e->getMessage(),
-                                                    'syncdata'
-                                                );
                                             }
                                         }
                                     } catch (Exception $e) {
                                         $this->debbug(
-                                            '## Error. ' . $occurence . ' In existing feature ' . $e->getMessage(),
+                                            '## Error. ' . $occurence . ' In existing feature ' . $e->getMessage() .
+                                            ' line->' . $e->getLine() .
+                                            ' trace->' . print_r($e->getTrace(), 1),
                                             'syncdata'
                                         );
                                     }
@@ -4199,7 +4276,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
         } catch (Exception $e) {
             $this->debbug(
                 '## Error. ' . $occurence . ' Recognizing existing feature.  problem found->' . print_r(
-                    $e->getMessage(),
+                    $e->getMessage() . ' line->' . $e->getLine(),
                     1
                 ),
                 'syncdata'
@@ -4319,12 +4396,11 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                         $new_feature->add();
 
                         $this->debbug(
-                            'After saving new id of this element feature ->' . print_r($features_founded, 1),
+                            'After saving new id of this element  feature_id ->' . print_r($new_feature->id, 1),
                             'syncdata'
                         );
                     } catch (Exception $e) {
                         unset($product['data'][$first_index_name]);
-
 
                         $this->debbug(
                             '## Error. ' . $occurence . ' Saving new Feature  ->' . $first_index_name .
@@ -4342,13 +4418,12 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                     );
                     if (isset($schema[$first_index_name]['language_code'])) {
                         $this->debbug('This is from multi-language  ->' . print_r($features_founded, 1), 'syncdata');
-
                         $prepare_values_feature = array();
                         $basename = $schema[$first_index_name]['basename'];
                         foreach ($schema as $field_name => $values_schema) {
                             $this->debbug(
-                                'Passing the values ' . $basename . ' -> ' . print_r(
-                                    $product['data'][$field_name],
+                                'Passing the values ' . $basename . ' search fieldname ->'.$field_name.' -> ' . print_r(
+                                    (isset($product['data'][$field_name]) ? $product['data'][$field_name] : 'empty'),
                                     1
                                 ),
                                 'syncdata'
@@ -4358,7 +4433,6 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 foreach ($this->shop_languages as $lang_sub) {
                                     if ($lang_sub['iso_code'] == $values_schema['language_code']) {
                                         $prepare_values_feature[$lang_sub['id_lang']] = $product['data'][$field_name];
-
                                         break;
                                     }
                                 }
@@ -4376,52 +4450,75 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                         }
 
                         if (count($prepare_values_feature)) {
-                            $id_feature_value = $this->searchFeatureValue(
-                                $new_feature->id,
-                                null,
-                                $prepare_values_feature
-                            ); // $id_product
-                            $features_founded[] = $id_feature_value;
-                            $this->debbug(
-                                'After searchFeature $id_feature_value->' .
-                                $id_feature_value . '  Value->' . print_r(
-                                    $prepare_values_feature,
-                                    1
-                                ) . ' id_product ->' . $id_product,
-                                'syncdata'
-                            );
+                            $count = 0;
+                            $stat = 0;
+                            foreach ($prepare_values_feature as $key_line => $lines) {
+                                if (is_array($lines)) {
+                                    $values_arr =  $lines;
+                                } else {
+                                    $explode = explode(',', $lines);
+                                    $values_arr = $explode;
+                                }
+                                if ($count < count($values_arr)) {
+                                    $count = count($values_arr);
+                                }
+                                $prepare_values_feature[$key_line] = $values_arr;
+                            }
 
-                            if ($id_feature_value != 0) {
-                                try {
-                                    $feature_value_exist = Db::getInstance()->executeS(
-                                        sprintf(
-                                            'SELECT id_feature_value FROM ' . $this->feature_product_table .
-                                            ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
-                                            AND id_feature_value = "%s"',
-                                            $new_feature->id,
-                                            $id_product,
-                                            $id_feature_value
-                                        )
-                                    );
+                            for (; $stat < $count; $stat++) {
+                                $filtered = array();
+                                foreach ($prepare_values_feature as $id_lang => $line) { //filter array level
+                                    $filtered[$id_lang] = $line[$stat];
+                                }
 
-                                    if (empty($feature_value_exist)) {
-                                        Db::getInstance()->execute(
+                                $id_feature_value = $this->searchFeatureValue(
+                                    $new_feature->id,
+                                    null,
+                                    $filtered
+                                ); // $id_product
+
+                                $features_founded[] = $id_feature_value;
+                                $this->debbug(
+                                    'After searchFeature $id_feature_value->' .
+                                    $id_feature_value . '  Value->' . print_r(
+                                        $filtered,
+                                        1
+                                    ) . ' id_product ->' . $id_product,
+                                    'syncdata'
+                                );
+
+                                if ($id_feature_value != 0) {
+                                    try {
+                                        $feature_value_exist = Db::getInstance()->executeS(
                                             sprintf(
-                                                'INSERT INTO ' . $this->feature_product_table .
-                                                '(id_feature, id_product, id_feature_value)
-                                                 VALUES ("%s", "%s", "%s")',
+                                                'SELECT id_feature_value FROM ' . $this->feature_product_table .
+                                                ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
+                                            AND id_feature_value = "%s"',
                                                 $new_feature->id,
                                                 $id_product,
                                                 $id_feature_value
                                             )
                                         );
+
+                                        if (empty($feature_value_exist)) {
+                                            Db::getInstance()->execute(
+                                                sprintf(
+                                                    'INSERT INTO ' . $this->feature_product_table .
+                                                    '(id_feature, id_product, id_feature_value)
+                                                 VALUES ("%s", "%s", "%s")',
+                                                    $new_feature->id,
+                                                    $id_product,
+                                                    $id_feature_value
+                                                )
+                                            );
+                                        }
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. ' . $occurence . ' Inserting feature value in '.
+                                            'unrecognized with another language  ->' . $e->getMessage(),
+                                            'syncdata'
+                                        );
                                     }
-                                } catch (Exception $e) {
-                                    $this->debbug(
-                                        '## Error. ' . $occurence . ' Inserting feature value in '.
-                                        'unrecognized with another language  ->' . $e->getMessage(),
-                                        'syncdata'
-                                    );
                                 }
                             }
                         }
@@ -4461,7 +4558,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             if ($id_feature_value != 0) {
                                 $this->debbug(
                                     'Value returned when inserting in products with table id_product ->'
-                                    . $id_product . ' $this->defaultLanguage ',
+                                    . $id_product . ' $id_feature_value-> '.print_r($id_feature_value, 1),
                                     'syncdata'
                                 );
                                 try {
@@ -4476,6 +4573,12 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                         )
                                     );
 
+                                    $this->debbug(
+                                        'After select id_product ->'
+                                        . $id_product . ' $id_feature_value-> '.print_r($feature_value_exist, 1),
+                                        'syncdata'
+                                    );
+
                                     if (empty($feature_value_exist)) {
                                         Db::getInstance()->execute(
                                             sprintf(
@@ -4488,6 +4591,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             )
                                         );
                                     }
+                                    $features_founded[] = $id_feature_value;
                                 } catch (Exception $e) {
                                     $this->debbug(
                                         '## Error. ' . $occurence . ' The value of the insert function is not recognized
@@ -4509,7 +4613,6 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                     unset($product['data'][$first_index_name]);
                 } while (count($product['data']) > 0);
-
 
                 Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
             }
@@ -4603,7 +4706,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
 
                 if (count($feature_values_existing) > 0) {
                     foreach ($feature_values_existing as $feature_value_existing) {
-                        if ($value == $feature_value_existing['value']) {
+                        if (trim($value) == $feature_value_existing['value']) {
                             $this->debbug(
                                 'Feature found, returning id $feature_value_existing ->' . print_r(
                                     $feature_value_existing,
@@ -4628,15 +4731,13 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             );
         }
 
-        $value_to_add = '';
-
         if (is_array($values) && !empty($values)) {
-            $value_to_add = reset($values);
+            $value_to_add = trim(reset($values));
             if (is_array($value_to_add) && !empty($value_to_add)) {
-                $value_to_add = reset($value_to_add);
+                $value_to_add = trim(reset($value_to_add));
             }
         } else {
-            $value_to_add = $values;
+            $value_to_add = trim($values);
         }
 
         if ($value_to_add !== '' && !is_null($value_to_add)) {
@@ -4647,8 +4748,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                     $id_product,
                     null,
                     $this->create_new_features_as_custom
-                ); // $id_product // create default value and overwrite is after create
-                // reset($values),
+                );
             } catch (Exception $e) {
                 $this->debbug(
                     '## Error. Saving new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1),
@@ -4661,10 +4761,10 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             $feature_value = new FeatureValue($id_feature_value);
             foreach ($values as $id_language => $value) {
                 if (is_array($value) && !empty($value)) {
-                    $value = reset($value);
+                    $value = trim(reset($value));
                 }
                 if ($value !== '' && !is_null($value)) {
-                    $feature_value->value[$id_language] = $value;
+                    $feature_value->value[$id_language] = trim($value);
                 }
             }
             $feature_value->save();
