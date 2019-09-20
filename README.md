@@ -115,6 +115,16 @@ This button will help you to eliminate in bulk all the categories, products and 
  <b>light green:#90ee90</b> <p>The plugin accepts everything before "<b>:#</b>" as a name and everything after ":" as color "<b>#90ee90</b>".</p>
 </div>
 
+<div>
+<h2>Features</h2>
+<p>Version 1.7 can send features with more than one value. To separate them you can use "<b>|</b>" To create the custom type characteristics you can include in the command text "<b>:custom</b>" either with a formula or in any other way that you find convenient. To create all the features in the same way without having to send a custom command, you can edit the <b>saleslayerimport.php</b> file and edit the line that says:
+
+```php    
+     public $ create_new_features_as_custom = false;
+``` 
+
+   and change the value to <b>true</b>.</p>
+</div>
 
 
 
