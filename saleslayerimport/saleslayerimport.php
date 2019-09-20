@@ -13,8 +13,6 @@
  * @license   License: GPLv3  License URI: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
-use PrestaShop\PrestaShop\Adapter\CoreException;
-
 defined('_PS_VERSION_') or exit;
 
 require dirname(__FILE__).DIRECTORY_SEPARATOR.'config'
@@ -227,7 +225,6 @@ class SalesLayerImport extends Module
         );
 
 
-
     /**
      * SalesLayerImport constructor.
      * @throws PrestaShopDatabaseException
@@ -243,7 +240,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.5';
+        $this->version = '1.4.6';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -264,7 +261,9 @@ class SalesLayerImport extends Module
         $this->shop_languages = Language::getLanguages(false);
         $this->smarty->assign(
             array(
-                'ajax_link' => $this->context->link->getModuleLink('saleslayerimport', 'ajax'),
+                'ajax_link' => $this->overwriteOriginDomain(
+                    $this->context->link->getModuleLink('saleslayerimport', 'ajax')
+                ),
                 'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
                 'COMPANY_NAME' => COMPANY_NAME,
                 'COMPANY_TYPE' => COMPANY_TYPE,
@@ -379,12 +378,38 @@ class SalesLayerImport extends Module
     }
 
     /**
+     * Fix ajax url in different domains
+     */
+
+    public function overwriteOriginDomain($url)
+    {
+        if (strpos($url, __PS_BASE_URI__) !== 0) {
+            $exploded = explode('/', $url);
+
+            if (Tools::strlen($exploded[3]) > 2) {
+                unset($exploded[3]);
+            }
+            $parse = parse_url(_PS_BASE_URL_);
+            $element_for_delete = array('',$parse['scheme'],$parse['host'],__PS_BASE_URI__);
+
+            foreach ($exploded as $key => $element) {
+                if (in_array($element, $element_for_delete) || in_array($key, array(0,1,2))) {
+                    unset($exploded[$key]);
+                }
+            }
+            $urlcorrect = _PS_BASE_URL_ . __PS_BASE_URI__ . implode('/', $exploded);
+        } else {
+            $urlcorrect = $url;
+        }
+        return $urlcorrect;
+    }
+
+    /**
      * Rewrite sql string convert ? to %s  and execute sprint con all values  to write secure sql
      * @param $sql
      * @param $params
      * @return mixed|void
      */
-
 
     public function writeSqlData(
         $sql,
@@ -680,6 +705,27 @@ class SalesLayerImport extends Module
     }
 
     /**
+     *
+     */
+    public function globalUrlToRunPrestashopCronJobs()
+    {
+        $contextShopID = Shop::getContextShopID();
+        Shop::setContext(Shop::CONTEXT_ALL);
+        $url = $this->context->link->getAdminLink(
+            'AdminCronJobs',
+            false
+        ) .
+               '&token=' . Configuration::getGlobalValue('CRONJOBS_EXECUTION_TOKEN');
+        if (Tools::substr($url, 0, 4) !== "http") {
+            $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+            $url = 'http://' . $default_shop->domain . $default_shop->getBaseURI() .
+                   $this->getConfiguration('ADMIN_DIR') . '/' . $url;
+        }
+        Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
+        return $url;
+    }
+
+    /**
      * Function that prepares sql to verify if a cron already exists in prestashop database with that url
      * @return array|false|mysqli_result|PDOStatement|resource|null
      * @throws PrestaShopDatabaseException
@@ -688,8 +734,8 @@ class SalesLayerImport extends Module
 
     public function testSlcronExist()
     {
-        $task_url = urlencode(
-            _PS_BASE_URL_ . _MODULE_DIR_ . 'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+        $task_url = '%' . urlencode(
+            'saleslayerimport-cron.php?token=' . Tools::substr(
                 Tools::encrypt('saleslayerimport'),
                 0,
                 10
@@ -704,12 +750,12 @@ class SalesLayerImport extends Module
 
         foreach ($task as $where_keys => $where_values) {
             $counter++;
-            $where .= ' ' . $where_keys . ' = \'' . $where_values . '\' ' . ($counter != count($task) ? ' AND ' : ' ');
+            $where .= ' ' . $where_keys . ' LIKE \'' . $where_values . '\' ' .
+                      ($counter != count($task) ? ' AND ' : ' ');
         }
 
         $query_full = 'SELECT id_cronjob,updated_at,NOW() as timeBD 
 FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
-
         return Db::getInstance()->executeS($query_full);
     }
 
@@ -1262,6 +1308,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
             $create_validation_table .= '</table>';
         }
+        $culr_link = $this->globalUrlToRunPrestashopCronJobs();
+
+
 
         $this->context->smarty->assign(
             array(
@@ -1275,12 +1324,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 'admin_attributes' => $this->context->link->getAdminLink('AdminAttributesGroups'),
                 'message' => $message,
                 'validation_table' => $create_validation_table,
-                'culr_link' =>
-                    $this->context->link->getAdminLink(
-                        'AdminCronJobs',
-                        false
-                    ) .
-                    '&token=' . Configuration::getGlobalValue('CRONJOBS_EXECUTION_TOKEN'),
+                'culr_link' => $culr_link,
             )
         );
 
@@ -1309,11 +1353,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $this->debbug('Cron jobs of Sl are working correctly.');
             } else {
                 $construct_prestashop_cron_url = '*/5 * * * *  curl "' .
-                    $this->context->link->getAdminLink(
-                        'AdminCronJobs',
-                        false
-                    ) .
-                    '&token=' . Configuration::getGlobalValue('CRONJOBS_EXECUTION_TOKEN') . '"';
+                    $this->globalUrlToRunPrestashopCronJobs() . '"';
                 $this->debbug(
                     '## Error. The activity of Prestashop cron has not been detected.' .
                     ' Last time the SL cron needed for synchronization was executed ->' . print_r(
@@ -1335,8 +1375,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $construct_prestashop_cron_url;
             }
         } else {
+            $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
             $task_url = urlencode(
-                _PS_BASE_URL_ . _MODULE_DIR_ . 'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+                'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+                'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
                     Tools::encrypt('saleslayerimport'),
                     0,
                     10
@@ -1372,8 +1414,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $day_of_week = $config_task['day_of_week'];
 
         if ($task != null && $hour != null && $day != null && $month != null && $day_of_week != null) {
-            $id_shop = 1;
-            $id_shop_group = (int)Shop::getContextShopGroupID();
+            $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+            $id_shop = $default_shop->id;
+            $id_shop_group = $default_shop->id_shop_group;
 
             $query = 'INSERT INTO ' . $this->prestashop_cron_table .
                 '(`description`, `task`, `hour`, `day`, `month`, `day_of_week`,
@@ -1560,8 +1603,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 || $force_insert)) {
             $sql_to_insert = implode(',', $this->sql_to_insert);
             try {
-                $sql_query_to_insert = 'INSERT INTO '._DB_PREFIX_.'slyr_syncdata'.
-                    ' ( sync_type, item_type, item_data, sync_params ) VALUES '.
+                $sql_query_to_insert = 'INSERT INTO '._DB_PREFIX_.'slyr_syncdata' .
+                    ' ( sync_type, item_type, item_data, sync_params ) VALUES ' .
                     $sql_to_insert;
                 $this->slConnectionQuery('insert', $sql_query_to_insert);
             } catch (Exception $e) {
@@ -2660,12 +2703,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                 if (($this->max_execution_time < $restant_seconds_for_next_sync || $force)
                     && $load[0] < $this->cpu_max_limit_for_retry_call) {
-                    $url = _PS_BASE_URL_._MODULE_DIR_.'saleslayerimport/saleslayerimport-cron.php?token='.Tools::substr(
-                        Tools::encrypt('saleslayerimport'),
-                        0,
-                        10
-                    ) .
+                    $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+                    $url = 'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+                        'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+                            Tools::encrypt('saleslayerimport'),
+                            0,
+                            10
+                        ) .
                         '&internal=1';
+
                     $this->debbug(
                         'Calling execution of this syncgronization $restant_seconds_for_next_sync->' .
                         $restant_seconds_for_next_sync . ' and time limit-> ' . $this->max_execution_time .
@@ -2683,39 +2729,40 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                          sufficient frequency for this process Or cpu is overloaded $restant_seconds_for_next_sync-> ' .
                         $restant_seconds_for_next_sync . ', time limit-> ' .
                         $this->max_execution_time . ' load_cpu->' . $load[0] .
-                        ' cpu limit stop config ->'.$this->cpu_max_limit_for_retry_call,
+                        ' cpu limit stop config ->' . $this->cpu_max_limit_for_retry_call,
                         'syncdata'
                     );
                 }
             } else {
                 $this->debbug(
                     ' If another process were to be executed, it would not be complete before the other.
-                     $execution_FREQUENCY_cron->'.print_r(
+                     $execution_FREQUENCY_cron->' . print_r(
                         $execution_frequency_cron,
                         1
-                    ).'seconds, $next_sync ->'.print_r(
+                    ) . 'seconds, $next_sync ->' . print_r(
                         date('d-m-Y H:i:s', $next_sync),
                         1
-                    ).' $if_start_now terminate at->'.print_r(date('d-m-Y H:i:s', $if_start_now), 1),
+                    ) . ' $if_start_now terminate at->' . print_r(date('d-m-Y H:i:s', $if_start_now), 1),
                     'syncdata'
                 );
             }
         } else {
             if ($force) {
                 $this->debbug('Is a force retry call', 'syncdata');
-                $url = _PS_BASE_URL_._MODULE_DIR_.'saleslayerimport/saleslayerimport-cron.php?token=' .
-                    Tools::substr(
-                        Tools::encrypt('saleslayerimport'),
-                        0,
-                        10
-                    ) .
-                    '&internal=1';
+                $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+                $url = 'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+                       'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+                           Tools::encrypt('saleslayerimport'),
+                           0,
+                           10
+                       ) .
+                       '&internal=1';
                 $this->debbug(
                     'Calling execution of this synchronization  and time limit-> ' .
-                    $this->max_execution_time.' force ->'.print_r(
+                    $this->max_execution_time . ' force ->' . print_r(
                         $force,
                         1
-                    ).'Call RETRY to '.$url,
+                    ) . 'Call RETRY to ' . $url,
                     'syncdata'
                 );
 
@@ -2724,10 +2771,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 return true;
             } else {
                 $this->debbug(
-                    'Else The call will not be made -> '.print_r(
+                    'Else The call will not be made -> ' . print_r(
                         $result,
                         1
-                    ).' registers for process ->'.print_r(
+                    ) . ' registers for process ->' . print_r(
                         $register_forProcess,
                         1
                     ),
@@ -3360,7 +3407,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $before_start_status_indexer = $this->getConfiguration('STAT_INDEXER');
         if ($before_start_status_indexer) {
             Configuration::set('PS_SEARCH_INDEXATION', $before_start_status_indexer);
-            $this->debbug('Indexer Update ->'.print_r($before_start_status_indexer, 1), 'syncdata');
+            $this->debbug('Indexer Update ->' .
+                          print_r($before_start_status_indexer, 1), 'syncdata');
         }
         $this->callIndexer();
     }
@@ -3373,15 +3421,18 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     private function callIndexer()
     {
         $admin_folder = $this->getConfiguration('ADMIN_DIR');
-        $this->debbug('admin index directory ->'.print_r($admin_folder, 1), 'syncdata');
-        $adminurl = _PS_BASE_URL_ . __PS_BASE_URI__ . $admin_folder . '/searchcron.php?full=1&token=' .
+        $contextShopID = Shop::getContextShopID();
+        Shop::setContext(Shop::CONTEXT_ALL);
+        $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+        $adminurl = 'http://' . $default_shop->domain . $default_shop->getBaseURI() .
+                    $admin_folder . '/searchcron.php?full=1&token=' .
             Tools::substr(
                 _COOKIE_KEY_,
                 34,
                 8
             );
-
-        $this->debbug('Calling indexer to start reindex all ->'.print_r($adminurl, 1), 'syncdata');
+        Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
+        $this->debbug('Calling indexer to start reindex all ', 'syncdata');
         $this->urlSendCustomJson('GET', $adminurl, null, false);
     }
 
@@ -3397,9 +3448,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         );
 
         if (!empty($current_flag)) {
-            $sl_query_flag_to_update = "UPDATE ".$this->saleslayer_syncdata_flag_table.
-                " SET syncdata_pid = 0".
-                " WHERE id = ".$current_flag[0]['id'];
+            $sl_query_flag_to_update = "UPDATE " . $this->saleslayer_syncdata_flag_table .
+                " SET syncdata_pid = 0" .
+                " WHERE id = " . $current_flag[0]['id'];
             $this->slConnectionQuery('-', $sl_query_flag_to_update);
         }
     }

@@ -1212,9 +1212,10 @@ class SalesLayerUpdater extends SalesLayerConn
                                             if (is_array($value)) {
                                                 $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')
                                                     . "`{$fields_conn[$d_field]}` = '" .
-                                                    ($schema[$d_field]['type'] == 'list' ? addslashes(
-                                                        implode(',', $value)
-                                                    ) : json_encode($value)) . "'";
+                                                    (isset($schema[$d_field]['type']) &&
+                                                     $schema[$d_field]['type'] == 'list' ? addslashes(
+                                                         implode(',', $value)
+                                                     ) : json_encode($value)) . "'";
                                             } else {
                                                 $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')
                                                     . "`{$fields_conn[$d_field]}` = " .

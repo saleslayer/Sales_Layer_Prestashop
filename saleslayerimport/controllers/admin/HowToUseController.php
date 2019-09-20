@@ -114,6 +114,8 @@ class HowToUseController extends ModuleAdminController
             $create_validation_table .= '</table>';
         }
 
+        $culr_link = $SLimport->globalUrlToRunPrestashopCronJobs();
+
 
         $this->context->smarty->assign(
             array(
@@ -125,10 +127,7 @@ class HowToUseController extends ModuleAdminController
                 'link_diagnostics' => $this->context->link->getAdminLink('AdminDiagtools'),
                 'plugin_name' => Tools::ucfirst($SLimport->name),
                 'admin_attributes' => $this->context->link->getAdminLink('AdminAttributesGroups'),
-                'culr_link' => $this->context->link->getAdminLink(
-                    'AdminCronJobs',
-                    false
-                ) . '&token=' . Configuration::getGlobalValue('CRONJOBS_EXECUTION_TOKEN'),
+                'culr_link' =>  $culr_link,
                 'message' => $message,
                 'validation_table' => $create_validation_table,
             )

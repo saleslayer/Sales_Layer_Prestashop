@@ -224,9 +224,16 @@ to stop all synchronization stored." onclick="update_command(this);" type="butto
 
         $this->context->smarty->assign(
             array(
-                'ajax_link' => $this->context->link->getModuleLink('saleslayerimport', 'ajax'),
+                'ajax_link' => $this->SLimport->overwriteOriginDomain(
+                    $this->context->link->getModuleLink('saleslayerimport', 'ajax')
+                ),
                 'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
-                'diag_link' => $this->context->link->getModuleLink('saleslayerimport', 'diagtools'),
+                'diag_link' => $this->SLimport->overwriteOriginDomain(
+                    $this->context->link->getModuleLink(
+                        'saleslayerimport',
+                        'diagtools'
+                    )
+                ),
                 'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                 'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/img/',
                 'SLY_TABLE' => $table,

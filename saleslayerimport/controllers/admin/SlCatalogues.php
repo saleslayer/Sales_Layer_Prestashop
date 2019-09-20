@@ -432,13 +432,13 @@ class SlCatalogues extends SalesLayerPimUpdate
                     } else {
                         if (isset($catalog['data'][$section_description_index])) {
                             $meta_description = strip_tags($catalog['data'][$section_description_index]);
-                            if (Tools::strlen($meta_description) > 400) {
-                                $meta_description = Tools::substr($meta_description, 0, 399);
-                            }
                         }
                     }
 
                     if ($meta_description != '') {
+                        if (Tools::strlen($meta_description) > 255) {
+                            $meta_description = Tools::substr($meta_description, 0, 255);
+                        }
                         $cat->meta_description[$lang['id_lang']] = $meta_description;
                     }
 

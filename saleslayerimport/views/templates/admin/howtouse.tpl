@@ -31,12 +31,11 @@
     <div class="col-lg-8 col-md-8 col-xs-12 pad-10" id="slh1selector">
       <h1>Prestashop plugin for import catalogues and products.</h1>
     </div>
-
   </div>
   <div class="row">
     <div class="col-xs-12 pad-10 mar-top-btt-40 text-center">
       <span class="pull-left sy-done" id="sllisted"></span><span class="pull-left" id="slwarnings"></span><span
-        class="sy-error pad-10" id="slerrors">{$message|escape:'htmlall':'UTF-8'}</span>
+        class="sy-error pad-10" id="slerrors">{$message|escape:"quotes"}</span>
     </div>
   </div>
   <div class="row mar-top-btt-40">
