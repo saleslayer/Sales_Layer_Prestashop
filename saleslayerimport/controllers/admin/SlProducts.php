@@ -814,7 +814,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                     if ($product_category_default_index != ''
                         && isset($product['data'][$product_category_default_index])) {
-                        $category_default_value = 0;
+                        $category_default_value = '';
 
                         if (is_array(
                             $product['data'][$product_category_default_index]
@@ -2542,7 +2542,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 ) {
                                                     $image_cover->legend[$id_lang_multi] = $name_of_product;
                                                     $this->debbug(
-                                                        'Recording a new image alt attribute, '.
+                                                        'Recording a new image alt attribute, ' .
                                                          'you need to update this image information ->' .
                                                         print_r(
                                                             $image_cover->legend[$id_lang],
@@ -2554,8 +2554,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                     );
                                                 } else {
                                                     $this->debbug(
-                                                        'The image is the same, the alt attribute of the image '.
-                                                         'is the same. It is not necessary to update the information '.
+                                                        'The image is the same, the alt attribute of the image ' .
+                                                         'is the same. It is not necessary to update the information ' .
                                                          'of this image ->' .
                                                         print_r(
                                                             $image_cover->legend[$id_lang],

@@ -1195,7 +1195,7 @@ class SlVariants extends SalesLayerPimUpdate
         try {
             if (empty($multilanguage)) {
                 $left_group_lang = " = '" . $currentLanguage . "'";
-                $left_group_value = " al.`name` LIKE '" . $attributeValue . "'";
+                $left_group_value = " al.`name` LIKE '" . pSQL($attributeValue) . "'";
             } else {
                 $left_group_lang = " IN('" . implode("','", array_keys($multilanguage)) . "') ";
 
@@ -1206,15 +1206,15 @@ class SlVariants extends SalesLayerPimUpdate
                     $count_end = count($multilanguage);
                     foreach ($multilanguage as $col_like) {
                         if ($count_end == $counter) {
-                            $left_group_value .= " al.`name` LIKE '" . $col_like . "' ";
+                            $left_group_value .= " al.`name` LIKE '" . pSQL($col_like) . "' ";
                         } else {
-                            $left_group_value .= " al.`name` LIKE '" . $col_like . "'  OR ";
+                            $left_group_value .= " al.`name` LIKE '" . pSQL($col_like) . "'  OR ";
                         }
                         $counter++;
                     }
                     $left_group_value .= ' ) ';
                 } else {
-                    $left_group_value = " al.`name` LIKE '" . reset($multilanguage) . "' ";
+                    $left_group_value = " al.`name` LIKE '" . pSQL(reset($multilanguage)) . "' ";
                 }
             }
 
@@ -1229,7 +1229,7 @@ class SlVariants extends SalesLayerPimUpdate
                 'LEFT JOIN ' . $this->attribute_lang_table . ' al ' .
                 '	ON (a.`id_attribute` = al.`id_attribute` AND al.`id_lang` ' . $left_group_lang . ') ' .
                 "WHERE  ag.`id_attribute_group` = '" . $attribute_group_id . "'  AND " . $left_group_value . '   ' .
-                ' GROUP BY al.`id_attribute` ' .
+                ' GROUP BY al.`id_attribute` , agl.`name`, a.`position`' .
                 'ORDER BY agl.`name` ASC, a.`position` ASC';
 
             $isAttribute = Db::getInstance()->executeS($schemaAttribute);
