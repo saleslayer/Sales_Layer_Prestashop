@@ -959,7 +959,7 @@ class SlVariants extends SalesLayerPimUpdate
                 }
 
                 try {
-                    if (isset($comb->low_stock_alert) && $comb->low_stock_alert == null) {
+                    if (!isset($comb->low_stock_alert) || $comb->low_stock_alert == null) {
                         $comb->low_stock_alert = false;
                     }
 
