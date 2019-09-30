@@ -2108,8 +2108,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function syncDataConnectors()
     {
-        error_reporting(1);
-        error_reporting(E_ALL);
 
         $processed_delete = array();
         $this->sl_catalogues = new SlCatalogues();

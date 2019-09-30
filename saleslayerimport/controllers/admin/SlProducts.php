@@ -1262,7 +1262,18 @@ class SlProducts extends SalesLayerPimUpdate
 
                 if (isset($product['data']['product_attachment'])) {
                     if (is_array($product['data']['product_attachment'])) {
-                        $attachments_files = $product['data']['product_attachment'];
+                        $attachments_files = array();
+                        foreach ($product['data']['product_attachment'] as $file) {
+                            if (isset($file['FILE'])) {
+                                $attachments_files[] = $file['FILE'];
+                            } else {
+                                if (is_array($file)) {
+                                    $attachments_files[] = reset($file);
+                                } else {
+                                    $attachments_files[] = $file;
+                                }
+                            }
+                        }
                     } else {
                         $attachments_files = explode(',', $product['data']['product_attachment']);
                     }
@@ -2766,8 +2777,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             $languages = Language::getLanguages();
             foreach ($languages as $language) {
                 $attachment->name[$language['id_lang']] = (string) $fileReference;
-                $attachment->description[$language['id_lang']] =
-                    $mulilanguage[$language['id_lang']].' '.reset($explode);
+                if (isset($mulilanguage[$language['id_lang']])) {
+                    $attachment->description[$language['id_lang']] =
+                        $mulilanguage[$language['id_lang']].' '.reset($explode);
+                }
             }
 
             $attachment->file = sha1(urldecode($fileReference));
