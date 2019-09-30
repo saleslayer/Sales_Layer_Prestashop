@@ -985,10 +985,17 @@ class SalesLayerPimUpdate extends SalesLayerImport
     }
 
     public function downloadImageToTemp(
-        $url
+        $url,
+        $temp_dir = null
     ) {
         //  $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_import');
         $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
+
+        if ($temp_dir != null) {
+            $explode_url = explode('/', urldecode($url));
+            $tmpfile = $temp_dir . sha1(end($explode_url));
+        }
+
         if (file_exists($tmpfile)) {
             unlink($tmpfile);
         }

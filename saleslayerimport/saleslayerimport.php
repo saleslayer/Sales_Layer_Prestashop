@@ -67,6 +67,7 @@ class SalesLayerImport extends Module
     public $image_table = _DB_PREFIX_ . 'image';
     public $image_lang_table = _DB_PREFIX_ . 'image_lang';
     public $image_shop_table = _DB_PREFIX_ . 'image_shop';
+    public $attachment_table = _DB_PREFIX_ . 'attachment';
     public $pack_table = _DB_PREFIX_ . 'pack';
     public $seosa_product_labels_table = _DB_PREFIX_ . 'seosaproductlabels';
     public $seosa_product_labels_location_table = _DB_PREFIX_ . 'seosaproductlabels_location';
@@ -222,6 +223,8 @@ class SalesLayerImport extends Module
             'pack_quantity_1',
             'product_supplier_1',
             'product_supplier_reference_1',
+            'product_attachment',
+            'product_tag'
         );
 
 
@@ -240,7 +243,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.6';
+        $this->version = '1.4.7';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -272,7 +275,7 @@ class SalesLayerImport extends Module
         $this->loadDebugMode();
         $this->defaultLanguage = (int)Configuration::get('PS_LANG_DEFAULT');
 
-        if (defined('_PS_ADMIN_DIR_')) {
+        if (defined('_PS_ADMIN_DIR_')) { //save adminpanel directory for create cronjobs url
             $admin = explode('/', _PS_ADMIN_DIR_);
             $admin_folder_arr = array_slice($admin, -1);
             $admin_folder = reset($admin_folder_arr);
@@ -1057,6 +1060,18 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
             Db::getInstance()->execute(sprintf($query_alter));
         }
+
+        /*From version 1.4.7*/
+
+        $schemaSQL_PS_SL_C_I = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_attachment (
+								`file_reference` varchar(255) NOT NULL
+								 COMMENT '(Sales Layer original file attachment reference)',
+								`id_attachment` int(10) NOT NULL COMMENT '(prestashop file attachment id)',
+								`md5_attachment` varchar(128) NOT NULL COMMENT '(prestashop file md5)',
+								`ps_product_id` BIGINT COMMENT '(prestashop ps_product_id)',
+								PRIMARY KEY (`file_reference`)
+								) ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_C_I);
     }
 
     /**
@@ -1582,6 +1597,25 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     sprintf(
                         'DELETE FROM '._DB_PREFIX_.'slyr_image WHERE id_image = "%s"',
                         $ImageforDelete['id_image']
+                    )
+                );
+            }
+        }
+
+        $schemaAttachment = " SELECT sl.id_attachment FROM "._DB_PREFIX_."slyr_attachment AS sl ".
+                        " LEFT JOIN ".$this->attachment_table . ' AS pa
+            ON (pa.id_attachment = sl.id_attachment ) WHERE pa.id_attachment is null ';
+
+        $deleteAttachment = Db::getInstance()->executeS($schemaAttachment);
+
+        if (!empty($deleteAttachment)) {
+            // $this->debbug('Eliminando archivos  SLYR que ya no existen en la tabla
+            // ' query->'.print_r($deleteAttachment,1));
+            foreach ($deleteAttachment as $AttachmentforDelete) {
+                Db::getInstance()->execute(
+                    sprintf(
+                        'DELETE FROM '._DB_PREFIX_.'slyr_attachment WHERE id_attachment = "%s"',
+                        $AttachmentforDelete['id_attachment']
                     )
                 );
             }
@@ -2869,9 +2903,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         /* from version 1.3 */
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_images');
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_category_products');
-
         /* from version 1.4.0 */
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_' .$this->sl_updater->table_config);
+        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_' .
+                                   $this->sl_updater->table_config);
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_catalogue');
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_product_formats');
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_products');
@@ -2881,6 +2915,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . $this->saleslayer_syncdata_flag_table);
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_image');
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . $this->saleslayer_aditional_config);
+        /*from version 1.4.7*/
+        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_attachment');
     }
 
     /**
@@ -3212,13 +3248,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             } catch (Exception $e) {
                                 $result_update = 'item_not_updated';
                                 $this->debbug(
-                                    '## Error. Synchronizing product '.print_r(
+                                    '## Error. Synchronizing product ' . print_r(
                                         $e->getMessage(),
                                         1
-                                    ).' trace->'.print_r(
+                                    ) . ' trace->' . print_r(
                                         $e->getTrace(),
                                         1
-                                    ).' line->'.$e->getLine(),
+                                    ) . ' line->' . $e->getLine(),
                                     'syncdata'
                                 );
                             }
@@ -3226,7 +3262,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             // $result_update = $this->sync_stored_product($item_data);
                             $this->debbug(' >> Product synchronization finished << ', 'syncdata');
                             $this->debbug(
-                                '#### time_sync_stored_product: '.$item_data['sync_data']['ID'].'->'.(
+                                '#### time_sync_stored_product: ' . $item_data['sync_data']['ID'] . '->' . (
                                     microtime(
                                         1
                                     ) - $time_ini_sync_stored_product

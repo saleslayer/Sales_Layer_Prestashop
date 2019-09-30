@@ -1710,7 +1710,7 @@ class SlVariants extends SalesLayerPimUpdate
             $this->debbug(
                 '## warning Color - hex  link file does not exist for language as file->' . $language_code . '.txt' .
                 'you can create a custom one in language that you need on the route ->' .
-                _PS_MODULE_DIR_ . '/saleslayerimport/colors/',
+                _PS_MODULE_DIR_ . 'saleslayerimport/colors/',
                 'syncdata'
             );
         }

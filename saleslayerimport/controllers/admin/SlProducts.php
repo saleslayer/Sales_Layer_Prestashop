@@ -57,6 +57,7 @@ class SlProducts extends SalesLayerPimUpdate
         $shops,
         $avoid_stock_update
     ) {
+        $mulilanguage = array();
         $occurence_found = false;
         if (isset($product['data']['product_reference']) && !empty($product['data']['product_reference'])) {
             $occurence_found = true;
@@ -992,11 +993,44 @@ class SlProducts extends SalesLayerPimUpdate
                             }
                         }
                     }
+
+                    /**
+                     * Tags
+                     */
+
+                    $product_tag_index = '';
+                    $product_tag_index_index_search = 'product_tag_' . $lang['iso_code'];
+                    if (isset(
+                        $product['data'][$product_tag_index_index_search],
+                        $schema[$product_tag_index_index_search]['language_code']
+                    )
+                        && $schema[$product_tag_index_index_search]['language_code'] == $lang['iso_code']) {
+                        $product_tag_index = 'product_tag_' . $lang['iso_code'];
+                    } elseif (isset($product['data']['product_tag'])
+                              && !isset($schema['product_tag']['language_code'])) {
+                        $product_tag_index = 'product_tag';
+                    }
+
+                    if ($product_tag_index != '' && isset($product['data'][$product_tag_index])) {
+                        if (is_array($product['data'][$product_tag_index])) {
+                            $my_tags = $product['data'][$product_tag_index];
+                        } else {
+                            $my_tags = array();
+                            $explode = explode(',', $product['data'][$product_tag_index]);
+                            foreach ($explode as $values) {
+                                if (!empty($values)) {
+                                    $my_tags[] = $values;
+                                }
+                            }
+                        }
+                        $this->syncTagsSL($productObject->id, $my_tags, $lang, $shop_id);
+                    }
+
                     /**
                      *
                      * Sync images
+                     *
                      */
-
 
                     if ($this->first_sync_shop && $product_name != '') {
                         $mulilanguage = array();
@@ -1004,7 +1038,6 @@ class SlProducts extends SalesLayerPimUpdate
                         /**
                          * Search Name in another language and prepare array with ids of pestashop language ids
                          */
-
 
                         foreach ($this->shop_languages as $shop_language) {
                             $product_name_index = '';
@@ -1222,6 +1255,20 @@ class SlProducts extends SalesLayerPimUpdate
                 ) {
                     $productObject->available_date = $product['data']['product_available_date'];
                 }
+
+                /**
+                 * Attachment Files upload
+                 */
+
+                if (isset($product['data']['product_attachment'])) {
+                    if (is_array($product['data']['product_attachment'])) {
+                        $attachments_files = $product['data']['product_attachment'];
+                    } else {
+                        $attachments_files = explode(',', $product['data']['product_attachment']);
+                    }
+                    $this->syncProductAttachment($attachments_files, $productObject->id, $mulilanguage);
+                }
+
 
                 /**
                  * Customizable text field
@@ -1788,15 +1835,15 @@ class SlProducts extends SalesLayerPimUpdate
                     if ($out_of_stock != '') {
                         $out_of_stock_val = -1;
                         if (!is_numeric($out_of_stock)) {
-                            if (preg_match('~(denegar|deny|false)~i', $out_of_stock)) {
+                            if (preg_match('/(denegar|deny|false)/i', $out_of_stock)) {
                                 $out_of_stock_val = 0;
                             }
 
-                            if (preg_match('~(permitir|allow|true)~i', $out_of_stock)) {
+                            if (preg_match('/(permitir|allow|true)/i', $out_of_stock)) {
                                 $out_of_stock_val = 1;
                             }
 
-                            if (preg_match('~(defecto|default)~i', $out_of_stock)) {
+                            if (preg_match('/(defecto|default)/i', $out_of_stock)) {
                                 $out_of_stock_val = 2;
                             }
                         } else {
@@ -2112,64 +2159,90 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 }
 
 
-                if ((isset($product['data']['product_discount_1']) && $product['data']['product_discount_1'] != '')
-                    || (isset($product['data']['product_discount_2'])
-                        && $product['data']['product_discount_2'] != '')) {
+                $isset_Product_discount_1 = isset($product['data']['product_discount_1']);
+                $isset_Product_discount_2 = isset($product['data']['product_discount_2']);
+
+
+                if ($isset_Product_discount_1 || $isset_Product_discount_2) {
                     $product_discount_1_data = array();
+                    $context_store =  $shop_id;
 
-                    if ($product['data']['product_discount_1'] != '') {
-                        $product_discount_1_value = $this->discauntFormat($product['data']['product_discount_1']);
+                    /**
+                     * Check special price type for check Context store
+                     */
 
-                        if (is_numeric($product_discount_1_value) && $product_discount_1_value > 0) {
-                            $product_discount_1_data = array(
-                                'reduction' => $product_discount_1_value,
-                                'type_reduction' => 'amount',
-                                'from_quantity' => 1,
+                    if (isset($product['data']['product_discount_1_type'])) {
+                        $product_discount_1_type = '';
+
+                        if (is_array(
+                            $product['data']['product_discount_1_type']
+                        )
+                            && !empty($product['data']['product_discount_1_type'])
+                        ) {
+                            $product_discount_1_type = Tools::strtolower(
+                                trim(reset($product['data']['product_discount_1_type']))
                             );
-
-                            if (isset($product['data']['product_discount_1_type'])) {
-                                $product_discount_1_type = '';
-
-                                if (is_array(
-                                    $product['data']['product_discount_1_type']
-                                )
-                                    && !empty($product['data']['product_discount_1_type'])
-                                ) {
-                                    $product_discount_1_type = Tools::strtolower(
-                                        trim(reset($product['data']['product_discount_1_type']))
-                                    );
-                                } else {
-                                    if (!is_array(
-                                        $product['data']['product_discount_1_type']
-                                    )
-                                        && $product['data']['product_discount_1_type'] != ''
-                                    ) {
-                                        $product_discount_1_type = Tools::strtolower(
-                                            trim($product['data']['product_discount_1_type'])
-                                        );
-                                    }
-                                }
-                                unset($product['data']['product_discount_1_type']);
-                                if ($product_discount_1_type != '') {
-                                    if (in_array(
-                                        $product_discount_1_type,
-                                        array('%', 'porcentaje', 'percentage')
-                                    )) {
-                                        $product_discount_1_data['type_reduction'] = 'percentage';
-                                    }
-
-
-                                    if (in_array(
-                                        $product_discount_1_type,
-                                        array('$', 'euro', '€', 'dollar', 'amount', 'importe')
-                                    )
-                                    ) {
-                                        $product_discount_1_data['type_reduction'] = 'amount';
-                                    }
-                                }
+                        } else {
+                            if (!is_array(
+                                $product['data']['product_discount_1_type']
+                            )
+                                && $product['data']['product_discount_1_type'] != ''
+                            ) {
+                                $product_discount_1_type = Tools::strtolower(
+                                    trim($product['data']['product_discount_1_type'])
+                                );
+                            }
+                        }
+                        unset($product['data']['product_discount_1_type']);
+                        if ($product_discount_1_type != '') {
+                            $this->debbug('Data type discount 1->' .
+                                          print_r($product_discount_1_type, 1), 'syncdata');
+                            if (preg_match('/:(all|global)/i', $product_discount_1_type)) {
+                                $clear_data  = str_replace(
+                                    array( ':all', ':global' , ':GLOBAL' , ':ALL' ),
+                                    '',
+                                    $product_discount_1_type
+                                );
+                                $this->debbug('cleared value fom global shops parameter->' .
+                                              print_r($clear_data, 1), 'syncdata');
+                                $product_discount_1_type = trim($clear_data);
+                                $context_store =  0;
                             }
 
+                            if (in_array(
+                                $product_discount_1_type,
+                                array('%', 'porcentaje', 'percentage')
+                            )) {
+                                $this->debbug('Data type discount 1 is a percentage->' .
+                                              print_r($product_discount_1_type, 1), 'syncdata');
+                                $product_discount_1_data['type_reduction'] = 'percentage';
+                            }
 
+                            if (in_array(
+                                $product_discount_1_type,
+                                array('$', 'euro', '€', 'dollar', 'amount', 'importe')
+                            )
+                            ) {
+                                $this->debbug('Data type discount 1 is a amount->' .
+                                              print_r($product_discount_1_type, 1), 'syncdata');
+                                $product_discount_1_data['type_reduction'] = 'amount';
+                            }
+                        }
+                    }
+
+                    /**
+                     * Check parameters for first special price
+                     */
+
+                    if ($isset_Product_discount_1 && $product['data']['product_discount_1'] != '') {
+                        $product_discount_1_value = $this->discauntFormat($product['data']['product_discount_1']);
+                        $product_discount_1_data = array(
+                            'reduction' => $product_discount_1_value,
+                            'type_reduction' => (isset($product_discount_1_data['type_reduction']) ?
+                                $product_discount_1_data['type_reduction'] : 'amount'),
+                            'from_quantity' => 1,
+                        );
+                        if (is_numeric($product_discount_1_value) && $product_discount_1_value > 0) {
                             if (isset($product['data']['product_discount_1_quantity'])
                                 && $product['data']['product_discount_1_quantity'] != ''
                                 && is_numeric(
@@ -2178,63 +2251,95 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             ) {
                                 $product_discount_1_data['from_quantity'] =
                                     $product['data']['product_discount_1_quantity'];
+
+                                if ($product_discount_1_data['from_quantity'] == 0) {
+                                    $product_discount_1_data['from_quantity'] = 1;
+                                }
                                 unset($product['data']['product_discount_1_quantity']);
+                            } else {
+                                $product_discount_1_data['from_quantity'] = 1;
+                            }
+                            $this->debbug('Data prepared for discount 1->' .
+                                          print_r($product_discount_1_data, 1)
+                                          .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
+                        }
+                    }
+
+
+
+                    /**
+                     * check special price 2
+                     */
+
+
+
+                    $product_discount_2_data = array();
+
+                    /**
+                     * Check special price type for check context store parameter
+                     */
+                    if (isset($product['data']['product_discount_2_type'])) {
+                        $product_discount_2_type = '';
+                        if (is_array(
+                            $product['data']['product_discount_2_type']
+                        )
+                            && !empty($product['data']['product_discount_2_type'])
+                        ) {
+                            $product_discount_2_type = Tools::strtolower(
+                                trim(reset($product['data']['product_discount_2_type']))
+                            );
+                        } else {
+                            if (!is_array(
+                                $product['data']['product_discount_2_type']
+                            )
+                                && $product['data']['product_discount_2_type'] != ''
+                            ) {
+                                $product_discount_2_type = Tools::strtolower(
+                                    trim($product['data']['product_discount_2_type'])
+                                );
+                            }
+                        }
+
+                        if ($product_discount_2_type != '') {
+                            if (preg_match('/:(all|global)/i', $product_discount_2_type)) {
+                                $clear_data  = str_replace(
+                                    array( ':all', ':global' , ':GLOBAL' , ':ALL' ),
+                                    '',
+                                    $product_discount_2_type
+                                );
+                                $product_discount_2_type = trim($clear_data);
+                                $context_store =  0;
+                            }
+
+                            if (in_array(
+                                $product_discount_2_type,
+                                array('%', 'porcentaje', 'percentage')
+                            )) {
+                                $product_discount_2_data['type_reduction'] = 'percentage';
+                            }
+
+                            if (in_array(
+                                $product_discount_2_type,
+                                array('$', 'euro', '€', 'dollar', 'amount', 'importe')
+                            )
+                            ) {
+                                $product_discount_2_data['type_reduction'] = 'amount';
                             }
                         }
                     }
 
-                    $product_discount_2_data = array();
 
-                    if ($product['data']['product_discount_2'] != '') {
+                    if ($isset_Product_discount_2 && $product['data']['product_discount_2'] != '') {
                         $product_discount_2_value = $this->discauntFormat($product['data']['product_discount_2']);
 
                         if (is_numeric($product_discount_2_value) && $product_discount_2_value > 0) {
                             $product_discount_2_data = array(
                                 'reduction' => $product_discount_2_value,
-                                'type_reduction' => 'amount',
+                                'type_reduction' => (isset($product_discount_2_data['type_reduction']) ?
+                                    $product_discount_2_data['type_reduction'] : 'amount'),
                                 'from_quantity' => 1,
                             );
 
-                            if (isset($product['data']['product_discount_2_type'])) {
-                                $product_discount_2_type = '';
-
-                                if (is_array(
-                                    $product['data']['product_discount_2_type']
-                                )
-                                    && !empty($product['data']['product_discount_2_type'])
-                                ) {
-                                    $product_discount_2_type = Tools::strtolower(
-                                        trim(reset($product['data']['product_discount_2_type']))
-                                    );
-                                } else {
-                                    if (!is_array(
-                                        $product['data']['product_discount_2_type']
-                                    )
-                                        && $product['data']['product_discount_2_type'] != ''
-                                    ) {
-                                        $product_discount_2_type = Tools::strtolower(
-                                            trim($product['data']['product_discount_2_type'])
-                                        );
-                                    }
-                                }
-
-                                if ($product_discount_2_type != '') {
-                                    if (in_array(
-                                        $product_discount_2_type,
-                                        array('%', 'porcentaje', 'percentage')
-                                    )) {
-                                        $product_discount_2_data['type_reduction'] = 'percentage';
-                                    }
-
-                                    if (in_array(
-                                        $product_discount_2_type,
-                                        array('$', 'euro', '€', 'dollar', 'amount', 'importe')
-                                    )
-                                    ) {
-                                        $product_discount_2_data['type_reduction'] = 'amount';
-                                    }
-                                }
-                            }
 
                             if (isset($product['data']['product_discount_2_quantity'])
                                 && $product['data']['product_discount_2_quantity'] != ''
@@ -2244,20 +2349,33 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             ) {
                                 $product_discount_2_data['from_quantity'] =
                                     $product['data']['product_discount_2_quantity'];
+
+                                if ($product_discount_2_data['from_quantity'] == 0) {
+                                    $product_discount_2_data['from_quantity'] = 1;
+                                }
+                                unset($product_discount_2_data['from_quantity']);
+                            } else {
+                                $product_discount_2_data['from_quantity'] = 1;
                             }
                         }
                     }
+
+
+
+
+                    $this->debbug('Sync special price $context_store :' . $context_store, 'syncdata');
 
                     try {
                         $this->syncProductDiscount(
                             $product_id,
                             $product_discount_1_data,
                             $product_discount_2_data,
-                            $shop_id
+                            $context_store
                         );
                     } catch (Exception $e) {
                         $this->debbug(
-                            '## Error. ' . $occurence . ' Sync syncProductDiscount: ' . $e->getMessage(),
+                            '## Error. ' . $occurence . ' Sync syncProductDiscount: ' . $e->getMessage() .
+                            ' line-> ' . $e->getLine() . ' trace->' . print_r($e->getTrace(), 1),
                             'syncdata'
                         );
                     }
@@ -2318,6 +2436,377 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             return array('stat' => 'item_not_updated');
         }
     }
+    public function syncTagsSL($id_product, $my_tags, $lang, $idShop)
+    {
+        try {
+            $product_tags = Tag::getProductTags($id_product);
+            $this->debbug(
+                'Search for tags in several languages : ' . print_r($lang, 1) . ' from bd ->' .
+                print_r(
+                    $product_tags,
+                    1
+                ) . ' language ->' . print_r($lang['iso_code'], 1),
+                'syncdata'
+            );
+
+            $update_tag = array();
+            $delete_tag = array();
+
+            if (count($product_tags) && isset($product_tags[$lang['id_lang']])) {
+                foreach ($product_tags[$lang['id_lang']] as $saved_tags) {
+                    if (in_array($saved_tags, $my_tags, false)) {
+                        $update_tag[] = $saved_tags;
+                    } else {
+                        $delete_tag[] = $saved_tags;
+                    }
+                }
+            }
+            $this->debbug(
+                'Before array_dif: $update_tag->' . print_r($update_tag, 1) . ' $my_tags->' .
+                print_r(
+                    $my_tags,
+                    1
+                ) . ' language ->' . print_r($lang['iso_code'], 1),
+                'syncdata'
+            );
+
+            $difference = array_diff($my_tags, $update_tag);
+            if (count($difference)) {
+                $this->debbug(
+                    'adding tags  : ' . print_r($difference, 1),
+                    'syncdata'
+                );
+
+                Tag::addTags($lang['id_lang'], $id_product, $difference);
+            }
+
+            $this->debbug(
+                'add tags after add : diff ->' .
+                print_r(
+                    $difference,
+                    1
+                ) . ' language ->' . print_r($lang['iso_code'], 1),
+                'syncdata'
+            );
+            if (count($delete_tag)) {
+                $this->debbug(
+                    'Received array for delete this tags : ' . print_r($delete_tag, 1)
+                     . ' language ->' . print_r($lang['iso_code'], 1),
+                    'syncdata'
+                );
+                $editedtids = array();
+                foreach ($delete_tag as $tag_fordelete) {
+                    $tagObj = new Tag(null, $tag_fordelete, (int) $lang['id_lang']);
+                    if (Validate::isLoadedObject($tagObj)) {
+                        $editedtids[] = $tagObj->id;
+                        $count = Db::getInstance()->executeS('
+                            SELECT tg.id_tag 
+                            FROM ' . _DB_PREFIX_ . 'product_tag tg
+                            WHERE tg.`id_tag` = ' . (int) $tagObj->id .
+                           ' AND tg.`id_product` != '.$id_product .
+                           ' AND tg.`id_lang` != '.$lang['id_lang'].'
+                        ');
+                        $countconter = Db::getInstance()->executeS('
+                            SELECT tg.id_tag 
+                            FROM ' . _DB_PREFIX_ . 'tag_count tg
+                            WHERE tg.`id_tag` = ' . (int) $tagObj->id .
+                            ' AND tg.`id_shop` != '.$idShop .
+                            ' AND tg.`id_lang` != '.$lang['id_lang'].'
+                        ');
+                        if (!count($count) && !count($countconter)) {
+                            // delete tag if exist only in this product and store
+                            $tagObj->delete();
+                            Db::getInstance()->execute(
+                                'DELETE  FROM ' . _DB_PREFIX_ . 'product_tag 
+                                  WHERE `id_tag` = ' . (int) $tagObj->id
+                            );
+                            Db::getInstance()->execute(
+                                'DELETE  FROM ' . _DB_PREFIX_ . 'tag_count 
+                                 WHERE `id_tag` = ' . (int) $tagObj->id
+                            );
+                        } else {
+                            if (!count($countconter)) {
+                                Db::getInstance()->execute(
+                                    'DELETE  FROM ' . _DB_PREFIX_ . 'product_tag 
+                                     WHERE `id_tag` = ' . (int) $tagObj->id .
+                                    ' AND `id_product` = '.$id_product .
+                                    ' AND `id_lang` = '.$lang['id_lang']
+                                );
+                            }
+
+                            /*  Db::getInstance()->execute(
+                                  'UPDATE  ' . _DB_PREFIX_ . 'ps_tag_count
+                                   SET counter = counter - 1
+                                   WHERE `id_tag` = ' . (int) $tagObj->id .
+                                  ' AND `id_lang` = '.$lang['id_lang'] .
+                                  ' AND `id_shop` = '.$idShop
+                              );*/
+                        }
+                    }
+                    unset($tagObj);
+                }
+                Tag::updateTagCount($editedtids);
+            }
+        } catch (Exception $e) {
+            $this->debbug('## Error. Occurred in sync tags ->' . $e->getMessage() .
+                          ' line->' . $e->getLine() .
+                           'trace->'.print_r($e->getTrace(), 1), 'syncdata');
+        }
+    }
+    public function syncProductAttachment($files, $product_id, $mulilanguage)
+    {
+        $attachment_protected_ids = array();
+        if (isset($mulilanguage) && !empty($mulilanguage)) {
+            $occurence = ' product name :' . reset($mulilanguage);
+        } else {
+            $occurence = ' ID :' . $product_id;
+        }
+        $this->debbug(
+            $occurence . '  Beginning to synchronise images. First sync shop for this product->' . print_r(
+                $this->first_sync_shop,
+                1
+            ),
+            'syncdata'
+        );
+
+        $contextShopID = Shop::getContextShopID();
+        Shop::setContext(Shop::CONTEXT_ALL);
+
+        if (isset($files) && !empty($files)) {
+            if (!empty($files)) {
+                // imagenes elegidos para subir a este formato buscar en producto padre si en ya hay este imagen
+                /**
+                 * How to a search files cached in SL table for MD5 hash
+                 */
+                $filereferences = array();
+                $newfileArray = array();
+                foreach ($files as $file) {
+                    $explode = explode('/', urldecode($file));
+                    $filename = end($explode);
+                    $filereferences[] = $filename;
+                    $newfileArray[$filename] = $file;
+                }
+
+                $catch_file_references = "'" . implode("','", $filereferences) . "'";
+                $slyr_attachments = Db::getInstance()->executeS(
+                    'SELECT * FROM ' . _DB_PREFIX_ . 'slyr_attachment
+                    WHERE file_reference IN (' . $catch_file_references . ")
+                      AND ps_product_id = '" . $product_id . "' "
+                );
+                $this->debbug('Searching files cached in SL table for MD5 hash ->' .
+                              print_r($slyr_attachments, 1), 'syncdata');
+            }
+
+            /**
+             * Process files attachments from this connection
+             */
+            $this->debbug(
+                'Before processing prepared files for update stat of array  ->' . print_r($files, 1),
+                'syncdata'
+            );
+
+            foreach ($newfileArray as $fileReference => $file_url) {
+                $this->debbug(
+                    'Processing images of variant and setting it to a product from this connection ->' . print_r(
+                        $file_url,
+                        1
+                    ),
+                    'syncdata'
+                );
+                $time_ini_image = microtime(1);
+                $url = trim($file_url);
+
+
+                if (!empty($url)) {
+                    $temp_file = $this->downloadImageToTemp($url, _PS_DOWNLOAD_DIR_);
+                    if ($temp_file) {
+                        $md5_file = md5_file($temp_file);
+                        if (!empty($slyr_attachments)) {
+                            foreach ($slyr_attachments as $keySLatt => $slyr_attachment) {
+                                $this->debbug(
+                                    'Before Verify Processing attachment ->' . print_r(
+                                        $fileReference,
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
+                                if ($slyr_attachment['file_reference'] == $fileReference &&
+                                    $slyr_attachment['md5_attachment'] !== '') {
+                                    /**
+                                     * file is the same
+                                     */
+                                    unset($slyr_attachments[$keySLatt]);
+                                    $this->debbug(
+                                        'Before test md5 Processing file ->' . print_r(
+                                            $slyr_attachment['md5_attachment'],
+                                            1
+                                        ) . ' <-> ' . print_r($md5_file, 1),
+                                        'syncdata'
+                                    );
+                                    if ($slyr_attachment['md5_attachment'] !== $md5_file) {
+                                        $this->debbug(
+                                            'Image is different ->' . print_r(
+                                                $slyr_attachment['md5_attachment'],
+                                                1
+                                            ) . ' <-> ' . print_r($md5_file, 1),
+                                            'syncdata'
+                                        );
+                                        /**
+                                         * Image with same name but different md5
+                                         */
+                                        // if origin if the image is this variant delete it  from product
+                                        $file_delete = new Attachment($slyr_attachment['id_attachment']);
+                                        $file_delete->delete();
+                                        $this->debbug(
+                                            'Deleting file  ->' . print_r(
+                                                $slyr_attachment['id_attachment'],
+                                                1
+                                            ) . ' <-> ' . print_r($md5_file, 1),
+                                            'syncdata'
+                                        );
+                                        break;
+                                    } else {
+                                        //file is the same protect id
+                                        $attachment_protected_ids[] = $slyr_attachment['id_attachment'];
+                                        continue 2; //jump to another file
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                /**
+                 * Process files that do not exist in the sl cache and have arrived in this connection
+                 */
+                $this->debbug(
+                    'Check attachment befor save->' . print_r(
+                        $temp_file,
+                        1
+                    ),
+                    'syncdata'
+                );
+                $id_attachment =  $this->saveAttachmentSL(
+                    $fileReference,
+                    $temp_file,
+                    $mulilanguage,
+                    $product_id,
+                    $occurence,
+                    filesize($temp_file)
+                );
+
+                if ($id_attachment != 0) {
+                    $attachment_protected_ids[] = $id_attachment;
+                    /**
+                     * INSERT INTO SL CACHE TABLE attachment WITH MD5, NAME OF FILE , ID
+                     */
+
+                    Db::getInstance()->execute(
+                        'INSERT INTO ' . _DB_PREFIX_ . "slyr_attachment
+                                        (file_reference, id_attachment, md5_attachment, ps_product_id )
+                                        VALUES ('" . $fileReference . "', " . $id_attachment . ", '" .
+                        $md5_file . "','" . $product_id . "')
+                                        ON DUPLICATE KEY UPDATE id_attachment = '" . $id_attachment .
+                        "', md5_attachment = '" . $md5_file . "'"
+                    );
+                    $this->debbug(
+                        'Attachment saved correctly ->' . print_r(
+                            $id_attachment,
+                            1
+                        ),
+                        'syncdata'
+                    );
+                }
+                $this->debbug('END processing this attachment. Timing ->' .
+                              ($time_ini_image - microtime(1)), 'syncdata');
+            }
+        }
+
+        /**
+         * DELETE ATTACHMENTS
+         */
+
+        $this->debbug('We will check if any of the images have been imported in the past with this variant');
+        $slyr_attachments = Db::getInstance()->executeS(
+            'SELECT * FROM ' . _DB_PREFIX_ . "slyr_attachment at WHERE  at.ps_product_id = '" . $product_id . "' "
+        );
+
+        if (!empty($slyr_attachments)) {
+            foreach ($slyr_attachments as $slyr_attachment) {
+                $this->debbug('Test if it is needed to delete this attachment ' . print_r($slyr_attachment, 1));
+                if (!in_array($slyr_attachment['id_attachment'], $attachment_protected_ids, false)) {
+                    $this->debbug('Proceed to delete attachment but noit is protected' . print_r($slyr_attachment, 1));
+
+                    Db::getInstance()->execute(
+                        'DELETE FROM ' . _DB_PREFIX_ . "product_attachment
+                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
+                    );
+
+                    $attachment_delete = new Attachment($slyr_attachment['id_attachment']);
+                    $attachment_delete->delete();
+
+                    Db::getInstance()->execute(
+                        'DELETE FROM ' . _DB_PREFIX_ . "slyr_attachment
+                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
+                    );
+                    unset($attachment_delete);
+                }
+            }
+        }
+        Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
+    }
+
+    public function saveAttachmentSL($fileReference, $file_localpath, $mulilanguage, $id_product, $occurence, $filesize)
+    {
+        try {
+            $explode = explode('.', $fileReference);
+
+            $attachment = new Attachment();
+
+            $languages = Language::getLanguages();
+            foreach ($languages as $language) {
+                $attachment->name[$language['id_lang']] = (string) $fileReference;
+                $attachment->description[$language['id_lang']] =
+                    $mulilanguage[$language['id_lang']].' '.reset($explode);
+            }
+
+            $attachment->file = sha1(urldecode($fileReference));
+            $attachment->file_name = urldecode($fileReference);
+
+
+            $attachment->file_size = $filesize;
+
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $attachment->mime = finfo_file($finfo, $file_localpath);
+
+
+            $attachment->add(true, true);
+
+            if ($attachment->id) {
+                Db::getInstance()->execute('
+                        INSERT INTO `'._DB_PREFIX_.'product_attachment` (`id_attachment`, `id_product`)
+                        VALUES ('.(int)$attachment->id.', '.(int)$id_product.')
+                        ');
+            }
+
+            return (int) $attachment->id;
+        } catch (Exception $e) {
+            $this->debbug(
+                '## Error. ' . $occurence . ' Error in creating attachment 
+                                    problem found->' . print_r(
+                    $e->getMessage() . ' line->' .
+                    print_r($e->getLine(), 1) .
+                    ' Trace->' . print_r($e->getTrace(), 1) .
+                    ' Line ->'.$e->getLine(),
+                    1
+                ),
+                'syncdata'
+            );
+            return false;
+        }
+    }
+
+
 
     public function syncProductImages(
         $images,
@@ -3311,7 +3800,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
     ) {
         $specificPrice = new SpecificPrice();
         $prodSPsExisting = $specificPrice->getByProductId($product_id);
-
+        $protected_ids = array();
         $keysGen = array(
             'id_specific_price_rule',
             'id_cart',
@@ -3325,9 +3814,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         );
         $id_specific_price_1 = $id_specific_price_2 = 0;
 
-        if (empty($product_discount_1_data) && empty($product_discount_2_data)) {
-            return true;
-        }
 
         if (!empty($prodSPsExisting)) {
             foreach ($prodSPsExisting as $keySP => $prodSPExisting) {
@@ -3335,14 +3821,23 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     break;
                 }
 
-                if ($prodSPExisting['id_shop'] == $shop_id) {
-                    if ($id_specific_price_1 == 0 && !empty($product_discount_1_data)) {
+                if ($prodSPExisting['id_shop'] == $shop_id ||
+                    ($shop_id == 0 && $prodSPExisting['id_shop'] == Shop::getContextShopID())
+                    ) {
+                    $this->debbug('Id shop for discount edit existing->' .
+                                  print_r($prodSPExisting['id_shop'], 1)
+                        .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
+
+                    if ($id_specific_price_1 == 0 && !empty($product_discount_1_data['reduction'])) {
+                        $this->debbug('Id shop for discount edit existing->' .
+                                      print_r($prodSPExisting['id_shop'], 1)
+                                      .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
                         $id_specific_price_1 = $prodSPExisting['id_specific_price'];
                         unset($prodSPsExisting[$keySP]);
                         continue;
                     }
 
-                    if ($id_specific_price_2 == 0 && !empty($product_discount_2_data)) {
+                    if ($id_specific_price_2 == 0 && !empty($product_discount_2_data['reduction'])) {
                         $id_specific_price_2 = $prodSPExisting['id_specific_price'];
                         unset($prodSPsExisting[$keySP]);
                         continue;
@@ -3351,7 +3846,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             }
         }
 
-        if (!empty($product_discount_1_data)) {
+        if (!empty($product_discount_1_data['reduction'])) {
+            $this->debbug('Data for sync discount 1->' .
+                          print_r($product_discount_1_data, 1)
+                          .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
             if ($product_discount_1_data['type_reduction'] == 'percentage') {
                 $product_discount_1_data['reduction'] /= 100;
             }
@@ -3364,7 +3862,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 foreach ($keysGen as $keyGen) {
                     $specificPrice->{"$keyGen"} = 0;
                 }
-                //$specificPrice->price               = floatval("-1.000000");
+
                 $specificPrice->price = (float)'-1.000000';
                 $specificPrice->reduction_tax = 1;
                 $specificPrice->from_quantity = $product_discount_1_data['from_quantity'];
@@ -3372,6 +3870,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPrice->to = '0000-00-00 00:00:00';
                 $specificPrice->id_shop = $shop_id;
                 $specificPrice->add();
+                $protected_ids[] = $specificPrice->id;
+                $this->debbug('Adding new special price->' .
+                              print_r($product_discount_1_data, 1), 'syncdata');
             } else {
                 //We update the data from the first existing discount.
                 $specificPriceProduct = new SpecificPrice($id_specific_price_1);
@@ -3380,11 +3881,18 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPriceProduct->from_quantity = $product_discount_1_data['from_quantity'];
                 $specificPriceProduct->id_shop = $shop_id;
                 $specificPriceProduct->update();
+                $protected_ids[] = $id_specific_price_1;
+                $this->debbug(
+                    'Updating special price->' .
+                              print_r($product_discount_1_data, 1) .
+                              'shop_id->'.print_r($shop_id, 1),
+                    'syncdata'
+                );
                 unset($specificPriceProduct);
             }
         }
 
-        if (!empty($product_discount_2_data)) {
+        if (!empty($product_discount_2_data['reduction'])) {
             if ($product_discount_2_data['type_reduction'] == 'percentage') {
                 $product_discount_2_data['reduction'] /= 100;
             }
@@ -3397,7 +3905,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 foreach ($keysGen as $keyGen) {
                     $specificPrice->{"$keyGen"} = 0;
                 }
-                //$specificPrice->price = floatval("-1.000000");
+
                 $specificPrice->price = (float)"-1.000000";
                 $specificPrice->reduction_tax = 1;
                 $specificPrice->from_quantity = $product_discount_2_data['from_quantity'];
@@ -3405,6 +3913,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPrice->to = "0000-00-00 00:00:00";
                 $specificPrice->id_shop = $shop_id;
                 $specificPrice->add();
+                $protected_ids[] = $specificPrice->id;
             } else {
                 //We update the data from the second existing discount.
                 $specificPriceProduct = new SpecificPrice($id_specific_price_2);
@@ -3413,12 +3922,21 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPriceProduct->from_quantity = $product_discount_2_data['from_quantity'];
                 $specificPriceProduct->id_shop = $shop_id;
                 $specificPriceProduct->update();
+                $protected_ids[] = $id_specific_price_2;
                 unset($specificPriceProduct);
             }
         }
-
+        $prodSPsExisting = $specificPrice->getByProductId($product_id);
+        // delete specific price
         foreach ($prodSPsExisting as $specific_price) {
-            if ($specific_price['id_shop'] == 0 || $specific_price['id_shop'] == $shop_id) {
+            $this->debbug('Entry for a delete special price with same ->' .
+                          print_r($specific_price, 1)
+                          .' and id of shop for delete->'.print_r($shop_id, 1), 'syncdata');
+            if (($specific_price['id_shop'] == $shop_id ||
+                 ($shop_id == 0 && $specific_price['id_shop'] == Shop::getContextShopID())) &&
+                !in_array($specific_price['id_specific_price'], $protected_ids, false)) {
+                $this->debbug('Deleting special price->' .
+                              print_r($specific_price['id_specific_price'], 1), 'syncdata');
                 $specificPriceDelete = new SpecificPrice($specific_price['id_specific_price']);
                 $specificPriceDelete->delete();
                 unset($specificPriceDelete);
@@ -3828,7 +4346,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             continue;
                                         }
 
-                                        if (preg_match('/:(custom|CUSTOM)/', $value)) {
+                                        if (preg_match('/:(custom|CUSTOM)/i', $value)) {
                                             // si viene con comando para crear caracteristica
                                             // como custom la quitamos rellenamos como custom
 
@@ -4387,7 +4905,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                         $this->debbug(
                             'Feature name does not have any language code of 
                             index name ->' . $first_index_name . ' -> ' . print_r(
-                                $schema[$first_index_name],
+                                (isset($schema[$first_index_name])?
+                                $schema[$first_index_name]:'Not exist in schema array'),
                                 1
                             ),
                             'syncdata'
@@ -4418,7 +4937,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             }
                             $this->debbug(
                                 'Setting for all languages ->' . $first_index_name . ' -> ' . print_r(
-                                    $schema[$first_index_name],
+                                    (isset($schema[$first_index_name])?
+                                    $schema[$first_index_name]:'Not exist in Schema array'),
                                     1
                                 ),
                                 'syncdata'
@@ -4518,7 +5038,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 $create_as_custom = $this->create_new_features_as_custom;
                                 $filtered = array();
                                 foreach ($prepare_values_feature as $id_lang => $line) { //filter array level
-                                    if (preg_match('/:(custom|CUSTOM)/', $line[$stat])) {
+
+                                    if (isset($line[$stat]) && preg_match('/:(custom|CUSTOM)/', $line[$stat])) {
                                         // si viene con comando para crear caracteristica
                                         // como custom la quitamos rellenamos como custom
 
