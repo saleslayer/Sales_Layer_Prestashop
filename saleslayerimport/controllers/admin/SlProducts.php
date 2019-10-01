@@ -2584,13 +2584,14 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         Shop::setContext(Shop::CONTEXT_ALL);
 
         if (isset($files) && !empty($files)) {
+            $newfileArray = array();
             if (!empty($files)) {
                 // imagenes elegidos para subir a este formato buscar en producto padre si en ya hay este imagen
                 /**
                  * How to a search files cached in SL table for MD5 hash
                  */
                 $filereferences = array();
-                $newfileArray = array();
+
                 foreach ($files as $file) {
                     $explode = explode('/', urldecode($file));
                     $filename = end($explode);
@@ -2627,8 +2628,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $time_ini_image = microtime(1);
                 $url = trim($file_url);
 
-
-                if (!empty($url)) {
+                if (!empty($url) && filter_var($url, FILTER_VALIDATE_URL)) {
                     $temp_file = $this->downloadImageToTemp($url, _PS_DOWNLOAD_DIR_);
                     if ($temp_file) {
                         $md5_file = md5_file($temp_file);
@@ -2685,6 +2685,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             }
                         }
                     }
+                } else {
+                    continue;
                 }
 
                 /**
