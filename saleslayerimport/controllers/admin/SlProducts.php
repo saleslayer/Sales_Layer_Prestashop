@@ -478,7 +478,9 @@ class SlProducts extends SalesLayerPimUpdate
                 $this->debbug(' Updating all shops languages ' . print_r($this->first_sync_shop, 1), 'syncdata');
 
                 $customization_multi_language = array();
-
+                $carriers_not_founded = array();
+                $update_carriers = false;
+                $product_carriers_ids = array();
                 foreach ($this->shop_languages as $lang) {
                     $defaultLenguage = (int) $this->defaultLanguage;
 
@@ -931,22 +933,21 @@ class SlProducts extends SalesLayerPimUpdate
 
                     $product_product_carrier_index = '';
                     $product_product_carrier_index_search = 'product_carrier_' . $lang['iso_code'];
-                    if (isset($product['data']['product_carrier']) && !empty($product['data']['product_carrier'])
-                        && !isset($schema['product_carrier']['language_code'])) {
-                        $product_product_carrier_index = 'product_carrier';
-                    } elseif (isset(
+                    if (isset(
                         $product['data'][$product_product_carrier_index_search],
                         $schema[$product_product_carrier_index_search]['language_code']
                     )
-                        && !empty($product['data'][$product_product_carrier_index_search])
                         && $schema[$product_product_carrier_index_search]['language_code'] == $lang['iso_code']) {
                         $product_product_carrier_index = 'product_carrier_' . $lang['iso_code'];
+                    } elseif (isset($product['data']['product_carrier'])
+                         && !isset($schema['product_carrier']['language_code'])) {
+                        $product_product_carrier_index = 'product_carrier';
                     }
 
                     if ($product_product_carrier_index != ''
                         && isset($product['data'][$product_product_carrier_index])) {
                         $product_carriers = array();
-
+                        $update_carriers = true;
                         if (is_array(
                             $product['data'][$product_product_carrier_index]
                         )
@@ -967,32 +968,50 @@ class SlProducts extends SalesLayerPimUpdate
                             $carrier = new Carrier();
                             $existing_carriers = $carrier->getCarriers($lang['id_lang']);
 
-                            $product_carriers_ids = array();
 
-                            foreach ($product_carriers as $product_carrier) {
+
+                            foreach ($product_carriers as $position => $product_carrier) {
+                                $match = false;
                                 if (is_numeric($product_carrier)) {
                                     foreach ($existing_carriers as $existing_carrier) {
                                         if ($existing_carrier['id_reference'] == $product_carrier) {
                                             $product_carriers_ids[] = $existing_carrier['id_reference'];
+                                            $match = true;
                                         }
                                     }
                                 } else {
                                     foreach ($existing_carriers as $existing_carrier) {
-                                        if (Tools::strtolower(trim($existing_carrier['name'])) == Tools::strtolower(
-                                            trim($product_carrier)
-                                        )
+                                        $this->debbug(' Check carrier with this data-> ' .
+                                                      print_r(
+                                                          $existing_carrier,
+                                                          1
+                                                      ), 'syncdata');
+                                        if (Tools::strtolower(trim($this->removeAccents($existing_carrier['name'])))
+                                            == Tools::strtolower(
+                                                trim($this->removeAccents($product_carrier))
+                                            )
                                         ) {
+                                            $this->debbug('Carrier found from name -> ' .
+                                                          print_r(
+                                                              $existing_carrier['name'],
+                                                              1
+                                                          ), 'syncdata');
                                             $product_carriers_ids[] = $existing_carrier['id_reference'];
+                                            $match = true;
                                         }
                                     }
                                 }
-                            }
-
-                            if (!empty($product_carriers_ids)) {
-                                $productObject->setCarriers($product_carriers_ids);
+                                if (!$match) {
+                                    if (!in_array($product_carrier, $carriers_not_founded, false)) {
+                                        //&& (!isset($carriers_not_founded[$position]) ||
+                                        // empty($carriers_not_founded[$position]))
+                                        $carriers_not_founded[$position] =  $product_carrier;
+                                    }
+                                }
                             }
                         }
                     }
+
 
                     /**
                      * Tags
@@ -1255,6 +1274,34 @@ class SlProducts extends SalesLayerPimUpdate
                 ) {
                     $productObject->available_date = $product['data']['product_available_date'];
                 }
+
+                /**
+                 * Update carriers
+                 */
+
+                if ($update_carriers) {
+                    $product_carriers_ids = array_unique($product_carriers_ids);
+                    $this->debbug(' Updating carriers -> ' .
+                                          print_r(
+                                              $product_carriers_ids,
+                                              1
+                                          ), 'syncdata');
+                    $productObject->setCarriers($product_carriers_ids);
+                }
+
+                /**
+                 * Carrier create warning of carriers
+                 */
+
+                if (!empty($carriers_not_founded)) {
+                    $this->debbug('## Warning. '.$occurence.
+                                      ' Could not find the transport for the product. Carrier values -> ' .
+                                      print_r(
+                                          implode(', ', $carriers_not_founded),
+                                          1
+                                      ), 'syncdata');
+                }
+
 
                 /**
                  * Attachment Files upload
@@ -2748,7 +2795,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             foreach ($slyr_attachments as $slyr_attachment) {
                 $this->debbug('Test if it is needed to delete this attachment ' . print_r($slyr_attachment, 1));
                 if (!in_array($slyr_attachment['id_attachment'], $attachment_protected_ids, false)) {
-                    $this->debbug('Proceed to delete attachment but noit is protected' . print_r($slyr_attachment, 1));
+                    $this->debbug('Proceed to delete attachment but not is protected' . print_r($slyr_attachment, 1));
 
                     Db::getInstance()->execute(
                         'DELETE FROM ' . _DB_PREFIX_ . "product_attachment
@@ -2811,8 +2858,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     problem found->' . print_r(
                     $e->getMessage() . ' line->' .
                     print_r($e->getLine(), 1) .
-                    ' Trace->' . print_r($e->getTrace(), 1) .
-                    ' Line ->'.$e->getLine(),
+                    ' Trace->' . print_r($e->getTrace(), 1),
                     1
                 ),
                 'syncdata'
