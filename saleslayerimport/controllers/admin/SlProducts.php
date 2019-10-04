@@ -57,6 +57,7 @@ class SlProducts extends SalesLayerPimUpdate
         $shops,
         $avoid_stock_update
     ) {
+        $test_after_update = array();
         $mulilanguage = array();
         $occurence_found = false;
         if (isset($product['data']['product_reference']) && !empty($product['data']['product_reference'])) {
@@ -222,12 +223,14 @@ class SlProducts extends SalesLayerPimUpdate
 
                 $productObject = new Product($product_exists, false, null, $shop_id);
 
+
+
                 // $update_needed = false;
                 if (isset($product['data']['product_type'])) {
                     $product_type = '';
 
                     if (is_array($product['data']['product_type']) && !empty($product['data']['product_type'])) {
-                        $product_type = $product['data']['product_type'][0];
+                        $product_type = reset($product['data']['product_type']);
                     } else {
                         if (!is_array($product['data']['product_type']) && $product['data']['product_type'] != '') {
                             $product_type = $product['data']['product_type'];
@@ -235,10 +238,10 @@ class SlProducts extends SalesLayerPimUpdate
                     }
 
                     if (is_string($product_type)) {
-                        if (preg_match('~(simple)~i', $product_type)) {
+                        if (preg_match('/(simple)/i', $product_type)) {
                             $product_type = Product::PTYPE_SIMPLE;
                         } else {
-                            if (preg_match('~(pack)~i', $product_type)) {
+                            if (preg_match('/(pack)/i', $product_type)) {
                                 $product_type = Product::PTYPE_PACK;
                             } else {
                                 $product_type = '';
@@ -263,7 +266,17 @@ class SlProducts extends SalesLayerPimUpdate
 
                         if ($product_type == Product::PTYPE_SIMPLE) {
                             if ($current_product_type != Product::PTYPE_SIMPLE) {
-                                $productObject->setWsType('simple');
+                                try {
+                                    $productObject->setWsType('simple');
+                                } catch (Exception $e) {
+                                    $this->debbug(
+                                        '## Error. ' . $occurence . ' In changing type of product->' .
+                                        print_r($e->getMessage(), 1) .
+                                        'line->'.$e->getLine().
+                                        'trace->'.print_r($e->getTrace(), 1),
+                                        'syncdata'
+                                    );
+                                }
                             }
                         }
 
@@ -275,7 +288,7 @@ class SlProducts extends SalesLayerPimUpdate
                         if ($product_type == Product::PTYPE_PACK) {
                             $product_packs_data = $processed_pack_ids = array();
 
-                            $array_format_pack = preg_grep('/pack_format_\+?\d+$/', array_keys($product['data']));
+                            $array_format_pack = preg_grep('/pack_format_\+?\d+$/i', array_keys($product['data']));
 
                             foreach ($array_format_pack as $pack_format) {
                                 $pack_id = str_replace('pack_format_', '', $pack_format);
@@ -297,7 +310,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     ) {
                                         if (strpos($product['data'][$pack_format], ',')) {
                                             $pack_format_field_data = explode(',', $product['data'][$pack_format]);
-                                            $pack_format_ref = $pack_format_field_data[0];
+                                            $pack_format_ref = reset($pack_format_field_data);
                                         } else {
                                             $pack_format_ref = $product['data'][$pack_format];
                                         }
@@ -317,8 +330,6 @@ class SlProducts extends SalesLayerPimUpdate
                                              WHERE reference = '" . $pack_format_ref . "'";
                                 $regsRef = Db::getInstance()->executeS($schemaRef);
 
-                                //  $regsRef = $this->data_manager->getTableData($this->product_attribute_table,
-                                //array('id_product_attribute','id_product'),array( 'reference' => $pack_format_ref ));
 
 
                                 if (count($regsRef) > 0) {
@@ -347,7 +358,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 }
                             }
 
-                            $array_product_pack = preg_grep('/pack_product_\+?\d+$/', array_keys($product['data']));
+                            $array_product_pack = preg_grep('/pack_product_\+?\d+$/i', array_keys($product['data']));
 
                             foreach ($array_product_pack as $pack_product) {
                                 $pack_id = str_replace('pack_product_', '', $pack_product);
@@ -368,7 +379,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     ) {
                                         if (strpos($product['data'][$pack_product], ',')) {
                                             $pack_format_field_data = explode(',', $product['data'][$pack_product]);
-                                            $pack_product_ref = $pack_format_field_data[0];
+                                            $pack_product_ref = reset($pack_format_field_data);
                                         } else {
                                             $pack_product_ref = $product['data'][$pack_product];
                                         }
@@ -379,7 +390,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     continue;
                                 }
 
-                                // $pack_product_ref = trim(preg_replace('/[^A-Za-z0-9\-]/', ' ', $pack_product_ref));
+
                                 $pack_product_ref = $this->slValidateReference($pack_product_ref);
 
                                 $schemaRef = 'SELECT id_product FROM '. $this->product_table . "
@@ -409,29 +420,38 @@ class SlProducts extends SalesLayerPimUpdate
                             }
 
                             if (!empty($product_packs_data)) {
-                                if ($current_product_type != Product::PTYPE_PACK) {
-                                    $productObject->setWsType('pack');
-                                }
-
-                                $pack = new Pack();
-                                $pack->deleteItems($productObject->id);
-
-                                foreach ($product_packs_data as $product_pack_data) {
-                                    if ($product_pack_data['pack_format_id'] != 0) {
-                                        $pack->addItem(
-                                            $productObject->id,
-                                            $product_pack_data['pack_product_id'],
-                                            $product_pack_data['pack_quantity'],
-                                            $product_pack_data['pack_format_id']
-                                        );
-                                    } else {
-                                        $pack->addItem(
-                                            $productObject->id,
-                                            $product_pack_data['pack_product_id'],
-                                            $product_pack_data['pack_quantity'],
-                                            0
-                                        );
+                                try {
+                                    if ($current_product_type != Product::PTYPE_PACK) {
+                                        $productObject->setWsType('pack');
                                     }
+
+
+                                    Pack::deleteItems($productObject->id);
+
+                                    foreach ($product_packs_data as $product_pack_data) {
+                                        if ($product_pack_data['pack_format_id'] != 0) {
+                                            Pack::addItem(
+                                                $productObject->id,
+                                                $product_pack_data['pack_product_id'],
+                                                $product_pack_data['pack_quantity'],
+                                                $product_pack_data['pack_format_id']
+                                            );
+                                        } else {
+                                            Pack::addItem(
+                                                $productObject->id,
+                                                $product_pack_data['pack_product_id'],
+                                                $product_pack_data['pack_quantity'],
+                                                0
+                                            );
+                                        }
+                                    }
+                                } catch (Exception $e) {
+                                    $this->debbug(
+                                        '## Error. ' . $occurence . ' product type pack->'.$e->getMessage().
+                                        'line->'.print_r($e->getLine(), 1).
+                                        'trace->'.print_r($e->getTrace(), 1),
+                                        'syncdata'
+                                    );
                                 }
                             }
                         }
@@ -968,8 +988,6 @@ class SlProducts extends SalesLayerPimUpdate
                             $carrier = new Carrier();
                             $existing_carriers = $carrier->getCarriers($lang['id_lang']);
 
-
-
                             foreach ($product_carriers as $position => $product_carrier) {
                                 $match = false;
                                 if (is_numeric($product_carrier)) {
@@ -1091,12 +1109,15 @@ class SlProducts extends SalesLayerPimUpdate
 
 
                         try {
-                            $this->syncProductImages(
-                                $product['data']['product_image'],
-                                $lang['id_lang'],
-                                $productObject->id,
-                                $mulilanguage
-                            );
+                            if (isset($product['data']['product_image'])) {
+                                $this->syncProductImages(
+                                    $product['data']['product_image'],
+                                    $lang['id_lang'],
+                                    $productObject->id,
+                                    $mulilanguage
+                                );
+                            }
+
                             unset($product['data']['product_image']);
                         } catch (Exception $e) {
                             $this->debbug(
@@ -1237,24 +1258,58 @@ class SlProducts extends SalesLayerPimUpdate
                     && $product['data']['product_price_tax_incl'] != 0
                     && $product['data']['product_price_tax_incl'] != '') {
                     $price = $this->priceForamat(
-                        (float)str_replace(
+                        (float) str_replace(
                             ',',
                             '.',
                             $product['data']['product_price_tax_incl']
                         ) / (1 + ($productObject->getTaxesRate() / 100))
                     );
+                    $this->debbug(
+                        ' Product price from product_price_tax_incl ->' .
+                        print_r(
+                            $product['data']['product_price_tax_incl'],
+                            1
+                        ),
+                        'syncdata'
+                    );
                 } else {
                     if (isset($product['data']['product_price']) && $product['data']['product_price'] != 0
                         && $product['data']['product_price'] != '') {
                         $price = $this->priceForamat($product['data']['product_price']);
+                        $this->debbug(
+                            ' Product_price ->' .
+                            print_r(
+                                $product['data']['product_price'],
+                                1
+                            ),
+                            'syncdata'
+                        );
                     } else {
+                        $this->debbug(
+                            ' Product_price is empty ->' .
+                            print_r(
+                                $product['data']['product_price'],
+                                1
+                            ),
+                            'syncdata'
+                        );
                         $price = 0;
                         $active = false;
                     }
                 }
 
                 if (isset($product['data']['product_active']) && $product['data']['product_active'] != '') {
-                    $productObject->active = $this->slValidateBoolean($product['data']['product_active']);
+                    $toactivate = $this->slValidateBoolean($product['data']['product_active']);
+                    if (Validate::isBool($toactivate)) {
+                        $productObject->active =  $toactivate;
+                    } else {
+                        $this->debbug('## Warning. '.$occurence.
+                                      ' Field Active. Value is not a boolean -> ' .
+                                      print_r(
+                                          $toactivate,
+                                          1
+                                      ), 'syncdata');
+                    }
                 } else {
                     $productObject->active = $active;
                 }
@@ -1302,7 +1357,6 @@ class SlProducts extends SalesLayerPimUpdate
                                       ), 'syncdata');
                 }
 
-
                 /**
                  * Attachment Files upload
                  */
@@ -1324,7 +1378,17 @@ class SlProducts extends SalesLayerPimUpdate
                     } else {
                         $attachments_files = explode(',', $product['data']['product_attachment']);
                     }
-                    $this->syncProductAttachment($attachments_files, $productObject->id, $mulilanguage);
+                    try {
+                        $this->syncProductAttachment($attachments_files, $productObject->id, $mulilanguage);
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '## Error. In syncProductAttachment ' . $occurence . ' ->' . print_r(
+                                $e->getMessage(),
+                                1
+                            ) . ' line->' . print_r($e->getLine(), 1),
+                            'syncdata'
+                        );
+                    }
                 }
 
 
@@ -1810,10 +1874,25 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
 
+                $this->debbug(
+                    ' Price before save ->' . print_r($price, 1),
+                    'syncdata'
+                );
+                $test_after_update['price'] = $price;
                 $productObject->price = $price;
                 $price = abs($price);
                 if (Validate::isPrice($price)) {
+                    $this->debbug(
+                        'Is price valid. Before update wholesale_price ->' . print_r($price, 1),
+                        'syncdata'
+                    );
+                    $test_after_update['wholesale_price'] = $price;
                     $productObject->wholesale_price = $price;
+                } else {
+                    $this->debbug(
+                        '## Warning. ' . $occurence . ' price not is a valid price ->' . print_r($price, 1),
+                        'syncdata'
+                    );
                 }
 
                 $productObject->upc = (isset($product['data']['product_upc'])
@@ -1990,7 +2069,7 @@ class SlProducts extends SalesLayerPimUpdate
                 );
                 foreach ($fieldsTransport as $fieldSales => $fieldPresta) {
                     if (isset($product['data'][$fieldSales])) {
-                        $value = (float)str_replace(',', '.', $product['data'][$fieldSales]);
+                        $value = (float) str_replace(',', '.', $product['data'][$fieldSales]);
                         $productObject->{"$fieldPresta"} = $value;
                         unset($product['data'][$fieldSales]);
                     }
@@ -2004,9 +2083,21 @@ class SlProducts extends SalesLayerPimUpdate
                 );
                 foreach ($fieldsOptions as $fieldSales => $fieldPresta) {
                     if (isset($product['data'][$fieldSales]) && $product['data'][$fieldSales] !== '') {
-                        $productObject->{"$fieldPresta"} = $this->slValidateBoolean(
+                        $validatebool =  $this->slValidateBoolean(
                             $product['data'][$fieldSales]
                         );
+                        if (Validate::isBool($validatebool)) {
+                            $productObject->{"$fieldPresta"} = $validatebool;
+                        } else {
+                            $this->debbug(
+                                '## Warning. '.$occurence.' field-> '.$fieldSales.' Invalid boolean value -> ' .
+                                print_r(
+                                    $product['data'][$fieldSales],
+                                    1
+                                ),
+                                'syncdata'
+                            );
+                        }
                         unset($product['data'][$fieldSales]);
                     }
                 }
@@ -2088,7 +2179,7 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
 
-                $array_supplier = preg_grep('/product_supplier_\+?\d+$/', array_keys($product['data']));
+                $array_supplier = preg_grep('/product_supplier_\+?\d+$/i', array_keys($product['data']));
 
                 if (!empty($array_supplier)) {
                     $current_supplier_collection = ProductSupplier::getSupplierCollection(
@@ -2128,39 +2219,78 @@ class SlProducts extends SalesLayerPimUpdate
                                     $supplier = new Supplier();
 
                                     $id_supplier = 0;
-
-                                    if (is_numeric($supplier_name)) {
-                                        $supplier_exists = $supplier->supplierExists($supplier_name);
-                                        if ($supplier_exists) {
-                                            $id_supplier = $supplier_name;
-                                        }
-                                    } else {
-                                        $supplier_exists = $supplier->getIdByName(
-                                            Tools::strtolower($supplier_name)
-                                        );
-                                        if ($supplier_exists) {
-                                            $id_supplier = $supplier_exists;
+                                    try {
+                                        if (is_numeric($supplier_name)) {
+                                            $supplier_exists = $supplier->supplierExists($supplier_name);
+                                            if ($supplier_exists) {
+                                                $id_supplier = $supplier_name;
+                                            }
                                         } else {
                                             $supplier_exists = $supplier->getIdByName(
-                                                Tools::strtolower(str_replace('_', ' ', $supplier_name))
+                                                Tools::strtolower($supplier_name)
                                             );
                                             if ($supplier_exists) {
                                                 $id_supplier = $supplier_exists;
                                             } else {
                                                 $supplier_exists = $supplier->getIdByName(
-                                                    Tools::strtolower(str_replace(' ', '_', $supplier_name))
+                                                    Tools::strtolower(str_replace('_', ' ', $supplier_name))
                                                 );
                                                 if ($supplier_exists) {
                                                     $id_supplier = $supplier_exists;
+                                                } else {
+                                                    $supplier_exists = $supplier->getIdByName(
+                                                        Tools::strtolower(str_replace(' ', '_', $supplier_name))
+                                                    );
+                                                    if ($supplier_exists) {
+                                                        $id_supplier = $supplier_exists;
+                                                    }
                                                 }
                                             }
+                                        }
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. '.$occurence.': supplier management ->' .
+                                            print_r($e->getMessage(), 1).
+                                            'line->'.$e->getLine(),
+                                            'syncdata'
+                                        );
+                                    }
+                                    if ($id_supplier == 0) {
+                                        try {
+                                            $supplier             = new Supplier();
+                                            $supplier->name       = $supplier_name;
+                                            $supplier->active     = 1;
+                                            $supplier->add();
+                                            $id_supplier =   $supplier->id;
+                                        } catch (Exception $e) {
+                                            $this->debbug(
+                                                '## Error. '.$occurence.': in create new  supplier ->' .
+                                                print_r($e->getMessage(), 1).
+                                                'line->'.$e->getLine(),
+                                                'syncdata'
+                                            );
                                         }
                                     }
 
                                     if ($id_supplier != 0) {
-                                        $productObject->addSupplierReference($id_supplier, 0, $supplier_reference);
+                                        try {
+                                            $productObject->addSupplierReference($id_supplier, 0, $supplier_reference);
+                                        } catch (Exception $e) {
+                                            $this->debbug(
+                                                '## Error. '.$occurence.': in add supplier Reference ->' .
+                                                print_r($e->getMessage(), 1).
+                                                'line->'.$e->getLine(),
+                                                'syncdata'
+                                            );
+                                        }
 
                                         $processed_suppliers[$id_supplier] = 0;
+                                    } else {
+                                        $this->debbug(
+                                            ' ## Warning. An problem detected in supplier management ->' .
+                                            print_r($id_supplier, 1),
+                                            'syncdata'
+                                        );
                                     }
                                 }
                             }
@@ -2184,7 +2314,7 @@ class SlProducts extends SalesLayerPimUpdate
                 try {
                     $productObject->save();
                     $product_id = $productObject->id;
-                    unset($productObject);
+
 
                     if (isset($product['data']['estimacion']) && is_numeric($product['data']['estimacion'])) {
                         $check_column = Db::getInstance()->executeS(
@@ -2209,12 +2339,52 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         unset($product['data']['estimacion']);
                     }
                 } catch (Exception $e) {
-                    $syncCat = false;
+                    $syncCat = true;
                     $this->debbug(
                         '## Error. Saving changes to product ID:  ->' . print_r($e->getMessage(), 1),
                         'syncdata'
                     );
                 }
+                /**
+                 * Test after update
+                 */
+                if (count($test_after_update) && Validate::isLoadedObject($productObject) && $productObject->id) {
+                    $after_test_success = true;
+                    foreach ($test_after_update as $key_of_data => $test_value) {
+                        if (is_array($test_value)) {
+                            foreach (array_keys($test_value) as $key_for_test_array) {
+                                if ($productObject->{"$key_of_data"}[$key_for_test_array] !=
+                                    $test_value[$key_for_test_array]) {
+                                    $after_test_success = false;
+                                    $this->debbug('## Warning. '.$occurence.
+                                                  ' It has been detected that the value '.
+                                                  'you tried to save is not saved correctly.'.
+                                                  ' data saved as '.$key_of_data.' key ->'.$key_for_test_array.' ->'.
+                                                  print_r($productObject->{"$key_of_data"}[$key_for_test_array], 1).
+                                                  'data for save ->'.
+                                                  print_r($test_value[$key_for_test_array], 1), 'syncdata');
+                                }
+                            }
+                        } else {
+                            if ($productObject->{"$key_of_data"} != $test_value) {
+                                $after_test_success = false;
+                                $this->debbug('## Warning. '.$occurence.
+                                              ' It has been detected that the value '.
+                                              'you tried to save is not saved correctly.'.
+                                              ' data saved as '.$key_of_data.' ->'.
+                                              print_r($productObject->{"$key_of_data"}, 1).
+                                              'data for save ->'.print_r($test_value, 1), 'syncdata');
+                            }
+                        }
+                    }
+                    if ($after_test_success) {
+                        $this->debbug('The imported fields have been tested and if your information matches:'
+                            .implode(', ', array_keys($test_after_update)).
+                            ' result: success', 'syncdata');
+                    }
+                }
+
+                unset($productObject);
 
 
                 $isset_Product_discount_1 = isset($product['data']['product_discount_1']);
@@ -2228,6 +2398,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     /**
                      * Check special price type for check Context store
                      */
+
 
                     if (isset($product['data']['product_discount_1_type'])) {
                         $product_discount_1_type = '';
@@ -2323,13 +2494,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         }
                     }
 
-
-
                     /**
                      * check special price 2
                      */
-
-
 
                     $product_discount_2_data = array();
 
@@ -2867,8 +3034,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         }
     }
 
-
-
     public function syncProductImages(
         $images,
         $id_lang,
@@ -2890,7 +3055,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         );
 
         /**
-         *
          * First store only sync images
          */
 
@@ -3185,7 +3349,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                          * Process images that do not exist in the sl cache and have arrived in this connection
                          */
 
-                        //$url = str_replace(' ', '%20', $url);
+
                         $result_save_image = false;
                         $image = new Image();
                         $image->id_product = (int)$product_id;
@@ -3313,7 +3477,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $cloned_image = new Image();
                                 $cloned_image->cover = $prepare_second_attempt_cover;
                                 $cloned_image->legend = $prepare_second_attempt_legend;
-                                $cloned_image->id_product = (int)$product_id;
+                                $cloned_image->id_product = (int) $product_id;
                                 $result_save_image = $cloned_image->add();
                             } catch (Explode $e) {
                                 $this->debbug('## Error. ' . $occurence . ' Second attempt.', 'syncdata');
@@ -3334,7 +3498,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             }
                         }
 
-                        // file_exists doesn't work with HTTP protocol
+
                         if ($validate_fields === true && $validate_language === true && $result_save_image) {
                             $this->debbug('Validation ok ', 'syncdata');
                             if (!$this->copyImg(
@@ -3476,7 +3640,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         if ($prod->price == null || $prod->price == '') {
                             $prod->price = 0;
                         }
-                        if ($prod->low_stock_alert == null) {
+                        if (isset($prod->low_stock_alert) || $prod->low_stock_alert == null) {
                             $prod->low_stock_alert = false;
                         }
                         $prod->active = 0;
@@ -3785,9 +3949,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             $productObject->active = true;
             $productObject->date_add = date('Y-m-d H:i:s');
 
-            // (isset($product['data']['product_reference']))
-            //? $product_reference = $product['data']['product_reference'] : $product_reference = '';
-            // $product_reference = preg_replace('/[^A-Za-z0-9\-]/', ' ', $product_reference);
+
             isset($product['data']['product_reference']) ? $product_reference = $this->slValidateReference(
                 $product['data']['product_reference']
             ) : $product_reference = '';
@@ -3823,7 +3985,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 );
             } catch (Exception $e) {
                 $this->debbug(
-                    '## Error. Cannot Sync product ' . $occurence . ' ->' . print_r($e->getMessage(), 1),
+                    '## Error. Cannot Sync product ' . $occurence . ' ->' .
+                    print_r($e->getMessage(), 1).
+                    ' line->' . $e->getLine() . ' trace->' . print_r($e->getTrace(), 1),
                     'syncdata'
                 );
             }
@@ -5404,7 +5568,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             $value_to_add = trim($values);
         }
 
-        if ($value_to_add !== '' && !is_null($value_to_add)) {
+        if ($value_to_add !== '' && $value_to_add !== null) {
             try {
                 $id_feature_value = $featureValue->addFeatureValueImport(
                     $id_feature,
@@ -5427,7 +5591,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                 if (is_array($value) && !empty($value)) {
                     $value = trim(reset($value));
                 }
-                if ($value !== '' && !is_null($value)) {
+                if ($value !== '' && $value !== null) {
                     $feature_value->value[$id_language] = trim($value);
                 }
             }
@@ -5475,7 +5639,24 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             } else {
                 $Basename = $product_field;
             }
-            if (in_array($Basename, $this->predefined_product_fields, false)) {
+
+            // test of dinamic fields
+            $delete_partial_field = false;
+            foreach ($this->predefined_partial_cut_fields as $partialfield) {
+                $without_separator = str_replace('_', ' ', $Basename);
+                if (preg_match('/'.$partialfield.'/i', $Basename) ||
+                    preg_match('/'.$partialfield.'/i', $without_separator)) {
+                    $delete_partial_field = true;
+                    break;
+                }
+            }
+
+            if ($delete_partial_field ||
+                in_array(
+                    Tools::strtolower($this->removeAccents($Basename)),
+                    $this->predefined_product_fields,
+                    false
+                )) {
                 unset($product[$product_field]);
             }
         }

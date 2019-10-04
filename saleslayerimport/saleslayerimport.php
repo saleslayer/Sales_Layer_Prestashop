@@ -92,7 +92,7 @@ class SalesLayerImport extends Module
     public $deleteProductOnHide = false;  // only for debug, false == deactivate product, true == delete product
     public $rewrite_execution_frequency = true;
     public $log_module_path = _PS_MODULE_DIR_ . 'saleslayerimport/logs/';
-    public $cpu_max_limit_for_retry_call = 1.40;
+    public $cpu_max_limit_for_retry_call = 1.50;
     private $max_execution_time = 290;
     private $memory_min_limit = 300;
     private $sql_insert_limit = 5;
@@ -224,7 +224,16 @@ class SalesLayerImport extends Module
             'product_supplier_1',
             'product_supplier_reference_1',
             'product_attachment',
-            'product_tag'
+            'product_tag',
+            'estimacion'
+        );
+    public $predefined_partial_cut_fields
+        = array(
+            'pack_product_',
+            'pack_format_',
+            'pack_quantity_',
+            'product_supplier_',
+            'product_supplier_reference_'
         );
 
 
@@ -243,7 +252,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.7';
+        $this->version = '1.4.8';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -2108,7 +2117,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function syncDataConnectors()
     {
-
         $processed_delete = array();
         $this->sl_catalogues = new SlCatalogues();
         $this->sl_products = new SlProducts();
@@ -3249,10 +3257,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     '## Error. Synchronizing product ' . print_r(
                                         $e->getMessage(),
                                         1
-                                    ) . ' trace->' . print_r(
+                                    ) . ' line->' . $e->getLine()
+                                    . ' trace->' . print_r(
                                         $e->getTrace(),
                                         1
-                                    ) . ' line->' . $e->getLine(),
+                                    ),
                                     'syncdata'
                                 );
                             }
@@ -3288,17 +3297,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             } catch (Exception $e) {
                                 $result_update = 'item_not_updated';
                                 $this->debbug(
-                                    '## Error. Synchronizing Variant '.print_r(
+                                    '## Error. Synchronizing Variant ' . print_r(
                                         $e->getMessage(),
                                         1
-                                    ).' trace->'.print_r(
+                                    ) . ' trace->' . print_r(
                                         $e->getTrace(),
                                         1
-                                    ).' line->'.$e->getLine(),
+                                    ) . ' line->' . $e->getLine(),
                                     'syncdata'
                                 );
                             }
-
 
                             //$result_update = $this->sync_stored_product_format($item_data);
                             $this->debbug(' >> Format synchronization finished << ', 'syncdata');

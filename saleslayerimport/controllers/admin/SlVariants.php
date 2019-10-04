@@ -645,7 +645,7 @@ class SlVariants extends SalesLayerPimUpdate
                             $comb->add();
                         }
                     } catch (Exception $e) {
-                        $syncCat = false;
+                        $syncCat = true; //false if error not retry
                         $this->debbug(
                             '## Error.  In save Variant->' .
                             print_r(
@@ -742,6 +742,23 @@ class SlVariants extends SalesLayerPimUpdate
                                             }
                                         }
 
+                                        if ($id_supplier == 0) {
+                                            try {
+                                                $supplier             = new Supplier();
+                                                $supplier->name       = $value;
+                                                $supplier->active     = 1;
+                                                $supplier->add();
+                                                $id_supplier =   $supplier->id;
+                                            } catch (Exception $e) {
+                                                $this->debbug(
+                                                    '## Error. ' . $occurence . ': in create new  supplier->' .
+                                                    print_r($e->getMessage(), 1) .
+                                                    'line->' . $e->getLine(),
+                                                    'syncdata'
+                                                );
+                                            }
+                                        }
+
                                         if ($id_supplier != 0) {
                                             $productObject = new Product($product_id, null, null, $shop_id);
 
@@ -801,25 +818,34 @@ class SlVariants extends SalesLayerPimUpdate
                                 continue 2;
 
                             case 'default_on':
-                                if ($this->slValidateBoolean($value)) {
-                                    $productObject = new Product($product_id, null, null, $shop_id);
-                                    $productObject->deleteDefaultAttributes();
-                                    $comb->default_on = 1;
+                                $valida_val = $this->slValidateBoolean($value);
+                                if (Validate::isBool($valida_val)) {
+                                    if ($valida_val) {
+                                        $productObject = new Product($product_id, null, null, $shop_id);
+                                        $productObject->deleteDefaultAttributes();
+                                        $comb->default_on = 1;
+                                    }
+                                } else {
+                                    $this->debbug('## Warning. Default_on is not boolean value ->' .
+                                                  print_r($value, 1), 'syncdata');
                                 }
-
                                 break;
                             case 'mostrar':
                                 $mostrar = $this->slValidateBoolean($value);
 
-                                $check_column = Db::getInstance()->executeS(
-                                    sprintf(
-                                        'SELECT * FROM information_schema.COLUMNS 
-                                                WHERE TABLE_SCHEMA = "' . _DB_NAME_ . '"
-                                                AND TABLE_NAME = "' . $this->product_attribute_table .
-                                                '" AND COLUMN_NAME = "mostrar"'
-                                    )
-                                );
-
+                                if ($this->slValidateBoolean($mostrar)) {
+                                    $check_column = Db::getInstance()->executeS(
+                                        sprintf(
+                                            'SELECT * FROM information_schema.COLUMNS 
+                                                    WHERE TABLE_SCHEMA = "' . _DB_NAME_ . '"
+                                                    AND TABLE_NAME = "' . $this->product_attribute_table .
+                                                    '" AND COLUMN_NAME = "mostrar"'
+                                        )
+                                    );
+                                } else {
+                                    $this->debbug('## Warning. Mostraris not boolean value ->' .
+                                                  print_r($value, 1), 'syncdata');
+                                }
                                 if (!empty($check_column)) {
                                     $update_mostrar = true;
                                 }
@@ -1009,8 +1035,61 @@ class SlVariants extends SalesLayerPimUpdate
                     );
                     $all_shops_image = Shop::getShops(true, null, true);
 
-                    $comb->setImages($format_img_ids);
-                    $comb->associateTo($all_shops_image);
+                    try {
+                        $comb->setImages($format_img_ids);
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '##Error. ' . $occurence . ' Variant image in set image ->'
+                            . $comb->id . 'set images to variants $format_img_ids ->' .
+                            print_r($format_img_ids, 1) . ' errormessage->' . $e->getMessage() .
+                            ' line->' . $e->getLine() .
+                            ' Trace->' . print_r($e->getTrace(), 1),
+                            'syncdata'
+                        );
+                    }
+
+                    try {
+                        $this->debbug(
+                            'How to a set this image to shops  variant id->'
+                            . $comb->id . ' All shops -> ' . print_r(
+                                $all_shops_image,
+                                1
+                            ),
+                            'syncdata'
+                        );
+                        $set_to_shops = array();
+
+                        $associated_shops = $comb->getAssociatedShops();
+                        $this->debbug(
+                            'Associated shops  variant id->'
+                            . $comb->id . ' $associated_shops -> ' . print_r(
+                                $associated_shops,
+                                1
+                            ),
+                            'syncdata'
+                        );
+                        if (count($associated_shops)) {//filter associated stores
+                            foreach ($all_shops_image as $shop_id_forset) {
+                                if (!in_array($shop_id_forset, $associated_shops, false)) {
+                                    $set_to_shops[] = $shop_id_forset;
+                                }
+                            }
+                        } else {
+                            $set_to_shops = $all_shops_image;
+                        }
+
+                        $comb->associateTo($set_to_shops);
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '##Error. ' . $occurence . ' Variant image in associate to ->'
+                            . $comb->id . ' calling to set images to all active shops-> ' . print_r(
+                                $all_shops_image,
+                                1
+                            ) . ' errormessage->' . $e->getMessage() . ' line->' . $e->getLine() .
+                            ' Trace->' . print_r($e->getTrace(), 1),
+                            'syncdata'
+                        );
+                    }
                 } else {
                     $this->debbug(
                         'This Variant does not have any images  ->' . $comb->id . ' status of ids images-> ' . print_r(
