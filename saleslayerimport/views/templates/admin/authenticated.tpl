@@ -126,11 +126,16 @@
           'token': token
         },
         success: function (data_return) {
-          $('.server_time').html(data_return['server_time']);
-          showMessage(data_return['message_type'], data_return['message'])
+          if(data_return !== null){
+              $('.server_time').html(data_return['server_time']);
+              showMessage(data_return['message_type'], data_return['message'])
+          }else{
+              showMessage('error', 'Error connect to server. Check your browser console for more information. Press F12')
+              console.error('Ajax connection error. Please check your ajax connections made in the Network panel -> XHR -> ajax -> Preview');
+          }
         },
-        error: function (data_return) {
-          showMessage(data_return['message_type'], data_return['message'])
+        error: function () {
+          showMessage('error', 'Connection error')
         }
       })
     }
@@ -161,8 +166,8 @@
             showMessage(data_return['message_type'], data_return['message']);
           }
         },
-        error: function (data_return) {
-          showMessage(data_return['message_type'], data_return['message']);
+        error: function () {
+          showMessage('error', 'Ajax connection error');
         }
       })
     }
