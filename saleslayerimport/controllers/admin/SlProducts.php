@@ -1958,7 +1958,7 @@ class SlProducts extends SalesLayerPimUpdate
                     )
                         && !empty($product['data']['product_out_of_stock'])
                     ) {
-                        $out_of_stock = $product['data']['product_out_of_stock'][0];
+                        $out_of_stock = reset($product['data']['product_out_of_stock']);
                     } else {
                         if (!is_array(
                             $product['data']['product_out_of_stock']
@@ -2019,6 +2019,14 @@ class SlProducts extends SalesLayerPimUpdate
                                     );
                                 }
                             }
+                        } else {
+                            $this->debbug(
+                                '## Warning. '.$occurence.' product_out_of_stock ->' .
+                                print_r($out_of_stock, 1) .
+                                'Value has not been recognized. Please use:'.
+                                ' denegar|deny|false|permitir|allow|true|defecto|default|0|1|2 ',
+                                'syncdata'
+                            );
                         }
                     }
                 }
