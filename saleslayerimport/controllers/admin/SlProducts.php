@@ -4372,10 +4372,10 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             'in feature  $new_name->' . print_r(
                                 $new_name,
                                 1
-                            ) . ' in $product[data]->' . print_r(
+                            )/* . ' in $product[data]->' . print_r(
                                 $product['data'],
                                 1
-                            ) . ' $feature_index_selected->' . print_r(
+                            )*/ . ' $feature_index_selected->' . print_r(
                                 $feature_index_selected,
                                 1
                             ),
