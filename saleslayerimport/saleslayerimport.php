@@ -140,8 +140,10 @@ class SalesLayerImport extends Module
     private $updated_elements = array();
     private $syncdata_pid;
     private $end_process;
+    private $block_retry_call = false;
     private $sl_time_ini_auto_sync_process;
     private $sl_time_ini_sync_data_process;
+    private $load_cron_time_status;
 
     ############################################################
 
@@ -2123,9 +2125,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->sl_variants = new SlVariants();
         $processed = array();
         $this->allocateMemory();
-        $this->debbug('memory limit status ->'.ini_get('memory_limit'));
+        $this->debbug('memory limit status ->' . ini_get('memory_limit'));
         $this->stopIndexer();
-        $this->recalculateDurationOfSyncronizationProcess();
+        $result = $this->testSlcronExist();
+        $this->load_cron_time_status = $result;
+        $this->recalculateDurationOfSyncronizationProcess($result);
 
         $this->sl_time_ini_sync_data_process = microtime(1);
 
@@ -2688,37 +2692,48 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function verifyRetryCall(
         $force = false
     ) {
+        if ($this->block_retry_call) {
+            return false;
+        }
 
-        // $this->debbug('Entry to retry call ','syncdata');
+        $this->debbug('Entry to retry call ', 'syncdata');
         $result = $this->testSlcronExist();
+
         $register_forProcess = $this->checkRegistersForProccess();
 
-        if (isset($result[0]['updated_at']) && ((count($result) && $register_forProcess) || $force)) {
-            $updated_time = strtotime($result[0]['updated_at']);
+        if (isset($this->load_cron_time_status[0]['updated_at']) &&
+            ((count($result) && $register_forProcess) || $force)) {
+            $updated_time = strtotime($this->load_cron_time_status[0]['updated_at']);
             $now_is = strtotime($result[0]['timeBD']);
 
             $execution_frequency_cron = $this->getConfiguration('CRON_MINUTES_FREQUENCY');
 
             $this->debbug(
-                'Execution time of cron is  '.$updated_time.' and time limit-> '.$execution_frequency_cron.' ',
+                'Execution time of cron is  ' . $updated_time . ' and time limit-> ' . $execution_frequency_cron . ' ',
                 'syncdata'
             );
             $next_sync = round($updated_time + $execution_frequency_cron);
             $duration_of_this_process = microtime(1) - $this->sl_time_ini_sync_data_process; //53
             $if_start_now = round($now_is + $duration_of_this_process);
+            $restant_seconds_for_next_sync = round($next_sync - $now_is - 10);
+            if ($restant_seconds_for_next_sync < - 10) {
+                $this->debbug(
+                    'Execution cron has been lost,' .
+                    ' to advance the wait by launching a call to cron. ',
+                    'syncdata'
+                );
+                $force = true;
+            }
 
             if (($execution_frequency_cron > 0 && $next_sync > $if_start_now) || $force) {
-                $restant_seconds_for_next_sync = round($next_sync - $now_is - 10);
-
-
                 $this->debbug(
                     'Execution of frequency execution of disponible_for_synchronization is ' .
                     $restant_seconds_for_next_sync .
-                    ' and time limit-> '.$this->max_execution_time.' next synchronization from
-                     cron espected at '.date(
+                    ' and time limit-> ' . $this->max_execution_time . ' next synchronization from
+                     cron espected at ' . date(
                         'd-m-Y H:i:s',
                         $next_sync
-                    ).' now with duration of this porocess if start terminate at ->'.date(
+                    ) . ' now with duration of this porocess if start terminate at ->' . date(
                         'd-m-Y H:i:s',
                         $next_sync
                     ),
@@ -2728,20 +2743,21 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $load = sys_getloadavg();
                 if ($load[0] > $this->cpu_max_limit_for_retry_call) {
                     $this->debbug(
-                        '## Warning. The call will not be executed to start the process because the '.
-                         'cpu of the server is heavily loaded,'.
-                         'it will try to synchronize later when the cron resumes the synchronization. '.
+                        '## Warning. The call will not be executed to start the process because the ' .
+                         'cpu of the server is heavily loaded,' .
+                         'it will try to synchronize later when the cron resumes the synchronization. ' .
                           'cpu loaded->' .
                         print_r(
                             $load[0],
                             1
                         ) .
-                        ' limit is ->'.$this->cpu_max_limit_for_retry_call,
+                        ' limit is ->' . $this->cpu_max_limit_for_retry_call,
                         'syncdata'
                     );
                 }
 
-                if (($this->max_execution_time < $restant_seconds_for_next_sync || $force)
+                if ((($this->max_execution_time < $restant_seconds_for_next_sync ||
+                      $restant_seconds_for_next_sync < -10) || $force)
                     && $load[0] < $this->cpu_max_limit_for_retry_call) {
                     $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
                     $url = 'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
@@ -2753,7 +2769,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         '&internal=1';
 
                     $this->debbug(
-                        'Calling execution of this syncgronization $restant_seconds_for_next_sync->' .
+                        'Calling execution of this syncronization $restant_seconds_for_next_sync->' .
                         $restant_seconds_for_next_sync . ' and time limit-> ' . $this->max_execution_time .
                         ' force ->' . print_r(
                             $force,
@@ -2833,7 +2849,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function deleteConfiguration(
         $configuration_name
     ) {
-        $sql_sel = 'DELETE FROM '. $this->saleslayer_aditional_config .
+        $sql_sel = 'DELETE FROM ' . $this->saleslayer_aditional_config .
             " WHERE configname = '$configuration_name'  Limit 1  ";
         $res = $this->slConnectionQuery('-', $sql_sel);
         if ($res) {
@@ -2948,11 +2964,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     /**
      * Recalculate the maximum time allowed for this synchronization by checking the frequency of cron calls and
      * the maximum allowed time of execution of cron of php
+     * $result array|bool
      * @throws PrestaShopDatabaseException
      * @throws PrestaShopException
      */
 
-    private function recalculateDurationOfSyncronizationProcess()
+    private function recalculateDurationOfSyncronizationProcess($result = false)
     {
         if ($this->rewrite_execution_frequency) {
             $actual_execution_limit = 0;
@@ -2982,7 +2999,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
 
             if ($execution_time_cron > 0 && $actual_execution_limit >= $execution_time_cron) {
-                $result = $this->testSlcronExist();
+                if (!$result) {
+                    $result = $this->testSlcronExist();
+                }
+
 
                 if (count($result)) {
                     $updated_time = strtotime($result[0]['updated_at']);
@@ -3039,7 +3059,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $current_flag = $current_flag[0];
                 if ($current_flag['syncdata_pid'] == 0) {
                     $sl_query_flag_to_update = " UPDATE " . $this->saleslayer_syncdata_flag_table .
-                        " SET syncdata_pid = " . $this->syncdata_pid . ", syncdata_last_date = '" . $date_now . "'".
+                        " SET syncdata_pid = " . $this->syncdata_pid . ", syncdata_last_date = '" . $date_now . "'" .
                         " WHERE id = " . $current_flag['id'];
 
                     $this->slConnectionQuery('-', $sl_query_flag_to_update);
@@ -3049,8 +3069,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $minutes = round($interval / 60);
 
                     if ($minutes < 10) {
-                        $this->debbug('Data is already being processed.', 'syncdata');
+                        $this->debbug('Data is already being processed.' .
+                                      ' Go to terminate this process and wait ' .
+                                      'to run retry call if is needed.', 'syncdata');
                         $this->end_process = true;
+                        $this->block_retry_call = true;
                     } else {
                         if ($this->syncdata_pid === $current_flag['syncdata_pid']) {
                             $this->debbug('Pid is the same as current.', 'syncdata');
@@ -3060,19 +3083,19 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                         if ($flag_pid_is_alive > 1) {
                             try {
-                                $this->debbug('Killing pid: '.$current_flag['syncdata_pid'], 'syncdata');
+                                $this->debbug('Killing pid: ' . $current_flag['syncdata_pid'], 'syncdata');
 
                                 $result_kill = posix_kill($current_flag['syncdata_pid'], 0);
 
                                 if (!$result_kill) {
                                     $this->debbug(
-                                        '## Error. Could not kill pid '.$current_flag['syncdata_pid'],
+                                        '## Error. Could not kill pid ' . $current_flag['syncdata_pid'],
                                         'syncdata'
                                     );
                                 }
                             } catch (Exception $e) {
                                 $this->debbug(
-                                    '## Error. Exception killing pid '.$current_flag['syncdata_pid'].': '.print_r(
+                                    '## Error. Exception killing pid ' . $current_flag['syncdata_pid'] . ': ' . print_r(
                                         $e->getMessage(),
                                         1
                                     ),
@@ -3112,9 +3135,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->debbug(
                 'The predefined time for the synchronization has been exceeded in the next opportunity,
                 the synchronization will be calibrated and the synchronization will continue in its next process.->'
-                . $current_process_time . ' seconds max_execution_time:' . ini_get(
-                    'max_execution_time'
-                )
+                . $current_process_time . ' seconds max_execution_time:' . $this->max_execution_time
             );
             $this->end_process = true;
         }
@@ -3307,7 +3328,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     'syncdata'
                                 );
                             }
-
                             //$result_update = $this->sync_stored_product_format($item_data);
                             $this->debbug(' >> Format synchronization finished << ', 'syncdata');
                             $this->debbug(
@@ -3425,6 +3445,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         break;
 
                     default:
+                        $this->allocateMemory();
                         $this->clearDebugContent();
                         $processed[] = str_replace('_', ' ', $item_to_update['item_type']);
                         $this->sql_items_delete[] = $item_to_update['id'];
