@@ -254,7 +254,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.8';
+        $this->version = '1.4.9';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -414,6 +414,9 @@ class SalesLayerImport extends Module
             $urlcorrect = _PS_BASE_URL_ . __PS_BASE_URI__ . implode('/', $exploded);
         } else {
             $urlcorrect = $url;
+        }
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') {
+            $urlcorrect = str_replace('http://', 'https://', $urlcorrect);
         }
         return $urlcorrect;
     }
@@ -3359,7 +3362,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 );
                             }
 
-                            $this->debbug(' >> Product Accesories Fin<< ');
+                            $this->debbug(' >> Product Accessories END << ');
                             $this->debbug(
                                 '#### time_sync_stored_product_accessories: ' .
                                 (
