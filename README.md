@@ -4,6 +4,7 @@
 <span>Sales Layer plugin allows you to easily synchronize your catalogue information with Prestashop.</span>
 
 Prestashop from Version: 1.6.1.6
+Stable in 1.7.5.1
 
 <h2>How To Start</h2>
 <div>
