@@ -3,6 +3,8 @@
 <h1><a href="https://saleslayer.com/" title="Sales layer"> Sales Layer</a> Prestashop plugin</h1>
 <span>Sales Layer plugin allows you to easily synchronize your catalogue information with Prestashop.</span>
 
+Prestashop from Version: 1.6.1.6
+
 <h2>How To Start</h2>
 <div>
     <h3>1. Install the plugin in Prestashop</h3>          

@@ -259,7 +259,7 @@ class SalesLayerImport extends Module
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
         $this->dependencies = array('cronjobs');  // force users to install cron jobs module
-        $this->ps_versions_compliancy = array('min' => '1.6.0.0', 'max' => '1.8.0.0');
+        $this->ps_versions_compliancy = array('min' => '1.6.1.6', 'max' => '1.8.0.0');
         $this->bootstrap = true;
 
         parent::__construct();
