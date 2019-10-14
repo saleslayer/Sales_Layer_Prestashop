@@ -24,7 +24,7 @@ function upgrade_module_1_4_7()
     //Create all the necessary tables empty
     $SLimport->checkDB();
 
-    $SLimport->debbug('Updating to version 1.4.7 success', '', true);
+   // $SLimport->debbug('Updating to version 1.4.7 success', '', true);
 
     return true;
 }

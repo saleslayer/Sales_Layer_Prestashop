@@ -801,18 +801,21 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             if (!$this->registerHook('actionCronJob')
                   && !parent::install()
             ) {
-                $this->_errors[] = 'Install error ';
+                if (!empty($this->_errors)) {
+                    if (!file_exists(DEBBUG_PATH_LOG)) {
+                        mkdir(DEBBUG_PATH_LOG, 0777, true);
+                    }
+                    $this->debbug('Install test result error-> :' . print_r($this->_errors, 1), '', true);
+                }
                 return false;
-            }
-            if (!file_exists(DEBBUG_PATH_LOG)) {
-                mkdir(DEBBUG_PATH_LOG, 0777, true);
             }
 
             $this->checkDB();
             $this->createTabLink();
             $this->registerHook('displayBackOfficeHeader');
-            $this->debbug('Install test result-> :' . print_r($this->_errors, 1));
-
+            if (!empty($this->_errors)) {
+                $this->debbug('Install test result-> :' . print_r($this->_errors, 1), '', true);
+            }
             return true;
         } catch (Exception $e) {
             $this->debbug('Install error ' . $e->getMessage() . ' line->' . $e->getLine() .
