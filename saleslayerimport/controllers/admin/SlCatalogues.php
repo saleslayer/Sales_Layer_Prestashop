@@ -293,6 +293,15 @@ class SlCatalogues extends SalesLayerPimUpdate
                 $cat->id_parent = $defaultCategory;
                 $cat->id_category_default = $defaultCategory;
 
+                if (isset($section_reference) && !empty($section_reference)) {
+                    $occurence = ' section reference :' . $section_reference;
+                } elseif (isset($catalog_name) && !empty($catalog_name)) {
+                    $occurence = ' category name :' . $catalog_name;
+                } else {
+                    $occurence = ' ID :' . $catalog['ID'];
+                }
+
+
 
                 foreach ($this->shop_languages as $lang) {
 
@@ -362,10 +371,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                     if (isset($catalog['data'][$section_description_index]) &&
                         !empty($catalog['data'][$section_description_index])) {
-                        $section_description = $this->slValidateCatalogName(
-                            $catalog['data'][$section_description_index],
-                            'Catalog'
-                        );
+                        $section_description = $catalog['data'][$section_description_index];
                         $cat->description[$lang['id_lang']] = $section_description;
                         $this->debbug(
                             'Assigning section_description category of ' . print_r(
@@ -403,6 +409,11 @@ class SlCatalogues extends SalesLayerPimUpdate
                         }
                     }
                     if ($meta_title != '') {
+                        if (Tools::strlen($meta_title) > 249) {
+                            $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
+                                          print_r(Tools::strlen($meta_title), 1), 'syncdata');
+                            $meta_title = Tools::substr($meta_title, 0, 249);
+                        }
                         $cat->meta_title[$lang['id_lang']] = $meta_title;
                     }
 
@@ -431,15 +442,18 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $meta_description = $catalog['data'][$meta_description_index];
                     } else {
                         if (isset($catalog['data'][$section_description_index])) {
-                            $meta_description = strip_tags($catalog['data'][$section_description_index]);
+                            $meta_description = $catalog['data'][$section_description_index];
                         }
                     }
 
                     if ($meta_description != '') {
-                        if (Tools::strlen($meta_description) > 255) {
-                            $meta_description = Tools::substr($meta_description, 0, 255);
+                        if (Tools::strlen($meta_description) > 512) {
+                            $this->debbug('## Warning. ' . $occurence .
+                                          ' Meta description has been cut->' .
+                                          print_r(Tools::strlen($meta_description), 1), 'syncdata');
+                            $meta_description = Tools::substr($meta_description, 0, 512);
                         }
-                        $cat->meta_description[$lang['id_lang']] = $meta_description;
+                        $cat->meta_description[$lang['id_lang']] = strip_tags($meta_description);
                     }
 
 
@@ -531,7 +545,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         )
                     );
                 } catch (Exception $e) {
-                    $syncCat = false;
+                    $syncCat = true;
                     $this->debbug(
                         '## Error. Creating category  ID:' . $catalog['ID'] . ' ' . print_r($e->getMessage(), 1),
                         'syncdata'
@@ -606,6 +620,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                  * Update names
                  *
                  */
+                $meta_title = '';
                 $catalog_name = '';
                 $section_name_index = '';
                 $section_name_index_search = 'section_name_' . $lang['iso_code'];
@@ -666,10 +681,8 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                 if (isset($catalog['data'][$section_description_index]) &&
                     !empty($catalog['data'][$section_description_index])) {
-                    $section_description = $this->slValidateCatalogName(
-                        $catalog['data'][$section_description_index],
-                        'Catalog'
-                    );
+                    $section_description = $catalog['data'][$section_description_index];
+
                     if ($cat->description[$lang['id_lang']] != $section_description) {
                         $cat->description[$lang['id_lang']] = $section_description;
                     }
@@ -710,8 +723,15 @@ class SlCatalogues extends SalesLayerPimUpdate
                     }
                 }
 
-                if ($meta_title != '' && $cat->meta_title[$lang['id_lang']] != $meta_title) {
-                    $cat->meta_title[$lang['id_lang']] = $meta_title;
+                if ($meta_title != '') {
+                    if ($cat->meta_title[$lang['id_lang']] != $meta_title) {
+                        if (Tools::strlen($meta_title) > 249) {
+                            $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
+                                          print_r(Tools::strlen($meta_title), 1), 'syncdata');
+                            $meta_title = Tools::substr($meta_title, 0, 249);
+                        }
+                        $cat->meta_title[$lang['id_lang']] = strip_tags($meta_title);
+                    }
                     // $need_update = true;
                 }
 
@@ -745,10 +765,13 @@ class SlCatalogues extends SalesLayerPimUpdate
                 }
 
                 if ($meta_description != '' && $cat->meta_description[$lang['id_lang']] != $meta_description) {
-                    if (Tools::strlen($meta_description) > 255) {
-                        $meta_description = Tools::substr($meta_description, 0, 255);
+                    if (Tools::strlen($meta_description) > 512) {
+                        $this->debbug('## Warning. ' . $occurence . ' Meta description has been cut->' .
+                                      print_r(Tools::strlen($meta_description), 1), 'syncdata');
+
+                        $meta_description = Tools::substr($meta_description, 0, 512);
                     }
-                    $cat->meta_description[$lang['id_lang']] = $meta_description;
+                    $cat->meta_description[$lang['id_lang']] = strip_tags($meta_description);
                     // $need_update = true;
                 }
 

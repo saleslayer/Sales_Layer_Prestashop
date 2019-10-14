@@ -3422,7 +3422,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 switch ($result_update) {
                     case 'item_not_updated':
                         $this->debbug(
-                            '## Error. item could not be synchronized: '.$item_to_update['item_type'].': '.print_r(
+                            '## Error. item could not be synchronized: ' .
+                            $item_to_update['item_type'] . ': ' . print_r(
                                 $item_to_update,
                                 1
                             ),
@@ -3432,18 +3433,19 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                         if ($sync_tries > 2) {
                             if ($item_to_update['item_type'] == 'category') {
-                                $this->sl_catalogues->reorganize_categories();
+                                $this->sl_catalogues->reorganizeCategories();
                             }
 
                             $this->sql_items_delete[] = $item_to_update['id'];
                         } else {
                             $this->debbug(
-                                '## Error. item_not_updated: : '.print_R($item_to_update, 1),
+                                '## Error. item_not_updated: : ' .
+                                print_r($item_to_update, 1),
                                 'syncdata'
                             );
-                            $sql_update = " UPDATE "._DB_PREFIX_."slyr_syncdata ".
-                                " SET status = 'no' ".
-                                " WHERE id = ".$item_to_update['id'];
+                            $sql_update = " UPDATE " ._DB_PREFIX_ . "slyr_syncdata " .
+                                " SET status = 'no' " .
+                                " WHERE id = " . $item_to_update['id'];
 
                             $this->slConnectionQuery('-', $sql_update);
                         }
