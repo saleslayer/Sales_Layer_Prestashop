@@ -83,7 +83,7 @@ class SlCatalogues extends SalesLayerPimUpdate
         $defaultCategory
     ) {
         $syncCat = true;
-
+        $occurence = '';
         $this->debbug(
             'Entry to synchronize->' . print_r($catalog, 1) . ' Connector id-> ' . print_r(
                 $connector_id,
@@ -410,8 +410,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                     }
                     if ($meta_title != '') {
                         if (Tools::strlen($meta_title) > 249) {
-                            $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
-                                          print_r(Tools::strlen($meta_title), 1), 'syncdata');
+                            /* $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
+                                           print_r(Tools::strlen($meta_title), 1), 'syncdata');*/
                             $meta_title = Tools::substr($meta_title, 0, 249);
                         }
                         $cat->meta_title[$lang['id_lang']] = $meta_title;
@@ -448,9 +448,9 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                     if ($meta_description != '') {
                         if (Tools::strlen($meta_description) > 512) {
-                            $this->debbug('## Warning. ' . $occurence .
-                                          ' Meta description has been cut->' .
-                                          print_r(Tools::strlen($meta_description), 1), 'syncdata');
+                            /*  $this->debbug('## Warning. ' . $occurence .
+                                            ' Meta description has been cut->' .
+                                            print_r(Tools::strlen($meta_description), 1), 'syncdata');*/
                             $meta_description = Tools::substr($meta_description, 0, 512);
                         }
                         $cat->meta_description[$lang['id_lang']] = strip_tags($meta_description);
@@ -726,8 +726,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                 if ($meta_title != '') {
                     if ($cat->meta_title[$lang['id_lang']] != $meta_title) {
                         if (Tools::strlen($meta_title) > 249) {
-                            $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
-                                          print_r(Tools::strlen($meta_title), 1), 'syncdata');
+                            /* $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
+                                           print_r(Tools::strlen($meta_title), 1), 'syncdata');*/
                             $meta_title = Tools::substr($meta_title, 0, 249);
                         }
                         $cat->meta_title[$lang['id_lang']] = strip_tags($meta_title);
@@ -766,8 +766,8 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                 if ($meta_description != '' && $cat->meta_description[$lang['id_lang']] != $meta_description) {
                     if (Tools::strlen($meta_description) > 512) {
-                        $this->debbug('## Warning. ' . $occurence . ' Meta description has been cut->' .
-                                      print_r(Tools::strlen($meta_description), 1), 'syncdata');
+                        /* $this->debbug('## Warning. ' . $occurence . ' Meta description has been cut->' .
+                                       print_r(Tools::strlen($meta_description), 1), 'syncdata');*/
 
                         $meta_description = Tools::substr($meta_description, 0, 512);
                     }

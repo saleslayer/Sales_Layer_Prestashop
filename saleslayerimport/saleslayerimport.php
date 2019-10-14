@@ -2766,7 +2766,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                       $restant_seconds_for_next_sync < -10) || $force)
                     && $load[0] < $this->cpu_max_limit_for_retry_call) {
                     $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-                    $url = 'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+                    $s = '';
+                    if (Tools::usingSecureMode()) {
+                        $s = 's';
+                    }
+                    $url =  'http' . $s . '://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
                         'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
                             Tools::encrypt('saleslayerimport'),
                             0,

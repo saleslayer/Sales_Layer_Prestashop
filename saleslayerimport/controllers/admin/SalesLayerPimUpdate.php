@@ -1047,9 +1047,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
         if (!$wait_for_response) {
             $this->debbug('conection with timeout', 'syncdata');
-            curl_setopt($ch, CONNECTION_TIMEOUT, 5);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-            curl_setopt($ch, CURLOPT_TIMEOUT_MS, 5);
+            curl_setopt($ch, CONNECTION_TIMEOUT, 155);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 155);
+            curl_setopt($ch, CURLOPT_TIMEOUT_MS, 155);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
         } else {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
