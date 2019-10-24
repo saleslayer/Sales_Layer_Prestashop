@@ -22,8 +22,8 @@ function upgrade_module_1_4_1()
     $SLimport = new SalesLayerImport();
 
     //force delete stored information and table
-    Db::getInstance()->execute('TRUNCATE TABLE ' . _DB_PREFIX_ . 'slyr_syncdata');
-    Db::getInstance()->execute('TRUNCATE TABLE ' . $SLimport->saleslayer_syncdata_flag_table);
+    Db::getInstance()->execute('TRUNCATE TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_syncdata');
+    Db::getInstance()->execute('TRUNCATE TABLE IF EXISTS ' . $SLimport->saleslayer_syncdata_flag_table);
 
     //Create all the necessary tables empty
     $SLimport->checkDB();
