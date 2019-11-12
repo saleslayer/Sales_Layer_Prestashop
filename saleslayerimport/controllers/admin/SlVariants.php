@@ -478,33 +478,71 @@ class SlVariants extends SalesLayerPimUpdate
                  * Combination does not exist in the SL cache
                  * Check prestashop reference
                  */
-                if ($check_sl_product_format_id == 0 && !empty($reference)) {
-                    $check_sl_product_format_id = (int)Db::getInstance()->getValue(
+
+
+                if (!empty($reference)) {
+                    $check_sl_product_format_array = Db::getInstance()->executeS(
                         sprintf(
                             'SELECT ps.id_product_attribute FROM `' . _DB_PREFIX_ . 'product_attribute` ps
-                         WHERE ps.reference = "%s" AND  ps.id_product = "%s" ',
+                         WHERE ps.reference = "%s" AND  ps.id_product = "%s" GROUP BY  id_product_attribute',
                             $reference,
                             $product_id
                         )
                     );
 
-                    if ($check_sl_product_format_id != 0) {
-                        $this->debbug(
-                            'Reference founded by Reference ->' . $reference,
-                            'syncdata'
-                        );
 
-                        Db::getInstance()->execute(
-                            sprintf(
-                                'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
+                    $this->debbug(
+                        'Founded rows  ->' . print_r($check_sl_product_format_array, 1),
+                        'syncdata'
+                    );
+
+                    if ($check_sl_product_format_id == 0 && count($check_sl_product_format_array)) {
+                        $reset_value = reset($check_sl_product_format_array);
+                        $check_sl_product_format_id =  $reset_value['id_product_attribute'];
+
+                        if ($check_sl_product_format_id != 0) {
+                            $this->debbug(
+                                'Variant found by Reference ->' . $reference,
+                                'syncdata'
+                            );
+
+                            Db::getInstance()->execute(
+                                sprintf(
+                                    'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
                                     (ps_id, slyr_id, ps_type, comp_id, date_add) 
                                     VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
-                                $sl_product_format_id,
-                                $product_format_id,
-                                'combination',
-                                $comp_id
-                            )
+                                    $sl_product_format_id,
+                                    $product_format_id,
+                                    'combination',
+                                    $comp_id
+                                )
+                            );
+                        }
+                    }
+
+                    if (count($check_sl_product_format_array) > 1) {
+                        $this->debbug(
+                            '## Warning. More than one Variant with same sku detected  ->' . $reference .
+                            '  count ->' . count($check_sl_product_format_array),
+                            'syncdata'
                         );
+                        unset($check_sl_product_format_array[key($check_sl_product_format_array)]);
+                        /**
+                         * Delete all variant and save ony one with the same code
+                         */
+
+                        foreach ($check_sl_product_format_array as $id_combination) {
+                            $this->debbug(
+                                'Deleting Variant  id_product_attribute ->' . $id_combination['id_product_attribute'],
+                                'syncdata'
+                            );
+                            $existing_combination = new CombinationCore(
+                                $id_combination['id_product_attribute'],
+                                null,
+                                $shop_id
+                            );
+                            $existing_combination->delete();
+                        }
                     }
                 }
 
@@ -1317,16 +1355,42 @@ class SlVariants extends SalesLayerPimUpdate
                     //  $atr_values =   array_values($multilenguage);
                     $count_end = count($multilanguage);
                     foreach ($multilanguage as $col_like) {
-                        if ($count_end == $counter) {
-                            $left_group_value .= " al.`name` LIKE '" . pSQL($col_like) . "' ";
+                        $separate = explode(':', $col_like);
+                        if (count($separate) > 2) {
+                            $valid_values = [];
+                            foreach ($separate as $value) {
+                                if (!preg_match('/#/', $value)) {
+                                    $valid_values[] = trim($value);
+                                }
+                            }
+                            $att_value = implode(': ', $valid_values);
                         } else {
-                            $left_group_value .= " al.`name` LIKE '" . pSQL($col_like) . "'  OR ";
+                            $att_value = reset($separate);
+                        }
+
+                        if ($count_end == $counter) {
+                            $left_group_value .= " al.`name` LIKE '" . pSQL($att_value) . "' ";
+                        } else {
+                            $left_group_value .= " al.`name` LIKE '" . pSQL($att_value) . "'  OR ";
                         }
                         $counter++;
                     }
                     $left_group_value .= ' ) ';
                 } else {
-                    $left_group_value = " al.`name` LIKE '" . pSQL(reset($multilanguage)) . "' ";
+                    $separate = explode(':', reset($multilanguage));
+                    if (count($separate) > 2) {
+                        $valid_values = [];
+                        foreach ($separate as $value) {
+                            if (!preg_match('/#/', $value)) {
+                                $valid_values[] = trim($value);
+                            }
+                        }
+                        $att_value = implode(': ', $valid_values);
+                    } else {
+                        $att_value = reset($separate);
+                    }
+
+                    $left_group_value = " al.`name` LIKE '" . pSQL($att_value) . "' ";
                 }
             }
 
@@ -1597,14 +1661,6 @@ class SlVariants extends SalesLayerPimUpdate
                     $attribute_group_id
                 )
             ); //  AND id_lang = "%s"  $id_lang
-
-
-
-
-
-
-
-
 
             if (($attribute_lang_exists == 0 || !$attribute_lang_exists)) {
                 //|| $attribute_exists_id != $attribute_value_id
