@@ -307,6 +307,15 @@ class SalesLayerImport extends Module
      */
     public function loadDebugMode()
     {
+        $schemaSQL_PS_SL_configdata = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_aditional_config ." (
+                                     `id_config` INT NOT NULL AUTO_INCREMENT,
+                                      `configname` VARCHAR(100) NOT NULL,
+                                      `save_value` VARCHAR(500) NULL,
+                                    PRIMARY KEY (`id_config`),
+                                    UNIQUE INDEX `configname_UNIQUE` (`configname` ASC))
+                                    COMMENT = 'Sales Layer additional configuration' ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
+
         $debugmode = $this->getConfiguration('DEBUGMODE');
         if ($debugmode === false) {
             $debugmode = 0;
