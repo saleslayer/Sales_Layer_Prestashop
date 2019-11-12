@@ -42,7 +42,13 @@
   margin-top: 40px;
   margin-bottom: 40px
 }
+.right{
+  float:right;
+}
 
+.left{
+  float:left;
+}
 #logo {
   margin-bottom: 5px
 }
@@ -55,6 +61,12 @@
   height: 20px
 }
 
+.table-hide-bor, .table-hide-bor tr ,.table-hide-bor td{
+border:0 !important;
+}
+.table-hide-bor > tbody > tr > td,.table-hide-bor > tbody > tr > td:hover {
+  background-color: #fff !important;
+}
 #messages {
   font-size: 17px !important;
   font-weight: 700;

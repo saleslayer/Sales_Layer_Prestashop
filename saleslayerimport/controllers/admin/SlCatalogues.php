@@ -374,7 +374,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $section_description = $catalog['data'][$section_description_index];
                         $cat->description[$lang['id_lang']] = $section_description;
                         $this->debbug(
-                            'Assigning section_description category of ' . print_r(
+                            $occurence  . 'Assigning section_description category of ' . print_r(
                                 $section_description_index,
                                 1
                             ) . ' value->' . print_r($catalog['data'][$section_description_index], 1)

@@ -55,6 +55,18 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
                     $response_function[0] = 0;
                 }
                 break;
+            case 'performance':
+                $value = Tools::getValue('value');
+                if ($value != null) {
+                    $value = (int) $value . '.00';
+                    $this->SLimport->setPerformanceLimit($value);
+                    $response_function[0] = 1;
+                    $response_function[1] = '';
+                    $response_function['function'] = 'performance';
+                } else {
+                    $response_function[0] = 0;
+                }
+                break;
             default:
                 $command = Tools::getValue('logcommand');
                 $line = Tools::getValue('value');
@@ -69,7 +81,7 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
             $array_return['function'] = $response_function['function'];
             $array_return['content'] = $response_function[1];
             unset($response_function[1]);
-            if ($command != 'showlogfiles' && $command != 'debugmode') {
+            if ($command != 'showlogfiles' && $command != 'debugmode' && $command != 'performance') {
                 $array_return['lines'] = $response_function[2];
                 //  $array_return['warnings'] = $response_function[3];
                 //  $array_return['errors'] = $response_function[4];
@@ -98,10 +110,8 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
      * @return array
      */
 
-
     public function checkFilesLogs()
     {
-
         $files = array('system.log', 'exception.log');
         $response = array();
         $response[1] = array();
@@ -182,7 +192,6 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
         $logfile,
         $lineNumber
     ) {
-
         $logfile = html_entity_decode($logfile);
         $response = array();
         $response[1] = array();

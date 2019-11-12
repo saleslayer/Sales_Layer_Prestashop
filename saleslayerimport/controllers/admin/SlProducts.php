@@ -1288,7 +1288,8 @@ class SlProducts extends SalesLayerPimUpdate
                         $this->debbug(
                             ' Product_price is empty ->' .
                             print_r(
-                                $product['data']['product_price'],
+                                (isset($product['data']['product_price']) ?
+                                    $product['data']['product_price'] : '!isset'),
                                 1
                             ),
                             'syncdata'
@@ -1303,7 +1304,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (Validate::isBool($toactivate)) {
                         $productObject->active =  $toactivate;
                     } else {
-                        $this->debbug('## Warning. '.$occurence.
+                        $this->debbug('## Warning. ' . $occurence .
                                       ' Field Active. Value is not a boolean -> ' .
                                       print_r(
                                           $toactivate,

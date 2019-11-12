@@ -92,7 +92,8 @@ class SalesLayerImport extends Module
     public $deleteProductOnHide = false;  // only for debug, false == deactivate product, true == delete product
     public $rewrite_execution_frequency = true;
     public $log_module_path = _PS_MODULE_DIR_ . 'saleslayerimport/logs/';
-    public $cpu_max_limit_for_retry_call = 1.50;
+    public $cpu_max_limit_for_retry_call = 4.00;
+    public $timeout_for_run_process_connections = 300;
     private $max_execution_time = 290;
     private $memory_min_limit = 300;
     private $sql_insert_limit = 5;
@@ -254,7 +255,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.9';
+        $this->version = '1.4.10';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -284,32 +285,28 @@ class SalesLayerImport extends Module
             )
         );
         $this->loadDebugMode();
+        $this->loadPerformanceLimit();
         $this->defaultLanguage = (int)Configuration::get('PS_LANG_DEFAULT');
-
-        if (defined('_PS_ADMIN_DIR_')) { //save adminpanel directory for create cronjobs url
-            $admin = explode('/', _PS_ADMIN_DIR_);
-            $admin_folder_arr = array_slice($admin, -1);
-            $admin_folder = reset($admin_folder_arr);
-            $configuration = array('ADMIN_DIR' => $admin_folder);
-            $this->saveConfiguration($configuration);
-        }
     }
 
     /**
      * Load debugmode
      */
+    public function loadPerformanceLimit()
+    {
+        $Performance_limit = $this->getConfiguration('PERFORMANCE_LIMIT');
+        if ($Performance_limit === false) {
+            $Performance_limit = $this->cpu_max_limit_for_retry_call;
+            $this->saveConfiguration(['PERFORMANCE_LIMIT' => $Performance_limit]);
+        }
+        $this->cpu_max_limit_for_retry_call = $Performance_limit;
+    }
 
+    /**
+     * Load debugmode
+     */
     public function loadDebugMode()
     {
-        $schemaSQL_PS_SL_configdata = 'CREATE TABLE IF NOT EXISTS ' . $this->saleslayer_aditional_config . " (
-                                     `id_config` INT NOT NULL AUTO_INCREMENT,
-                                      `configname` VARCHAR(100) NOT NULL,
-                                      `save_value` VARCHAR(500) NULL,
-                                    PRIMARY KEY (`id_config`),
-                                    UNIQUE INDEX `configname_UNIQUE` (`configname` ASC))
-                                    COMMENT = 'Sales Layer additional configuration' ";
-        Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
-
         $debugmode = $this->getConfiguration('DEBUGMODE');
         if ($debugmode === false) {
             $debugmode = 0;
@@ -816,6 +813,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             if (!empty($this->_errors)) {
                 $this->debbug('Install test result-> :' . print_r($this->_errors, 1), '', true);
             }
+            if (defined('_PS_ADMIN_DIR_')) { //save adminpanel directory for create cronjobs url
+                $admin = explode('/', _PS_ADMIN_DIR_);
+                $admin_folder_arr = array_slice($admin, -1);
+                $admin_folder = reset($admin_folder_arr);
+                $configuration = array('ADMIN_DIR' => $admin_folder);
+                $this->saveConfiguration($configuration);
+            }
+
+
             return true;
         } catch (Exception $e) {
             $this->debbug('Install error ' . $e->getMessage() . ' line->' . $e->getLine() .
@@ -2868,7 +2874,17 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         return false;
     }
+    /**
+     * Update performance limit
+     * @param $debugmode
+     */
 
+    public function setPerformanceLimit(
+        $performance
+    ) {
+        $this->saveConfiguration(['PERFORMANCE_LIMIT' => $performance]);
+        $this->cpu_max_limit_for_retry_call = $performance;
+    }
     /**
      * Update debugmode
      * @param $debugmode

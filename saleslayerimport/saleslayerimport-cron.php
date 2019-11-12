@@ -27,6 +27,7 @@ if (!Module::isInstalled('saleslayerimport')
 ) {
     die('Bad token');
 }
+echo 'cron_sales_layer_pim';
 require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
 
 $SLimport = new SalesLayerImport();
@@ -35,6 +36,23 @@ $is_internal = Tools::getValue('internal');
 if (!$is_internal == 1) {
     // call from cron
     $SLimport->saveCronExecutionTime();
+}
+
+$force_sync = Tools::getValue('force_sync');
+
+if ($force_sync != '') {
+    /*
+    Sync if ajax error in template
+    */
+    require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
+    $sync_libs = new SalesLayerPimUpdate();
+    try {
+        $returnUpdate = $sync_libs->storeSyncData($force_sync);
+        $SLimport->debbug('Result of comand sync from post of conector ->' . print_r($returnUpdate, 1));
+    } catch (Exception $e) {
+        $SLimport->debbug('## Error. Sync data connectors in Cron start from post : ' . $e->getMessage()
+                          . ' line->' . $e->getLine() . ' trace' . print_r($e->getTrace(), 1), 'error');
+    }
 }
 
 if ($SLimport->checkRegistersForProccess()) {

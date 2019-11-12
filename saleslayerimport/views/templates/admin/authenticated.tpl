@@ -16,8 +16,12 @@
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"/>
   <link rel="stylesheet" href="{$SLY_ASSETS_PATH|escape:'htmlall':'UTF-8'}views/css/slyrimport.css"/>
   <div class="container" id="mymodule_wrapper" data-token="{$token|escape:'htmlall':'UTF-8'}">
-    <input type="hidden" id="ajax_link_sl" value="{$ajax_link|escape:'htmlall':'UTF-8'}"/>
-    <input type="hidden" id="allelements" value="0"/>
+    <form action="" method="post" autocomplete="off" role="form" class="" id="form_sl_edit">
+    <input type="hidden" id="ajax_link_sl" value="{$ajax_link|escape:'htmlall':'UTF-8'}" />
+    <input type="hidden" id="allelements" value="0" />
+    <input type="hidden" id="del_conn" name="del_conn" value="" />
+    <input type="hidden" id="sync_conn" name="sync_conn" value="" />
+    <input type="hidden" id="clear_syncronization" name="clear_syncronization" value="" />
     <div class="row mar-top-btt-40 slyr-import-ajax-form slyr-import-form-login">
       <div class="col-md-4" id="logo">
         <img src="{$SLY_LOGOS_PATH|escape:'htmlall':'UTF-8'}logob_{$COMPANY_TYPE|escape:'htmlall':'UTF-8'}.png"
@@ -31,7 +35,6 @@
       <div class="col-md-4 slyr-form-field-block">
         {$purge_button|escape:"quotes"}{$stop_syncronization|escape:"quotes"}
       </div>
-
     </div>
     <div class="row" id="progressbar"></div>
     <div class="row mar-top-btt-40" id="slyr-import-module-block">
@@ -56,7 +59,7 @@
         </div>
       {/if}
 
-      <table class="table table-sm mar-top-btt-10">
+      <table class="table table-sm mar-top-btt-10 table-responsive table-hide-bor">
         <thead>
         <tr>
           <th class="text-center"><i class="fa fa-plug fa-2x" aria-hidden="true"></i></th>
@@ -74,7 +77,11 @@
         {$SLY_TABLE|escape:"quotes"}
         </tbody>
       </table>
+      <div class="col-md-12 hide" id="submit_btt">
+        <button type="submit" name="savechanges" class="btn btn-success mar-10 mar-top-btt-40 right" onclick="isSubmiting();"><i class="fa fa-floppy-o" aria-hidden="true"></i> Save Changes</button>
+      </div>
     </div>
+    </form>
   </div>
 {literal}
   <script>
@@ -83,7 +90,6 @@
 
     function validAutosync(data) {
       var connector_id = data.id.replace(data.name + '_', '');
-      // var field_name = data.name;
       var field_value = data.value;
       if (field_value == 0) {
         document.getElementById('head_' + connector_id).classList.remove('green_sl');
@@ -95,9 +101,9 @@
         document.getElementById('head_b_' + connector_id).innerHTML = 'ON'
       }
       if (field_value > 23) {
-        document.getElementById('auto_sync_hour_' + connector_id).disabled = false
+        document.getElementById('auto_sync_hour[' + connector_id +']_' + connector_id).disabled = false
       } else {
-        document.getElementById('auto_sync_hour_' + connector_id).disabled = true
+        document.getElementById('auto_sync_hour[' + connector_id +']_' + connector_id).disabled = true
       }
     }
 
@@ -135,16 +141,14 @@
           }
         },
         error: function () {
-          showMessage('error', 'Connection error')
+          postFormEnable();
+         // showMessage('error', 'Connection error')
         }
       })
     }
 
-    function update_command(data) {
-      var connector_id = data.id.replace(data.name + '_', '');
+    function update_command(connector_id,command) {
       var token = $('#mymodule_wrapper').attr('data-token');
-      var command = data.name;
-
       if (command == 'delete_now') {
         if (confirm('You really want to delete the connector?') == true) {
         } else {
@@ -152,6 +156,13 @@
         }
       }
       showMessage('success', 'Proccessing...');
+      if(command == 'store_data_now'){
+          var upbtnn = document.getElementsByClassName('update_btt');
+          for(var i = 0; i<upbtnn.length; i++){
+            document.getElementsByClassName('update_btt')[i].disabled = true;
+          }
+      }
+
       jQuery.ajax({
         type: 'POST',
         url: $('#ajax_link_sl').val(),
@@ -162,12 +173,37 @@
           if (command == 'delete_now') {
             document.getElementById('connector_register_' + connector_id).remove();
           } else {
+            if(command == 'store_data_now'){
+              var upbtnn = document.getElementsByClassName('update_btt');
+              for(var i = 0; i<upbtnn.length; i++){
+                document.getElementsByClassName('update_btt')[i].disabled = false;
+              }
+            }
             $('.server_time').html(data_return['server_time']);
             showMessage(data_return['message_type'], data_return['message']);
           }
         },
         error: function () {
-          showMessage('error', 'Ajax connection error');
+          if(command == 'store_data_now'){
+            showMessage('success', 'We are sending your request to synchronize, wait a few minutes to complete the process.');
+            var upbtnn = document.getElementsByClassName('update_btt');
+            for(var i = 0; i<upbtnn.length; i++){
+              document.getElementsByClassName('update_btt')[i].disabled = false;
+            }
+            document.getElementById('sync_conn').value = connector_id;
+            document.getElementById('form_sl_edit').submit();
+
+          }
+          if(command == 'delete_now') {
+              document.getElementById('del_conn').value = connector_id;
+              document.getElementById('form_sl_edit').submit();
+          }
+          if(command == 'clear_syncronization') {
+            document.getElementById('clear_syncronization').value = 1;
+            document.getElementById('form_sl_edit').submit();
+          }
+
+         /* showMessage('error', 'Ajax connection error');*/
         }
       })
     }
@@ -175,7 +211,6 @@
     function check_status() {
       var token = $('#mymodule_wrapper').attr('data-token');
       var command = 'check_status';
-
       jQuery.ajax({
         type: 'POST',
         url: $('#ajax_link_sl').val(),
@@ -249,7 +284,16 @@
       document.getElementById('progressbar').innerHTML = div
 
     }
-
+    function postFormEnable(){
+        showMessage('success', 'Before leaving please save your changes.')
+        document.getElementById('submit_btt').classList.remove('hide');
+          window.onbeforeunload = function(){
+            return 'Before leaving please save your changes.';
+          };
+    }
+    function isSubmiting(){
+      window.onbeforeunload = function(){}
+    }
     function showMessage(type = 'success', message) {
       var html = '<ul class="messages"><li class="' + type + '-msg"><ul><li>' + message + '</li></ul></li></ul>';
       $('#messages').html(html);

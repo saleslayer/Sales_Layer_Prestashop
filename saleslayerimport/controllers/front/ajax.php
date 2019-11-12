@@ -36,11 +36,9 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
         $command = Tools::getValue('command');
 
-
         /**
          * Check status
          */
-
 
         if ($command == 'check_status') {
             $return = array();
@@ -85,10 +83,10 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
          * Command for force update connector
          */
 
-        if ($command == 'update_command') {
+        if ($command == 'update_command' || $command == 'store_data_now') {
             $connector_id = Tools::getValue('connector_id');
 
-            $returnUpdate = $this->updateConector($connector_id);
+            $returnUpdate = $this->updateConector($connector_id, false);
             if ($returnUpdate['stat']) {
                 $return['message_type'] = 'success';
                 $return['message'] = $returnUpdate['message'];
@@ -191,22 +189,31 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
         $connector_id = Tools::getValue('connector_id');
         $field_name = Tools::getValue('field_name');
         $field_value = Tools::getValue('field_value');
-
+        $permited_fields = array(
+                'auto_sync[' . $connector_id . ']',
+                'auto_sync_hour[' . $connector_id . ']',
+                'avoid_stock_update[' . $connector_id . ']'
+        );
         if ($connector_id != null) {
             $SLimport = new SalesLayerImport();
             if (in_array($field_name, $permited_fields, false)) {
                 try {
-                    if (($field_name == 'auto_sync' && ($field_value >= 0 && $field_value <= 72)) ||
-                        ($field_name == 'auto_sync_hour' && ($field_value >= 0 && $field_value <= 24)) ||
-                        ($field_name == 'avoid_stock_update' && ($field_value == 1 || $field_value == 0))) {
+                    if (($field_name == 'auto_sync[' . $connector_id . ']'
+                         && ($field_value >= 0 && $field_value <= 72)) ||
+                        ($field_name == 'auto_sync_hour[' . $connector_id . ']'
+                         && ($field_value >= 0 && $field_value <= 24)) ||
+                        ($field_name == 'avoid_stock_update[' . $connector_id . ']'
+                         && ($field_value == 1 || $field_value == 0))) {
+                        $field_arr = explode('[', $field_name);
+                        $field_name = reset($field_arr);
                         $shops_info = $SLimport->setConnectorData($connector_id, $field_name, $field_value);
 
                         if ($shops_info) {
                             $return['message_type'] = 'success';
-                            $return['message'] = 'Changes saved successfully';
+                            $return['message']      = 'Changes saved successfully';
                         } else {
                             $return['message_type'] = 'error';
-                            $return['message'] = 'An error occurred in saving changes in the connector.';
+                            $return['message']      = 'An error occurred in saving changes in the connector.';
                         }
                     } else {
                         $SLimport->debbug('cut connection  ' . print_r($field_name, 1));
@@ -217,15 +224,15 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                     }
                 } catch (Exception $e) {
                     $return['message_type'] = 'error';
-                    $return['message'] = 'An error occurred in saving changes in the connector.';
+                    $return['message'] = 'An error occurred in saving changes in the connector. Check error log.';
                     $SLimport->debbug(
-                        'An error occurred in saving changes in the connector ' . print_r($e->getMessage(), 1)
+                        '## Error. An error occurred in saving changes in the connector ' . print_r($e->getMessage(), 1)
                     );
                 }
             } else {
                 if ($field_name != null) {
                     $sting_toarray = explode('_', $field_name);
-                    if ($sting_toarray[0] == 'shops') {
+                    if (0 === strpos($sting_toarray[0], "shop")) {
                         /**
                          * Update stores
                          */
@@ -257,7 +264,8 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                             }
                         } catch (Exception $e) {
                             $return['message_type'] = 'error';
-                            $return['message'] = 'An error occurred in saving changes in the connector.';
+                            $return['message'] =
+                                'An error occurred in saving shops changes in the connector. Check error log.';
                         }
                     } else {
                         $return['message_type'] = 'error';
@@ -307,7 +315,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             }
         } else {
             try {
-                $returnUpdate = $sync_libs->storeSyncData($conn_code, $onlystore);
+                $returnUpdate = $sync_libs->storeSyncData($conn_code, null, $onlystore);
 
                 if (is_array($returnUpdate)) {
                     if (count($returnUpdate)) {

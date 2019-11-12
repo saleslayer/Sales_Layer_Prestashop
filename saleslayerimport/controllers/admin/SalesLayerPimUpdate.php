@@ -989,8 +989,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $temp_dir = null
     ) {
         //  $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_import');
-        $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
-
+        try {
+            $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
+        } catch (Exception $e) {
+            $this->debbug('## Error. in Create temporary file.->' .
+                          $e->getMessage(), 'syncdata');
+        }
         if ($temp_dir != null) {
             $explode_url = explode('/', urldecode($url));
             $tmpfile = $temp_dir . sha1(end($explode_url));
@@ -1030,6 +1034,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $json = null,
         $wait_for_response = true
     ) {
+
         //  $time_ini_urlsendcustomjson = microtime(1);
         $ch = curl_init($url);
         $agent = 'SALES-LAYER PIM, Connector Prestashop->' . $this->name . ', Sync-Data';
@@ -1046,10 +1051,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
             curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
         }
         if (!$wait_for_response) {
-            $this->debbug('conection with timeout', 'syncdata');
-            curl_setopt($ch, CONNECTION_TIMEOUT, 155);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 155);
-            curl_setopt($ch, CURLOPT_TIMEOUT_MS, 155);
+            $this->debbug('conection with timeout ' . $this->timeout_for_run_process_connections, 'syncdata');
+            curl_setopt($ch, CONNECTION_TIMEOUT, $this->timeout_for_run_process_connections);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout_for_run_process_connections);
+            curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->timeout_for_run_process_connections);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
         } else {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -1058,7 +1063,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
         curl_setopt($ch, CURLOPT_HEADER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_ENCODING, 'UTF-8');
-        curl_setopt($ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 
@@ -2112,19 +2116,28 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
 
         if (!$isfile) {
-            $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
+            try {
+                $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
+            } catch (Exception $e) {
+                $this->debbug('## Error. in Create temporary file.->' . $e->getMessage(), 'syncdata');
+            }
             $this->debbug(
                 'This is not a file .' . print_r($url, 1) . ' for entity ' . $entity .
                 ' This as been generate -> ' . $tmpfile,
                 'syncdata'
             );
-            if (ini_get('allow_url_fopen')) {
-                $resultado = copy($url, $tmpfile);
-            } else {
-                $resultado = Tools::file_get_contents($url);
-                if ($resultado) {
-                    $resultado = file_put_contents($tmpfile, $resultado);
+            try {
+                if (ini_get('allow_url_fopen')) {
+                    $resultado = copy($url, $tmpfile);
+                } else {
+                    $resultado = Tools::file_get_contents($url);
+                    if ($resultado) {
+                        $resultado = file_put_contents($tmpfile, $resultado);
+                    }
                 }
+            } catch (Exception $e) {
+                $this->debbug('## Error. In copy file.->' . $e->getMessage(), 'syncdata');
+                $resultado = false;
             }
         } else {
             $resultado = $url;
