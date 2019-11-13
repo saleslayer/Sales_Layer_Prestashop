@@ -523,7 +523,8 @@ class SlVariants extends SalesLayerPimUpdate
                     if (count($check_sl_product_format_array) > 1) {
                         $this->debbug(
                             '## Warning. More than one Variant with same sku detected  ->' . $reference .
-                            '  count ->' . count($check_sl_product_format_array),
+                             '  count ->' . count($check_sl_product_format_array) .
+                            '. Duplicate variant removal will proceed.',
                             'syncdata'
                         );
                         unset($check_sl_product_format_array[key($check_sl_product_format_array)]);
@@ -579,20 +580,20 @@ class SlVariants extends SalesLayerPimUpdate
                         if (array_diff($attributes, $combination_attributes_values)) {
                             $this->debbug('Combination change, Sending refresh', 'syncdata');
                             $combination_changed = true;
-                        /*  $existing_combination->delete();
+                            $existing_combination->delete();
 
-                          if ($sl_product_format_id == '') {
-                              Db::getInstance()->execute(
-                                  sprintf(
-                                      'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product ' .
-                                      ' WHERE ps_id = "%s" AND slyr_id = "%s" AND ' .
-                                      'comp_id = "%s" AND ps_type = "combination"',
-                                      $check_sl_product_format_id,
-                                      $product_format_id,
-                                      $comp_id
-                                  )
-                              );
-                          }*/
+                        /* if ($sl_product_format_id == '') {
+                             Db::getInstance()->execute(
+                               sprintf(
+                                   'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product ' .
+                                   ' WHERE ps_id = "%s" AND slyr_id = "%s" AND ' .
+                                   'comp_id = "%s" AND ps_type = "combination"',
+                                   $check_sl_product_format_id,
+                                   $product_format_id,
+                                   $comp_id
+                               )
+                           );
+                         }*/
                         } else {
                             $this->debbug('The combinations have not changed.', 'syncdata');
                         }

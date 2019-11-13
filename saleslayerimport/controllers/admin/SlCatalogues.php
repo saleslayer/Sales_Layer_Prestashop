@@ -897,7 +897,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                     $occurence = ' ID :' . $catalog['ID'];
                 }
 
-                $syncCat = false;
+                $syncCat = true;
                 $this->debbug(
                     '## Error. Save change to ' . $occurence . ' ->' . print_r($e->getMessage(), 1),
                     'syncdata'
