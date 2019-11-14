@@ -397,7 +397,119 @@ class SlVariants extends SalesLayerPimUpdate
                 ' ORDER BY `pa`.`id_product_attribute` ';
             $productAttributes = Db::getInstance()->executeS($schemaProdAttrs);
 
-            $sl_product_format_id = '';
+            $this->debbug(
+                'Product attributes ids ' .
+                 '  id_product_attribute key->' . print_r(
+                     $productAttributes,
+                     1
+                 ),
+                'syncdata'
+            );
+
+            $sl_product_format_id = 0;
+            /**
+             * Check if exist in sl cache
+             *
+             */
+
+            $check_sl_product_format_id = (int)Db::getInstance()->getValue(
+                sprintf(
+                    'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
+                         WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "combination"',
+                    $product_format_id,
+                    $comp_id
+                )
+            );
+
+            if ($check_sl_product_format_id) {
+                $sl_product_format_id = $check_sl_product_format_id;
+            }
+
+            /**
+             * Combination does not exist in the SL cache
+             * Check prestashop reference
+             */
+
+
+            if (!empty($reference)) {
+                $check_sl_product_format_array = Db::getInstance()->executeS(
+                    sprintf(
+                        'SELECT ps.id_product_attribute FROM `' . _DB_PREFIX_ . 'product_attribute` ps
+                         WHERE ps.reference = "%s" AND  ps.id_product = "%s" GROUP BY  id_product_attribute',
+                        $reference,
+                        $product_id
+                    )
+                );
+
+                $this->debbug(
+                    'Founded rows  ->' . print_r($check_sl_product_format_array, 1),
+                    'syncdata'
+                );
+
+                if ($sl_product_format_id == 0 && count($check_sl_product_format_array)) {
+                    $reset_value = reset($check_sl_product_format_array);
+                    $check_sl_product_format_id =  $reset_value['id_product_attribute'];
+
+                    if ($check_sl_product_format_id != 0) {
+                        $this->debbug(
+                            'Variant found by Reference ->' . $reference,
+                            'syncdata'
+                        );
+
+                        Db::getInstance()->execute(
+                            sprintf(
+                                'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
+                                    (ps_id, slyr_id, ps_type, comp_id, date_add) 
+                                    VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
+                                $check_sl_product_format_id,
+                                $product_format_id,
+                                'combination',
+                                $comp_id
+                            )
+                        );
+                    }
+                }
+
+
+                if (count($check_sl_product_format_array) > 1) {
+                    $this->debbug(
+                        '## Warning. More than one Variant with same sku detected  ->' . $reference .
+                        '  count ->' . count($check_sl_product_format_array) .
+                        '. Duplicate variant removal will proceed.',
+                        'syncdata'
+                    );
+                    unset($check_sl_product_format_array[key($check_sl_product_format_array)]);
+                    /**
+                     * Delete all variant and save ony one with the same code
+                     */
+
+                    foreach ($check_sl_product_format_array as $id_combination) {
+                        $this->debbug(
+                            'Deleting Variant  id_product_attribute ->' . $id_combination['id_product_attribute'],
+                            'syncdata'
+                        );
+                        try {
+                            $existing_combination = new CombinationCore(
+                                $id_combination['id_product_attribute'],
+                                null
+                            );
+                            $existing_combination->delete();
+                        } catch (Exception $e) {
+                            $this->debbug(
+                                '## Error. In delete duplicates for the variant id->' .
+                                print_r($id_combination['id_product_attribute'], 1) .
+                                print_r($e->getMessage(), 1) . ' track->' .
+                                print_r($id_combination['id_product_attribute'], 1),
+                                'syncdata'
+                            );
+                        }
+                    }
+                    $check_sl_product_format_array = array();
+                }
+            }
+
+
+
 
             if (count($productAttributes) > 0) {
                 foreach ($productAttributes as $key => $value) {
@@ -452,7 +564,7 @@ class SlVariants extends SalesLayerPimUpdate
                                 }
                             }
 
-                            if (empty(array_diff($attributes, $attributes_val))) {
+                            if ($sl_product_format_id == 0 && empty(array_diff($attributes, $attributes_val))) {
                                 $sl_product_format_id = $value['id_product_attribute'];
                                 break 2;
                             }
@@ -466,86 +578,8 @@ class SlVariants extends SalesLayerPimUpdate
             foreach ($conn_shops as $shop_id) {
                 Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
 
-                $check_sl_product_format_id = (int)Db::getInstance()->getValue(
-                    sprintf(
-                        'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
-                         WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "combination"',
-                        $product_format_id,
-                        $comp_id
-                    )
-                );
-                /**
-                 * Combination does not exist in the SL cache
-                 * Check prestashop reference
-                 */
 
 
-                if (!empty($reference)) {
-                    $check_sl_product_format_array = Db::getInstance()->executeS(
-                        sprintf(
-                            'SELECT ps.id_product_attribute FROM `' . _DB_PREFIX_ . 'product_attribute` ps
-                         WHERE ps.reference = "%s" AND  ps.id_product = "%s" GROUP BY  id_product_attribute',
-                            $reference,
-                            $product_id
-                        )
-                    );
-
-
-                    $this->debbug(
-                        'Founded rows  ->' . print_r($check_sl_product_format_array, 1),
-                        'syncdata'
-                    );
-
-                    if ($check_sl_product_format_id == 0 && count($check_sl_product_format_array)) {
-                        $reset_value = reset($check_sl_product_format_array);
-                        $check_sl_product_format_id =  $reset_value['id_product_attribute'];
-
-                        if ($check_sl_product_format_id != 0) {
-                            $this->debbug(
-                                'Variant found by Reference ->' . $reference,
-                                'syncdata'
-                            );
-
-                            Db::getInstance()->execute(
-                                sprintf(
-                                    'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
-                                    (ps_id, slyr_id, ps_type, comp_id, date_add) 
-                                    VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
-                                    $sl_product_format_id,
-                                    $product_format_id,
-                                    'combination',
-                                    $comp_id
-                                )
-                            );
-                        }
-                    }
-
-                    if (count($check_sl_product_format_array) > 1) {
-                        $this->debbug(
-                            '## Warning. More than one Variant with same sku detected  ->' . $reference .
-                             '  count ->' . count($check_sl_product_format_array) .
-                            '. Duplicate variant removal will proceed.',
-                            'syncdata'
-                        );
-                        unset($check_sl_product_format_array[key($check_sl_product_format_array)]);
-                        /**
-                         * Delete all variant and save ony one with the same code
-                         */
-
-                        foreach ($check_sl_product_format_array as $id_combination) {
-                            $this->debbug(
-                                'Deleting Variant  id_product_attribute ->' . $id_combination['id_product_attribute'],
-                                'syncdata'
-                            );
-                            $existing_combination = new CombinationCore(
-                                $id_combination['id_product_attribute'],
-                                null,
-                                $shop_id
-                            );
-                            $existing_combination->delete();
-                        }
-                    }
-                }
 
                 $combination_changed = false;
                 if ($check_sl_product_format_id != 0) {
@@ -674,8 +708,20 @@ class SlVariants extends SalesLayerPimUpdate
                 $combination_generated = false;
                 if ($id_product_attribute) {
                     $comb = new CombinationCore($id_product_attribute, null, $shop_id);
-
+                    $this->debbug(
+                        'Product before test id before is different product_id ->' .
+                        print_r($comb->id_product, 1) .
+                        ' product_id-> ' . $product_id,
+                        'syncdata'
+                    );
                     if ($comb->id_product != $product_id) {
+                        $this->debbug(
+                            'Product id  is different, delete variant and images and resync product_id ->' .
+                            print_r($comb->id_product, 1) .
+                            ' product_id-> ' . $product_id,
+                            'syncdata'
+                        );
+
                         /**
                          * If parent product is different remove old images from parent product
                          */
@@ -699,7 +745,6 @@ class SlVariants extends SalesLayerPimUpdate
                             );
                         }
                     }
-
                     $comb->id_product = $product_id;
                 } else {
                     $combination_generated = true;
@@ -1346,7 +1391,25 @@ class SlVariants extends SalesLayerPimUpdate
         try {
             if (empty($multilanguage)) {
                 $left_group_lang = " = '" . $currentLanguage . "'";
-                $left_group_value = " al.`name` LIKE '" . pSQL($attributeValue) . "'";
+
+                $separate = explode(':', $attributeValue);
+                if (count($separate) > 2) {
+                    $valid_values = [];
+                    foreach ($separate as $value) {
+                        if (!preg_match('/#/', $value)) {
+                            $valid_values[] = trim($value);
+                        }
+                    }
+                    $att_value = implode(': ', $valid_values);
+                } else {
+                    $att_value = reset($separate);
+                }
+
+                $left_group_value = " al.`name` LIKE '" . pSQL($att_value) . "'";
+                $this->debbug(
+                    'Search atribute query from  L1 name LIKE ->' . print_r($left_group_value, 1),
+                    'syncdata'
+                );
             } else {
                 $left_group_lang = " IN('" . implode("','", array_keys($multilanguage)) . "') ";
 
@@ -1377,6 +1440,10 @@ class SlVariants extends SalesLayerPimUpdate
                         $counter++;
                     }
                     $left_group_value .= ' ) ';
+                    $this->debbug(
+                        'Search attribute L2 query from name LIKE ' . print_r($left_group_value, 1),
+                        'syncdata'
+                    );
                 } else {
                     $separate = explode(':', reset($multilanguage));
                     if (count($separate) > 2) {
@@ -1392,6 +1459,10 @@ class SlVariants extends SalesLayerPimUpdate
                     }
 
                     $left_group_value = " al.`name` LIKE '" . pSQL($att_value) . "' ";
+                    $this->debbug(
+                        'Search atribute query from  L3 name LIKE ->' . print_r($left_group_value, 1),
+                        'syncdata'
+                    );
                 }
             }
 
@@ -1408,9 +1479,15 @@ class SlVariants extends SalesLayerPimUpdate
                 "WHERE  ag.`id_attribute_group` = '" . $attribute_group_id . "'  AND " . $left_group_value . '   ' .
                 ' GROUP BY al.`id_attribute` , agl.`name`, a.`position`' .
                 'ORDER BY agl.`name` ASC, a.`position` ASC';
-
+            $this->debbug(
+                'Search atribute query ' . print_r($schemaAttribute, 1),
+                'syncdata'
+            );
             $isAttribute = Db::getInstance()->executeS($schemaAttribute);
-
+            $this->debbug(
+                'Search attribute query  result->' . print_r($schemaAttribute, 1),
+                'syncdata'
+            );
             //   $this->debbug('## Busca el attributo query->'.print_r($schemaAttribute,1),'syncdata');
         } catch (Exception $e) {
             $isAttribute = [];
@@ -1988,8 +2065,6 @@ class SlVariants extends SalesLayerPimUpdate
         } else {
             $occurence = ' ID :' . $product_id;
         }
-
-
         $image_ids = array();
         $this->debbug(
             'Variant ' . $occurence . ' Entering to a synchronize images from variant ' .

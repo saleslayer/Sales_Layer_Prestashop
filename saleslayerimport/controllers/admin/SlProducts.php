@@ -521,7 +521,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$product_name_index_search],
                         $schema[$product_name_index_search]['language_code']
-                    )&&
+                    ) &&
                          !empty($product['data'][$product_name_index_search])
                         && $schema[$product_name_index_search]['language_code'] == $lang['iso_code']) {
                         $product_name_index = 'product_name_' . $lang['iso_code'];
@@ -562,7 +562,7 @@ class SlProducts extends SalesLayerPimUpdate
                         if (isset(
                             $product['data'][$friendly_url_index_search],
                             $schema[$friendly_url_index_search]['language_code']
-                        )&&
+                        ) &&
                              !empty($product['data'][$friendly_url_index_search])
                             && $schema[$friendly_url_index_search]['language_code'] == $lang['iso_code']) {
                             $friendly_url_index = 'friendly_url_' . $lang['iso_code'];
@@ -591,7 +591,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$product_description_index_search],
                         $schema[$product_description_index_search]['language_code']
-                    )&&
+                    ) &&
                          !empty($product['data'][$product_description_index_search])
                         && $schema[$product_description_index_search]['language_code'] == $lang['iso_code']) {
                         $product_description_index = 'product_description_' . $lang['iso_code'];
@@ -604,7 +604,9 @@ class SlProducts extends SalesLayerPimUpdate
                     if ($product_description_index != '' && isset($product['data'][$product_description_index])
                         && !empty($product['data'][$product_description_index])) {
                         $product_description =
-                            $product['data'][$product_description_index];
+                            html_entity_decode(
+                                $product['data'][$product_description_index]
+                            );
                         $productObject->description[$lang['id_lang']] = $product_description;
                     }
                     /**
@@ -629,9 +631,9 @@ class SlProducts extends SalesLayerPimUpdate
 
                     if (isset($product['data'][$product_desc_short_index])
                         && $product['data'][$product_desc_short_index] != '') {
-                        $product_description_short = $product['data'][$product_desc_short_index];
+                        $product_description_short = html_entity_decode($product['data'][$product_desc_short_index]);
                     } else {
-                        $product_description_short = $product_description;
+                        $product_description_short = html_entity_decode($product_description);
                     }
 
                     if (Tools::strlen($product_description_short) > 800) {
@@ -655,7 +657,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$meta_title_index_search],
                         $schema[$meta_title_index_search]['language_code']
-                    )&&
+                    ) &&
                          !empty($product['data'][$meta_title_index_search])
                         && $schema[$meta_title_index_search]['language_code'] == $lang['iso_code']) {
                         $meta_title_index = 'meta_title_' . $lang['iso_code'];
@@ -669,7 +671,7 @@ class SlProducts extends SalesLayerPimUpdate
                     } else {
                         if (isset($product['data'][$product_name_index])
                             && !empty($product['data'][$product_name_index])) {
-                            $meta_title = $product['data'][$product_name_index];
+                            $meta_title =  $this->clearForMetaData($product['data'][$product_name_index]);
                             if (Tools::strlen($meta_title) > 80) {
                                 $meta_title = Tools::substr($meta_title, 0, 80);
                             }
@@ -695,7 +697,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$meta_description_index_search],
                         $schema[$meta_description_index_search]['language_code']
-                    )&&
+                    ) &&
                          !empty($product['data'][$meta_description_index_search])
                         && $schema[$meta_description_index_search]['language_code'] == $lang['iso_code']) {
                         $meta_description_index = 'meta_description_' . $lang['iso_code'];
@@ -710,7 +712,7 @@ class SlProducts extends SalesLayerPimUpdate
                         && $product['data'][$meta_description_index] != '') {
                         $meta_description = $product['data'][$meta_description_index];
                     } else {
-                        $meta_description =  strip_tags($product_description_short);
+                        $meta_description =  $this->clearForMetaData($product_description_short);
                     }
                     if (Tools::strlen($meta_description) > 180) {
                         $meta_description = Tools::substr($meta_description, 0, 180);
@@ -718,6 +720,12 @@ class SlProducts extends SalesLayerPimUpdate
 
                     if ($meta_description != ''
                         && $productObject->meta_description[$lang['id_lang']] != $meta_description) {
+                        $this->debbug(
+                            'Meta_description ->' .
+                                      print_r($meta_description, 1),
+                            'syncdata'
+                        );
+
                         $productObject->meta_description[$lang['id_lang']] = $meta_description;
                     }
                     /**
@@ -725,12 +733,12 @@ class SlProducts extends SalesLayerPimUpdate
                      */
 
                     $customization_index = '';
-                    $customization_index_search = 'product_customizable_'. $lang['iso_code'];
+                    $customization_index_search = 'product_customizable_' . $lang['iso_code'];
 
                     if (isset(
                         $product['data'][$customization_index_search],
                         $schema[$customization_index_search]['language_code']
-                    )&&
+                    ) &&
                         !empty($product['data'][$customization_index_search])
                         && $schema[$customization_index_search]['language_code'] == $lang['iso_code']) {
                         $customization_index = 'product_customizable_' . $lang['iso_code'];
@@ -772,7 +780,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$product_available_now_index_search],
                         $schema[$product_available_now_index_search]['language_code']
-                    )&&
+                    ) &&
                         !empty($product['data'][$product_available_now_index_search])
                         && $schema[$product_available_now_index_search]['language_code'] == $lang['iso_code']) {
                         $product_available_now_index = 'available_now_' . $lang['iso_code'];
@@ -797,7 +805,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$product_available_later_index_search],
                         $schema[$product_available_later_index_search]['language_code']
-                    )&&
+                    ) &&
                         !empty($product['data'][$product_available_later_index_search])
                         && $schema[$product_available_later_index_search]['language_code'] == $lang['iso_code']) {
                         $product_available_later_index = 'available_later_' . $lang['iso_code'];
@@ -825,7 +833,7 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$product_category_default_index_search],
                         $schema[$product_category_default_index_search]['language_code']
-                    )&&
+                    ) &&
                          !empty($product['data'][$product_category_default_index_search])
                         && $schema[$product_category_default_index_search]['language_code'] == $lang['iso_code']) {
                         $product_category_default_index = 'category_sl_default_' . $lang['iso_code'];
@@ -856,7 +864,7 @@ class SlProducts extends SalesLayerPimUpdate
                         }
 
                         if ($category_default_value != '') {
-                            $schema_db = 'SELECT id_category,meta_keywords FROM '. $this->category_lang_table .
+                            $schema_db = 'SELECT id_category,meta_keywords FROM ' . $this->category_lang_table .
                                 " WHERE meta_keywords like '%" . $category_default_value . "%' 
                                 AND id_lang = " . $lang['id_lang']
                                 . " AND id_shop = " . $shop_id . " GROUP BY id_category";
@@ -947,7 +955,6 @@ class SlProducts extends SalesLayerPimUpdate
                     }
 
                     /**
-                     *
                      * Product Carrier
                      */
 
@@ -1083,7 +1090,7 @@ class SlProducts extends SalesLayerPimUpdate
                             if (isset(
                                 $product['data'][$product_name_index_alt],
                                 $schema[$product_name_index_alt]['language_code']
-                            )&&
+                            ) &&
                                 !empty($product['data'][$product_name_index_alt])
                                 && $schema[$product_name_index_alt]['language_code'] == $shop_language['iso_code']) {
                                 $product_name_index = 'product_name_' . $shop_language['iso_code'];
@@ -1350,7 +1357,7 @@ class SlProducts extends SalesLayerPimUpdate
                  */
 
                 if (!empty($carriers_not_founded)) {
-                    $this->debbug('## Warning. '.$occurence.
+                    $this->debbug('## Warning. '. $occurence .
                                       ' Could not find the transport for the product. Carrier values -> ' .
                                       print_r(
                                           implode(', ', $carriers_not_founded),
@@ -1413,7 +1420,12 @@ class SlProducts extends SalesLayerPimUpdate
                                                    $customization_multi_language[$id_lang],
                                                    1
                                                ), 'syncdata');
-                            $count_values = count($customization_multi_language[$id_lang]);
+                            if (is_array($customization_multi_language[$id_lang])) {
+                                $count_values = count($customization_multi_language[$id_lang]);
+                            } else {
+                                $count_values = 1;
+                            }
+
                             if ($count_values > $max_values) {
                                 $max_values = $count_values;
                                 $one_element = $customization_multi_language[$id_lang];
@@ -1473,7 +1485,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $this->debbug('creating filefields -> ' . print_r(
                                     $number_of_file_fields,
                                     1
-                                ).' Text fields -> '.print_r($number_of_text_fields, 1), 'syncdata');
+                                ) . ' Text fields -> ' . print_r($number_of_text_fields, 1), 'syncdata');
                                 $productObject->text_fields      = $number_of_text_fields;
                                 $productObject->uploadable_files = $number_of_file_fields;
                             } else {
@@ -1515,11 +1527,11 @@ class SlProducts extends SalesLayerPimUpdate
                                                         NATURAL JOIN `' . _DB_PREFIX_ . 'customization_field_lang` cfl 
                                                         WHERE cf.`id_product` = ' . $productObject->id .
                                                         ' AND cfl.`id_shop` = ' .  $shop_id .
-                                                        ' AND cf.`is_deleted` = "0"  '.
+                                                        ' AND cf.`is_deleted` = "0"  ' .
                                                         'ORDER BY cf.`id_customization_field`');
 
                         $this->debbug(
-                            'Values of custom fields from BD ->'.print_r($customization_fields, 1),
+                            'Values of custom fields from BD ->' . print_r($customization_fields, 1),
                             'syncdata'
                         );
                         if (count($customization_fields)) {
@@ -1529,7 +1541,7 @@ class SlProducts extends SalesLayerPimUpdate
                             foreach ($customization_fields as $key_number => $value_field) {
                                 $this->debbug(
                                     'before check  if is different id as is saved $last_field->' .
-                                                   print_r($last_field, 1).'  id in variable ->  ' .
+                                                   print_r($last_field, 1) . '  id in variable ->  ' .
                                                    print_r($value_field['id_customization_field'], 1),
                                     'syncdata'
                                 );
@@ -1552,7 +1564,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $this->debbug(
                                     'fields for process from bd $key_number>' .
                                                    print_r($key_number, 1) . '  $value_field-> ' .
-                                                   print_r($value_field, 1).
+                                                   print_r($value_field, 1) .
                                                    ' values in this position ->' .
                                                    print_r((isset($customization_multi_language[$value_field['id_lang']]
                                                        [$count_fields]) ?
@@ -1574,7 +1586,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 } elseif ($boleantest === false) {
                                     $this->debbug(
                                         'Set empty name but value is boolean to false,' .
-                                                       ' delete all fields ->'.print_r($id_lang, 1),
+                                                       ' delete all fields ->' . print_r($id_lang, 1),
                                         'syncdata'
                                     );
                                     $one_line = '';
@@ -1595,7 +1607,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             [$count_fields];
                                             $this->debbug(
                                                 'Set custom name from multi-language->' .
-                                                               print_r($one_line, 1).'  id_lang-> ' .
+                                                               print_r($one_line, 1) . '  id_lang-> ' .
                                                                print_r($value_field['id_lang'], 1),
                                                 'syncdata'
                                             );
@@ -1605,7 +1617,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             $one_line = $customization_multi_language[$defaultLenguage][$count_fields];
                                             $this->debbug(
                                                 'Set custom name from default-language->' .
-                                                               print_r($one_line, 1).'  id_lang-> ' .
+                                                               print_r($one_line, 1) . '  id_lang-> ' .
                                                                print_r($value_field['id_lang'], 1),
                                                 'syncdata'
                                             );
@@ -1613,7 +1625,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             foreach ($customization_multi_language as $id_lang => $line) {
                                                 $this->debbug(
                                                     'Search any value for set-language->' .
-                                                                   print_r($id_lang, 1).'  id_lang-> ' .
+                                                                   print_r($id_lang, 1) . ' id_lang-> ' .
                                                                    print_r($line, 1),
                                                     'syncdata'
                                                 );
@@ -1628,7 +1640,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             $one_line = $customization_multi_language[$value_field['id_lang']];
                                             $this->debbug(
                                                 'set entire line ->' . print_r($one_line, 1) .
-                                                               '  id_lang-> '.print_r($value_field['id_lang'], 1),
+                                                               '  id_lang-> ' . print_r($value_field['id_lang'], 1),
                                                 'syncdata'
                                             );
                                         } elseif (isset($customization_multi_language[$defaultLenguage][$count_fields])
@@ -1798,7 +1810,7 @@ class SlProducts extends SalesLayerPimUpdate
                                              (int) $value_field['id_customization_field'];
                                     if (!Db::getInstance()->execute($query)) {
                                         $this->debbug(
-                                            '## Warning. it was not possible to change the '.
+                                            '## Warning. it was not possible to change the ' .
                                                            'type of custom field. $customization_fields->' .
                                                            print_r(
                                                                $customization_fields,
@@ -1828,13 +1840,13 @@ class SlProducts extends SalesLayerPimUpdate
                                 $query = 'UPDATE `' . _DB_PREFIX_ . 'customization_field_lang`
                                             SET `name` = "' . pSQL(trim($name_for_save)) . '" ' .
                                             'WHERE `id_customization_field` = "' .
-                                         (int) $value_field['id_customization_field'] .'"'.
+                                         (int) $value_field['id_customization_field'] . '"' .
                                             ' AND `id_shop` = "' . (int) $shop_id.'" '.
-                                            ' AND `id_lang` = "' . (int) $value_field['id_lang'].'" ';
+                                            ' AND `id_lang` = "' . (int) $value_field['id_lang'] . '" ';
 
                                 if (!Db::getInstance()->execute($query)) {
                                     $this->debbug(
-                                        '## Warning. actual creating customization fields. '.
+                                        '## Warning. actual creating customization fields. ' .
                                                        '$customization_fields->' . print_r(
                                                            $customization_fields,
                                                            1
@@ -2350,7 +2362,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 } catch (Exception $e) {
                     $syncCat = true;
                     $this->debbug(
-                        '## Error. Saving changes to product ID:  ->' . print_r($e->getMessage(), 1),
+                        '## Error. ' . $occurence .
+                        ' Saving changes to product problem ->' . print_r($e->getMessage(), 1),
                         'syncdata'
                     );
                 }
@@ -2686,7 +2699,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             $update_tag = array();
             $delete_tag = array();
 
-            if (count($product_tags) && isset($product_tags[$lang['id_lang']])) {
+            if (is_array($product_tags) && count($product_tags) && isset($product_tags[$lang['id_lang']])) {
                 foreach ($product_tags[$lang['id_lang']] as $saved_tags) {
                     if (in_array($saved_tags, $my_tags, false)) {
                         $update_tag[] = $saved_tags;
@@ -2963,29 +2976,38 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
          */
 
         $this->debbug('We will check if any of the images have been imported in the past with this variant');
+        /*  $slyr_attachments = Db::getInstance()->executeS(
+              'SELECT * FROM ' . _DB_PREFIX_ . "slyr_attachment at WHERE  at.ps_product_id = '" . $product_id . "' "
+          );*/
         $slyr_attachments = Db::getInstance()->executeS(
-            'SELECT * FROM ' . _DB_PREFIX_ . "slyr_attachment at WHERE  at.ps_product_id = '" . $product_id . "' "
+            'SELECT * FROM ' . _DB_PREFIX_ . "product_attachment at WHERE  at.id_product = '" . $product_id . "' "
         );
 
         if (!empty($slyr_attachments)) {
             foreach ($slyr_attachments as $slyr_attachment) {
-                $this->debbug('Test if it is needed to delete this attachment ' . print_r($slyr_attachment, 1));
-                if (!in_array($slyr_attachment['id_attachment'], $attachment_protected_ids, false)) {
-                    $this->debbug('Proceed to delete attachment but not is protected' . print_r($slyr_attachment, 1));
+                try {
+                    $this->debbug('Test if it is needed to delete this attachment ' . print_r($slyr_attachment, 1));
+                    if (!in_array($slyr_attachment['id_attachment'], $attachment_protected_ids, false)) {
+                        $this->debbug('Proceed to delete attachment but not is protected' .
+                                      print_r($slyr_attachment, 1));
+                        Db::getInstance()->execute(
+                            'DELETE FROM ' . _DB_PREFIX_ . "product_attachment
+	                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
+                        );
 
-                    Db::getInstance()->execute(
-                        'DELETE FROM ' . _DB_PREFIX_ . "product_attachment
-                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
-                    );
+                        $attachment_delete = new Attachment($slyr_attachment['id_attachment']);
+                        $attachment_delete->delete();
 
-                    $attachment_delete = new Attachment($slyr_attachment['id_attachment']);
-                    $attachment_delete->delete();
-
-                    Db::getInstance()->execute(
-                        'DELETE FROM ' . _DB_PREFIX_ . "slyr_attachment
-                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
-                    );
-                    unset($attachment_delete);
+                        Db::getInstance()->execute(
+                            'DELETE FROM ' . _DB_PREFIX_ . "slyr_attachment
+	                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
+                        );
+                        unset($attachment_delete);
+                    }
+                } catch (Exception $e) {
+                    $this->debbug('## Error. ' . $occurence .
+                                  ' Deleting old attachment ' .
+                                  print_r($slyr_attachment, 1));
                 }
             }
         }
@@ -3322,10 +3344,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                         } else {
                                             $image_cover->cover = null;
                                         }
-
+                                        $image_cover->id_product = $product_id;
                                         try {
                                             $this->debbug('updating image information ', 'syncdata');
-
                                             $image_cover->save();
                                             Db::getInstance()->execute(
                                                 "UPDATE " . _DB_PREFIX_ . "slyr_image SET  origin ='prod'

@@ -405,7 +405,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $meta_title = $catalog['data'][$meta_title_index];
                     } else {
                         if (isset($catalog['data'][$section_name_index])) {
-                            $meta_title = $catalog['data'][$section_name_index];
+                            $meta_title = $this->clearForMetaData($catalog['data'][$section_name_index]);
                         }
                     }
                     if ($meta_title != '') {
@@ -442,7 +442,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $meta_description = $catalog['data'][$meta_description_index];
                     } else {
                         if (isset($catalog['data'][$section_description_index])) {
-                            $meta_description = $catalog['data'][$section_description_index];
+                            $meta_description = $this->clearForMetaData($catalog['data'][$section_description_index]);
                         }
                     }
 
@@ -453,7 +453,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                                             print_r(Tools::strlen($meta_description), 1), 'syncdata');*/
                             $meta_description = Tools::substr($meta_description, 0, 512);
                         }
-                        $cat->meta_description[$lang['id_lang']] = strip_tags($meta_description);
+                        $cat->meta_description[$lang['id_lang']] = $meta_description;
                     }
 
 
@@ -547,7 +547,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                 } catch (Exception $e) {
                     $syncCat = true;
                     $this->debbug(
-                        '## Error. Creating category  ID:' . $catalog['ID'] . ' ' . print_r($e->getMessage(), 1),
+                        '## Error. ' . $occurence .
+                        ' Creating category  ID:' . $catalog['ID'] . ' ' . print_r($e->getMessage(), 1),
                         'syncdata'
                     );
                 }
@@ -642,7 +643,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         'Catalog'
                     );
                     if ($catalog_name != $cat->name[$lang['id_lang']]) {
-                        $cat->name[$lang['id_lang']] = $catalog_name;
+                        $cat->name[$lang['id_lang']] = html_entity_decode($catalog_name);
                     }
 
                     $this->debbug(
@@ -681,7 +682,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                 if (isset($catalog['data'][$section_description_index]) &&
                     !empty($catalog['data'][$section_description_index])) {
-                    $section_description = $catalog['data'][$section_description_index];
+                    $section_description = html_entity_decode($catalog['data'][$section_description_index]);
 
                     if ($cat->description[$lang['id_lang']] != $section_description) {
                         $cat->description[$lang['id_lang']] = $section_description;
@@ -719,7 +720,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                     $meta_title = $catalog['data'][$meta_title_index];
                 } else {
                     if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index])) {
-                        $meta_title = $catalog['data'][$section_name_index];
+                        $meta_title = $this->clearForMetaData($catalog['data'][$section_name_index]);
                     }
                 }
 
@@ -757,10 +758,10 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                 if (isset($catalog['data'][$meta_description_index]) &&
                     $catalog['data'][$meta_description_index] != '') {
-                    $meta_description = $catalog['data'][$meta_description_index];
+                    $meta_description = html_entity_decode($catalog['data'][$meta_description_index]);
                 } else {
-                    if ($section_description_index != '') {
-                        $meta_description = $catalog['data'][$section_description_index];
+                    if ($section_description_index != '' && isset($catalog['data'][$section_description_index])) {
+                        $meta_description = $this->clearForMetaData($catalog['data'][$section_description_index]);
                     }
                 }
 
@@ -771,7 +772,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                         $meta_description = Tools::substr($meta_description, 0, 512);
                     }
-                    $cat->meta_description[$lang['id_lang']] = strip_tags($meta_description);
+                    $cat->meta_description[$lang['id_lang']] = $meta_description;
                     // $need_update = true;
                 }
 

@@ -353,8 +353,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     )
                 );
                 /**
-                 *
-                 *
                  * Sync Catalogues
                  */
 
@@ -380,7 +378,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_insert['sync_data'] = $catalog;
                         $data_insert['defaultCategory'] = $defaultCategory;
 
-                        $item_data_to_insert = html_entity_decode(json_encode($data_insert));
+                        $item_data_to_insert = json_encode($data_insert); // html_entity_decode
                         $sync_params_to_insert = json_encode($sync_params);
 
                         $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
@@ -391,8 +389,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 }
 
                 /**
-                 *
-                 *
                  * Sync all Products
                  */
 
@@ -415,7 +411,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_insert = array();
                         $data_insert['sync_data'] = $product;
 
-                        $item_data_to_insert = html_entity_decode(json_encode($data_insert));
+                        $item_data_to_insert = json_encode($data_insert); //html_entity_decode
                         $sync_params_to_insert = json_encode($sync_params);
 
                         $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
@@ -457,7 +453,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_insert = array();
                         $data_insert['sync_data'] = $product_format;
 
-                        $item_data_to_insert = html_entity_decode(json_encode($data_insert));
+                        $item_data_to_insert = json_encode($data_insert); // html_entity_decode
                         $sync_params_to_insert = json_encode($sync_params);
 
                         $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
@@ -1253,6 +1249,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         return round((float)$campo, 6);
     }
+
+    public function clearForMetaData($newtitle)
+    {
+        return   preg_replace('/[^A-Za-z0-9\s.\s-]/', ' ', strip_tags(html_entity_decode($newtitle)));
+    }
+
 
     /**
      * sort tables with a structure

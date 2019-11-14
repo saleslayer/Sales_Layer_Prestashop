@@ -622,7 +622,6 @@
                   sync_custom_command(command, 'hide')
                 }
               }
-
             }
           } else {
             showMessage(data_return['message_type'], data_return['content']);

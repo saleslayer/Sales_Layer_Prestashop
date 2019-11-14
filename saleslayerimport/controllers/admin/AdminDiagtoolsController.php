@@ -355,7 +355,7 @@ class AdminDiagtoolsController extends ModuleAdminController
                 ob_end_clean();
             }
             readfile($file_path);
-            return true;
+            exit();
         } else {
             header("HTTP/1.0 404 Not Found");
         }

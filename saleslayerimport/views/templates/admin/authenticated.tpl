@@ -136,7 +136,8 @@
               $('.server_time').html(data_return['server_time']);
               showMessage(data_return['message_type'], data_return['message'])
           }else{
-              showMessage('error', 'Error connect to server. Check your browser console for more information. Press F12')
+              postFormEnable();
+             /* showMessage('error', 'Error connect to server. Check your browser console for more information. Press F12');*/
               console.error('Ajax connection error. Please check your ajax connections made in the Network panel -> XHR -> ajax -> Preview');
           }
         },
