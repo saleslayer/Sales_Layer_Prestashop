@@ -2,7 +2,7 @@
 <module>
   <name>saleslayerimport</name>
   <displayName><![CDATA[Sales Layer Import]]></displayName>
-  <version><![CDATA[1.4.11]]></version>
+  <version><![CDATA[1.4.12]]></version>
   <description><![CDATA[Import products from Sales Layer API.]]></description>
   <author><![CDATA[Sales Layer]]></author>
   <tab><![CDATA[administration]]></tab>

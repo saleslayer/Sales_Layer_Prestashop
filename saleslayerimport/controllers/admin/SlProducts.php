@@ -138,7 +138,6 @@ class SlProducts extends SalesLayerPimUpdate
             return false;
         } else {
             /**
-             *
              * SAVED PRODUCT SUCCESS
              */
 
@@ -166,9 +165,9 @@ class SlProducts extends SalesLayerPimUpdate
                         $this->debbug(
                             '## Error. ' . $occurence . ' The catalog with ID :' .
                             $sl_product_parent_id . ' for the company with ID: '
-                            . $comp_id . ' does not exist in the table. '.
-                             'It is possible that it has been deactivated or deleted.'.
-                            'Change the state of the category and of the product to invisible,'.
+                            . $comp_id . ' does not exist in the table. ' .
+                             'It is possible that it has been deactivated or deleted.' .
+                            'Change the state of the category and of the product to invisible,' .
                             'and then back to visible again so that the issue can be resolved.',
                             'syncdata'
                         );
@@ -272,8 +271,8 @@ class SlProducts extends SalesLayerPimUpdate
                                     $this->debbug(
                                         '## Error. ' . $occurence . ' In changing type of product->' .
                                         print_r($e->getMessage(), 1) .
-                                        'line->'.$e->getLine().
-                                        'trace->'.print_r($e->getTrace(), 1),
+                                        'line->' . $e->getLine() .
+                                        'trace->' . print_r($e->getTrace(), 1),
                                         'syncdata'
                                     );
                                 }
@@ -325,7 +324,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $pack_format_ref = $this->slValidateReference($pack_format_ref);
 
 
-                                $schemaRef = 'SELECT id_product_attribute,id_product FROM '.
+                                $schemaRef = 'SELECT id_product_attribute,id_product FROM ' .
                                     $this->product_attribute_table . "
                                              WHERE reference = '" . $pack_format_ref . "'";
                                 $regsRef = Db::getInstance()->executeS($schemaRef);
@@ -393,7 +392,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                                 $pack_product_ref = $this->slValidateReference($pack_product_ref);
 
-                                $schemaRef = 'SELECT id_product FROM '. $this->product_table . "
+                                $schemaRef = 'SELECT id_product FROM ' . $this->product_table . "
                                 WHERE reference = '" . $pack_product_ref . "'";
                                 $regsRef = Db::getInstance()->executeS($schemaRef);
 
@@ -447,9 +446,9 @@ class SlProducts extends SalesLayerPimUpdate
                                     }
                                 } catch (Exception $e) {
                                     $this->debbug(
-                                        '## Error. ' . $occurence . ' product type pack->'.$e->getMessage().
-                                        'line->'.print_r($e->getLine(), 1).
-                                        'trace->'.print_r($e->getTrace(), 1),
+                                        '## Error. ' . $occurence . ' product type pack->' . $e->getMessage() .
+                                        'line->' . print_r($e->getLine(), 1) .
+                                        'trace->' . print_r($e->getTrace(), 1),
                                         'syncdata'
                                     );
                                 }
@@ -1357,7 +1356,7 @@ class SlProducts extends SalesLayerPimUpdate
                  */
 
                 if (!empty($carriers_not_founded)) {
-                    $this->debbug('## Warning. '. $occurence .
+                    $this->debbug('## Warning. ' . $occurence .
                                       ' Could not find the transport for the product. Carrier values -> ' .
                                       print_r(
                                           implode(', ', $carriers_not_founded),
@@ -1871,10 +1870,10 @@ class SlProducts extends SalesLayerPimUpdate
                             );
                         }
                     } catch (Exception $e) {
-                        $this->debbug('## Error. '.$occurence.' Some problems have been detected in '.
-                                           'custom field creation ->' . $e->getMessage().' and line->' .
+                        $this->debbug('## Error. ' . $occurence . ' Some problems have been detected in ' .
+                                           'custom field creation ->' . $e->getMessage() . ' and line->' .
                                            print_r($e->getLine(), 1) .
-                                           ' and track ->'.print_r($e->getTrace(), 1), 'syncdata');
+                                           ' and track ->' . print_r($e->getTrace(), 1), 'syncdata');
                     }
                 } else {
                     // corregir cuando se agrega campo file
@@ -1894,19 +1893,37 @@ class SlProducts extends SalesLayerPimUpdate
                 $test_after_update['price'] = $price;
                 $productObject->price = $price;
                 $price = abs($price);
-                if (Validate::isPrice($price)) {
-                    $this->debbug(
-                        'Is price valid. Before update wholesale_price ->' . print_r($price, 1),
-                        'syncdata'
-                    );
-                    $test_after_update['wholesale_price'] = $price;
-                    $productObject->wholesale_price = $price;
+
+
+
+
+                if (isset($product['data']['wholesale_price']) && !empty($product['data']['wholesale_price'])) {
+                    $price = abs($product['data']['wholesale_price']);
+                    if (Validate::isPrice($price)) {
+                        $productObject->wholesale_price = $price;
+                    } else {
+                        $this->debbug(
+                            '## Warning. ' . $occurence . ' wholesale_price not is a valid price ->' .
+                            print_r($price, 1),
+                            'syncdata'
+                        );
+                    }
                 } else {
-                    $this->debbug(
-                        '## Warning. ' . $occurence . ' price not is a valid price ->' . print_r($price, 1),
-                        'syncdata'
-                    );
+                    if (Validate::isPrice($price)) {
+                        $this->debbug(
+                            'Is price valid. Before update wholesale_price ->' . print_r($price, 1),
+                            'syncdata'
+                        );
+                        $test_after_update['wholesale_price'] = $price;
+                        $productObject->wholesale_price = $price;
+                    } else {
+                        $this->debbug(
+                            '## Warning. ' . $occurence . ' price not is a valid price ->' . print_r($price, 1),
+                            'syncdata'
+                        );
+                    }
                 }
+
 
                 $productObject->upc = (isset($product['data']['product_upc'])
                     && Tools::strlen(
@@ -2111,7 +2128,8 @@ class SlProducts extends SalesLayerPimUpdate
                             $productObject->{"$fieldPresta"} = $validatebool;
                         } else {
                             $this->debbug(
-                                '## Warning. '.$occurence.' field-> '.$fieldSales.' Invalid boolean value -> ' .
+                                '## Warning. ' . $occurence . ' field-> ' . $fieldSales .
+                                ' Invalid boolean value -> ' .
                                 print_r(
                                     $product['data'][$fieldSales],
                                     1
@@ -3484,9 +3502,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         if ($result_save_image != true) {
                             $this->debbug(
                                 '## Warning. ' . $occurence . '. We have tried to create an
-                                image but the store has caused problem.'.
-                                 'We are going to verify if there are any phantom images'.
-                                 'in the table and then try to eliminate them,'.
+                                image but the store has caused problem.' .
+                                 'We are going to verify if there are any phantom images' .
+                                 'in the table and then try to eliminate them,' .
                                  'so that we can create a new image. We will try to repair it',
                                 'syncdata'
                             );
@@ -3594,7 +3612,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         } else {
             $this->debbug('We will check if any of the images have been imported in the past with this variant');
             $slyr_images = Db::getInstance()->executeS(
-                'SELECT * FROM '. _DB_PREFIX_ . "slyr_image im WHERE  im.ps_product_id = '" . $product_id . "' "
+                'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im WHERE  im.ps_product_id = '" . $product_id . "' "
             );
 
             if (!empty($slyr_images)) {
@@ -3619,7 +3637,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         $image_delete = new Image($slyr_image['id_image']);
                         $image_delete->delete();
                         Db::getInstance()->execute(
-                            'DELETE FROM '. _DB_PREFIX_ . "slyr_image
+                            'DELETE FROM ' . _DB_PREFIX_ . "slyr_image
                             WHERE id_image = '" . $slyr_image['id_image'] . "' "
                         );
                         unset($image_delete);
@@ -3682,8 +3700,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         '## Error. Problem hiding product ID:' . $product . ' error->' . print_r(
                             $e->getMessage(),
                             1
-                        ) . ' it has not been possible to find a product that we must deactivate,'.
-                        'it is possible that it does not exist anymore in prestashop,'.
+                        ) . ' it has not been possible to find a product that we must deactivate,' .
+                        'it is possible that it does not exist anymore in prestashop,' .
                         'and thus it can no longer be eliminated. Try deactivating product manually from prestashop.',
                         'syncdata'
                     );
@@ -3717,12 +3735,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         $comp_id,
         $schema
     ) {
-        $occurence_found = false;
+        $occurrence_found = false;
         if (isset($product['data']['product_reference']) && !empty($product['data']['product_reference'])) {
-            $occurence_found = true;
+            $occurrence_found = true;
             $occurence = ' product reference : "' . $product['data']['product_reference'] . '" ';
         } elseif (isset($product['data']['product_name']) && !empty($product['data']['product_name'])) {
-            $occurence_found = true;
+            $occurrence_found = true;
             $occurence = ' product name : "' . $product['data']['product_name'] . '"';
         } else {
             $occurence = ' ID :' . $product['ID'];
@@ -3740,15 +3758,22 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         if (isset($product['data']['product_reference'])
             && $product['data']['product_reference'] != null
             && $product['data']['product_reference'] != '') {
+            $this->debbug('Search product by reference. ' .
+                          $occurence, 'syncdata');
             //Eliminamos carácteres especiales de la referencia
             $product_reference = $this->slValidateReference($product['data']['product_reference']);
             //Buscamos producto con referencia idéntica
-            $schemaRef = 'SELECT id_product FROM '. $this->product_table . "
+            $schemaRef = 'SELECT id_product FROM ' . $this->product_table . "
             WHERE reference = '" . $product_reference . "'";
             $regsRef = Db::getInstance()->executeS($schemaRef);
             if (count($regsRef) == 1) {
+                $this->debbug('Selected by product first unique id' .
+                              $regsRef[0]['id_product'], 'syncdata');
                 $product_id = $regsRef[0]['id_product'];
             } else {
+                $this->debbug('Exist more than one product with the' .
+                              ' same reference. ' .
+                              $occurence, 'syncdata');
                 if (count($regsRef) > 1) {
                     foreach ($this->shop_languages as $lang) {
                         $product_name_index = '';
@@ -3772,6 +3797,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $product['data'][$product_name_index],
                                 'Product'
                             );
+                            $this->debbug('Search by name but more have same reference' .
+                                          $occurence, 'syncdata');
+
                             //Si hay más de una referencia buscamos producto por nombre similar,
                             //si encontramos varios buscamos con referencia igual, si no, nos quedamos con el primero
                             $regsName = $productObject->searchByName($lang['id_lang'], $product_name);
@@ -3784,8 +3812,14 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     }
                                 }
                                 if ($found === false) {
+                                    $this->debbug('Selected by product first' .
+                                                  $regsName[$found]['id_product'] . ' reference ->' .
+                                                  print_r($regsName, 1), 'syncdata');
                                     $product_id = $regsName[0]['id_product'];
                                 } else {
+                                    $this->debbug('Selected by product with same name and reference' .
+                                                  $regsName[$found]['id_product'] . ' reference ->' .
+                                                  print_r($regsName, 1), 'syncdata');
                                     $product_id = $regsName[$found]['id_product'];
                                 }
                                 break;
@@ -3827,6 +3861,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         }
 
         if (!$product_id) {
+            $this->debbug('Find product with the same name in one of the languages.' .
+                          $occurence, 'syncdata');
             foreach ($this->shop_languages as $lang) {
                 $product_name_index = '';
                 $product_name_index_search = 'product_name_' . $lang['iso_code'];
@@ -3845,9 +3881,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
                 if ($product_name_index != '' && isset($product['data'][$product_name_index])
                     && !empty($product['data'][$product_name_index])) {
-                    if (!$occurence_found) {
+                    if (!$occurrence_found) {
                         $occurence = ' product name :"' . $product['data'][$product_name_index] . '" ';
-                        $occurence_found = true;
+                        $occurrence_found = true;
                     }
 
 
@@ -3861,6 +3897,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         $found = false;
                         //Buscamos producto con nombre idéntico, si no lo encontramos nos quedamos con el primero
                         foreach ($regsName as $keyName => $regName) {
+                            $this->debbug('Check if it has been created from '.
+                             'another sales layer company. ' .
+                                          $occurence, 'syncdata');
                             //Verificamos si el producto existe en otra empresa, para no sobreescribir datos.
                             $product_exists_other_comp = (int)Db::getInstance()->getValue(
                                 sprintf(
@@ -3892,6 +3931,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         }
 
                         if ($product_id) {
+                            $this->debbug('Product found By Name. ' .
+                                          $occurence, 'syncdata');
                             $product_exists = (int)Db::getInstance()->getValue(
                                 sprintf(
                                     'SELECT sl.slyr_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
@@ -3927,6 +3968,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         }
 
         if (!$product_id) {
+            $this->debbug('Creating new product. ' . $occurence, 'syncdata');
             //Creamos el producto
 
             $productObject = new Product();
@@ -3979,7 +4021,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             $productObject->active = true;
             $productObject->date_add = date('Y-m-d H:i:s');
 
-
             isset($product['data']['product_reference']) ? $product_reference = $this->slValidateReference(
                 $product['data']['product_reference']
             ) : $product_reference = '';
@@ -4001,7 +4042,16 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             $productObject->available_for_order = true;
             try {
                 $productObject->save();
+            } catch (Exception $e) {
+                $this->debbug(
+                    '## Error. Cannot Sync product ' . $occurence . ' ->' .
+                    print_r($e->getMessage(), 1) .
+                    ' line->' . $e->getLine() . ' trace->' . print_r($e->getTrace(), 1),
+                    'syncdata'
+                );
+            }
 
+            if ($productObject->id) {
                 Db::getInstance()->execute(
                     sprintf(
                         'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
@@ -4013,15 +4063,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         $comp_id
                     )
                 );
-            } catch (Exception $e) {
-                $this->debbug(
-                    '## Error. Cannot Sync product ' . $occurence . ' ->' .
-                    print_r($e->getMessage(), 1).
-                    ' line->' . $e->getLine() . ' trace->' . print_r($e->getTrace(), 1),
-                    'syncdata'
-                );
             }
-
 
             $return_id = $productObject->id;
             unset($productObject);

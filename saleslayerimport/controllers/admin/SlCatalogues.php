@@ -149,7 +149,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         }
 
                         if ($check_category_id != '') {
-                            $catalog_exists = (int)Db::getInstance()->getValue(
+                            $catalog_exists = (int) Db::getInstance()->getValue(
                                 sprintf(
                                     'SELECT sl.slyr_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
                                      WHERE sl.ps_id = "%s" AND sl.ps_type = "slCatalogue"',
@@ -166,6 +166,13 @@ class SlCatalogues extends SalesLayerPimUpdate
                                  * Categoria  ya la tenemos pero  puede estar vinculada a otra categoria
                                  * asi que no se va a vincular con esta
                                  */
+                                $this->debbug(
+                                    'Category we already have it but it can be linked ' .
+                                    ' to another vsaegory from SL->' .
+                                    print_r($catalog_exists, 1)   .
+                                    ' comp_id ->' . print_r($comp_id, 1),
+                                    'syncdata'
+                                );
 
                                 continue;
                             } else {
@@ -173,6 +180,14 @@ class SlCatalogues extends SalesLayerPimUpdate
                                 // category does not exist in our table add it and make link SL with PS
 
                                 $found = true;
+
+                                $this->debbug(
+                                    'Category found create association to this category->' .
+                                    print_r($catalog_exists, 1)   .
+                                    ' comp_id ->' . print_r($comp_id, 1),
+                                    'syncdata'
+                                );
+
 
                                 Db::getInstance()->execute(
                                     sprintf(
@@ -198,6 +213,12 @@ class SlCatalogues extends SalesLayerPimUpdate
                  * Categoría no Instalada recientemente buscar por nombre de Categoría en idioma adecuada
                  * Category not Installed recently search by Category name in appropriate language
                  */
+                $this->debbug(
+                    'Category not found. Search by Category name in appropriate language->' .
+                    print_r($catalog_exists, 1)   .
+                    ' comp_id ->' . print_r($comp_id, 1),
+                    'syncdata'
+                );
 
 
                 foreach ($this->shop_languages as $lang) {
@@ -218,7 +239,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                     // $catalogObject = new Category();
 
-                    //          $regsName = $catalogObject->searchByName($currentLanguage, $catalog_name);
+                    // $regsName = $catalogObject->searchByName($currentLanguage, $catalog_name);
                     $regsName = Category::searchByName($lang['id_lang'], $catalog_name);
 
                     if ($regsName && count($regsName) > 0) { // categorias encontradas
@@ -228,7 +249,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                             if ($regName['name'] == $catalog_name) {
                                 // categoria con el mismo nombre
 
-                                $catalog_exists = (int)Db::getInstance()->getValue(
+                                $catalog_exists = (int) Db::getInstance()->getValue(
                                     sprintf(
                                         'SELECT sl.slyr_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
                                          WHERE sl.ps_id = "%s" AND sl.ps_type = "slCatalogue"',
@@ -243,8 +264,25 @@ class SlCatalogues extends SalesLayerPimUpdate
                                      * Category we already have it but it can be linked to another category
                                      * you are looking for another available
                                      */
+
+                                    $this->debbug(
+                                        'Category we already have it but it can be linked' .
+                                        ' to another category from SL->' .
+                                        print_r($catalog_exists, 1)   .
+                                        ' comp_id ->' . print_r($comp_id, 1),
+                                        'syncdata'
+                                    );
+
                                     continue;
                                 } else {
+                                    $this->debbug(
+                                        'Category selected but not is vinculed to another category id->' .
+                                        print_r($regsName[$keyName]['id_category'], 1)   .
+                                        ' comp_id ->' . print_r($comp_id, 1),
+                                        'syncdata'
+                                    );
+
+
                                     $category_id = $regsName[$keyName]['id_category'];
                                     break;
                                 }
@@ -268,6 +306,14 @@ class SlCatalogues extends SalesLayerPimUpdate
                                 )
                             );
 
+                            $this->debbug(
+                                'Inserted association of the category with the cache->' .
+                                print_r($category_id, 1)   .
+                                ' comp_id ->' . print_r($comp_id, 1),
+                                'syncdata'
+                            );
+
+
                             $found = true;
                             break;
                         }
@@ -276,30 +322,46 @@ class SlCatalogues extends SalesLayerPimUpdate
             }
 
             if (!$found) {
+                $this->debbug(
+                    'Category has not been found is going to create ->' .
+                    print_r($regsName[ $keyName ]['id_category'], 1) .
+                    ' comp_id ->' . print_r($comp_id, 1),
+                    'syncdata'
+                );
+
 
                 /**
-                 *
                  * Category cannot be found, creating new category for all shops
                  */
                 $contextShopID = Shop::getContextShopID();
                 Shop::setContext(Shop::CONTEXT_ALL);
                 $cat = new Category();
 
-                $cat->name = array();
-                $cat->link_rewrite = array();
-                $cat->meta_title = array();
-                $cat->meta_description = array();
-                $cat->active = 1;
-                $cat->id_parent = $defaultCategory;
+                $cat->name                = array();
+                $cat->link_rewrite        = array();
+                $cat->meta_title          = array();
+                $cat->meta_description    = array();
+                $cat->active              = 1;
+                $cat->id_parent           = $defaultCategory;
                 $cat->id_category_default = $defaultCategory;
 
-                if (isset($section_reference) && !empty($section_reference)) {
+                $section_reference = '';
+
+                if (isset($section_reference) && ! empty($section_reference)) {
                     $occurence = ' section reference :' . $section_reference;
-                } elseif (isset($catalog_name) && !empty($catalog_name)) {
+                } elseif (isset($catalog_name) && ! empty($catalog_name)) {
                     $occurence = ' category name :' . $catalog_name;
                 } else {
                     $occurence = ' ID :' . $catalog['ID'];
                 }
+
+                if (isset($catalog['data']['section_reference']) && $catalog['data']['section_reference'] != '') {
+                    //Reload the category because after save Prestashop generates the Meta arrays.
+                    // $cat = new Category($cat->id);
+
+                    $section_reference = $catalog['data']['section_reference'];
+                }
+
 
 
 
@@ -310,184 +372,196 @@ class SlCatalogues extends SalesLayerPimUpdate
                      */
 
 
-                    $catalog_name = '';
-                    $section_name_index = '';
+                    $catalog_name              = '';
+                    $section_name_index        = '';
                     $section_name_index_search = 'section_name_' . $lang['iso_code'];
 
                     if (isset(
-                        $catalog['data'][$section_name_index_search],
-                        $schema[$section_name_index_search]['language_code']
+                        $catalog['data'][ $section_name_index_search ],
+                        $schema[ $section_name_index_search ]['language_code']
                     ) &&
-                        !empty($catalog['data'][$section_name_index_search]) &&
-                        $schema[$section_name_index_search]['language_code'] == $lang['iso_code']) {
+                         ! empty($catalog['data'][ $section_name_index_search ]) &&
+                         $schema[ $section_name_index_search ]['language_code'] == $lang['iso_code']) {
                         $section_name_index = 'section_name_' . $lang['iso_code'];
                     } elseif (isset($catalog['data']['section_name']) &&
-                        !empty($catalog['data']['section_name']) &&
-                        !isset($schema['section_name']['language_code'])) {
+                               ! empty($catalog['data']['section_name']) &&
+                               ! isset($schema['section_name']['language_code'])) {
                         $section_name_index = 'section_name';
                     }
 
-                    if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index])) {
+                    if (isset($catalog['data'][ $section_name_index ]) &&
+                        ! empty($catalog['data'][ $section_name_index ])) {
                         $catalog_name = $this->slValidateCatalogName(
-                            $catalog['data'][$section_name_index],
+                            html_entity_decode($catalog['data'][ $section_name_index ]),
                             'Catalog'
                         );
                         $this->debbug(
-                            'Assigning category name of ' . print_r($section_name_index, 1) . ' value->' . print_r(
-                                $catalog['data'][$section_name_index],
+                            'Assigning category name of ' . print_r($section_name_index, 1)
+                            . ' value->' . print_r(
+                                $catalog['data'][ $section_name_index ],
                                 1
                             )
                         );
 
-
                         (isset($catalog['data']['friendly_url']) &&
-                            $catalog['data']['friendly_url'] != '') ?
+                          $catalog['data']['friendly_url'] != '') ?
                             $friendly_url = $catalog['data']['friendly_url'] :
                             $friendly_url = $catalog_name;
-                        $cat->name[$lang['id_lang']] = $catalog_name;
+                        $cat->name[ $lang['id_lang'] ] = $catalog_name;
 
-                        $cat->link_rewrite[$lang['id_lang']] = Tools::link_rewrite($friendly_url);
+                        $cat->link_rewrite[ $lang['id_lang'] ] = Tools::link_rewrite($friendly_url);
                     }
 
                     /**
                      * Set Description
                      */
-                    $section_description = '';
-                    $section_description_index = '';
-                    $section_description_index_search = 'section_description_' . $lang['iso_code'];
+                    /*  $section_description = '';
+                      $section_description_index = '';
+                      $section_description_index_search = 'section_description_' . $lang['iso_code'];
 
-                    if (isset(
-                        $catalog['data'][$section_description_index_search],
-                        $schema[$section_description_index_search]['language_code']
-                    ) &&
-                        !empty($catalog['data'][$section_description_index_search]) &&
-                        $schema[$section_description_index_search]['language_code'] == $lang['iso_code']) {
-                        $section_description_index = 'section_description_' . $lang['iso_code'];
-                    } elseif (isset($catalog['data']['section_description']) &&
-                        !empty($catalog['data']['section_description']) &&
-                        !isset($schema['section_description']['language_code'])) {
-                        $section_description_index = 'section_description';
+                      if (isset(
+                          $catalog['data'][$section_description_index_search],
+                          $schema[$section_description_index_search]['language_code']
+                      ) &&
+                          !empty($catalog['data'][$section_description_index_search]) &&
+                          $schema[$section_description_index_search]['language_code'] == $lang['iso_code']) {
+                          $section_description_index = 'section_description_' . $lang['iso_code'];
+                      } elseif (isset($catalog['data']['section_description']) &&
+                          !empty($catalog['data']['section_description']) &&
+                          !isset($schema['section_description']['language_code'])) {
+                          $section_description_index = 'section_description';
+                      }
+
+                      if (isset($catalog['data'][$section_description_index]) &&
+                          !empty($catalog['data'][$section_description_index])) {
+                          $section_description = html_entity_decode($catalog['data'][$section_description_index]);
+                          $cat->description[$lang['id_lang']] = $section_description;
+                          $this->debbug(
+                              $occurence  . 'Assigning section_description category of ' . print_r(
+                                  $section_description_index,
+                                  1
+                              ) . ' value->' . print_r($catalog['data'][$section_description_index], 1)
+                          );
+                      }*/
+
+                    /**
+                     * reference
+                     */
+                    if ($section_reference != '') {
+                        $cat->meta_keywords[ $lang['id_lang'] ] = $section_reference;
                     }
 
-                    if (isset($catalog['data'][$section_description_index]) &&
-                        !empty($catalog['data'][$section_description_index])) {
-                        $section_description = $catalog['data'][$section_description_index];
-                        $cat->description[$lang['id_lang']] = $section_description;
-                        $this->debbug(
-                            $occurence  . 'Assigning section_description category of ' . print_r(
-                                $section_description_index,
-                                1
-                            ) . ' value->' . print_r($catalog['data'][$section_description_index], 1)
-                        );
-                    }
 
                     /**
                      * Meta title
                      */
-                    $meta_title = '';
-                    $meta_title_index = '';
-                    $meta_title_index_search = 'meta_title_' . $lang['iso_code'];
+                    /*  $meta_title = '';
+                      $meta_title_index = '';
+                      $meta_title_index_search = 'meta_title_' . $lang['iso_code'];
 
-                    if (isset(
-                        $catalog['data'][$meta_title_index_search],
-                        $schema[$meta_title_index_search]['language_code']
-                    ) &&
-                        !empty($catalog['data'][$meta_title_index_search]) &&
-                        $schema[$meta_title_index_search]['language_code'] == $lang['iso_code']) {
-                        $meta_title_index = 'meta_title_' . $lang['iso_code'];
-                    } elseif (isset($catalog['data']['meta_title']) &&
-                        !empty($catalog['data']['meta_title']) &&
-                        !isset($schema['section_name']['meta_title'])) {
-                        $meta_title_index = 'meta_title';
-                    }
+                      if (isset(
+                          $catalog['data'][$meta_title_index_search],
+                          $schema[$meta_title_index_search]['language_code']
+                      ) &&
+                          !empty($catalog['data'][$meta_title_index_search]) &&
+                          $schema[$meta_title_index_search]['language_code'] == $lang['iso_code']) {
+                          $meta_title_index = 'meta_title_' . $lang['iso_code'];
+                      } elseif (isset($catalog['data']['meta_title']) &&
+                          !empty($catalog['data']['meta_title']) &&
+                          !isset($schema['section_name']['meta_title'])) {
+                          $meta_title_index = 'meta_title';
+                      }
 
-                    if (isset($catalog['data'][$meta_title_index]) && $catalog['data'][$meta_title_index] != '') {
-                        $meta_title = $catalog['data'][$meta_title_index];
-                    } else {
-                        if (isset($catalog['data'][$section_name_index])) {
-                            $meta_title = $this->clearForMetaData($catalog['data'][$section_name_index]);
-                        }
-                    }
-                    if ($meta_title != '') {
-                        if (Tools::strlen($meta_title) > 249) {
-                            /* $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
-                                           print_r(Tools::strlen($meta_title), 1), 'syncdata');*/
-                            $meta_title = Tools::substr($meta_title, 0, 249);
+                      if (isset($catalog['data'][$meta_title_index]) && $catalog['data'][$meta_title_index] != '') {
+                          $meta_title = html_entity_decode($catalog['data'][$meta_title_index]);
+                      } else {
+                          if (isset($catalog['data'][$section_name_index])) {
+                              $meta_title = $this->clearForMetaData($catalog['data'][$section_name_index]);
+                          }
+                      }
+                      if ($meta_title != '') {
+                          if (Tools::strlen($meta_title) > 249) {
+                    */
+                    /* $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
+                                   print_r(Tools::strlen($meta_title), 1), 'syncdata');*/
+                    /*   $meta_title = Tools::substr($meta_title, 0, 249);
                         }
                         $cat->meta_title[$lang['id_lang']] = $meta_title;
-                    }
+                    }*/
 
                     /**
                      * Meta description
                      */
-                    $meta_description = '';
-                    $meta_description_index = '';
-                    $meta_description_index_search = 'meta_description_' . $lang['iso_code'];
+                    /*   $meta_description = '';
+                       $meta_description_index = '';
+                       $meta_description_index_search = 'meta_description_' . $lang['iso_code'];
 
-                    if (isset(
-                        $catalog['data'][$meta_description_index_search],
-                        $schema[$meta_description_index_search]['language_code']
-                    ) &&
-                        !empty($catalog['data'][$meta_description_index_search]) &&
-                        $schema[$meta_description_index_search]['language_code'] == $lang['iso_code']) {
-                        $meta_description_index = 'meta_description_' . $lang['iso_code'];
-                    } elseif (isset($catalog['data']['meta_description']) &&
-                        !empty($catalog['data']['meta_description']) &&
-                        !isset($schema['meta_description']['meta_title'])) {
-                        $meta_description_index = 'meta_description';
-                    }
+                       if (isset(
+                           $catalog['data'][$meta_description_index_search],
+                           $schema[$meta_description_index_search]['language_code']
+                       ) &&
+                           !empty($catalog['data'][$meta_description_index_search]) &&
+                           $schema[$meta_description_index_search]['language_code'] == $lang['iso_code']) {
+                           $meta_description_index = 'meta_description_' . $lang['iso_code'];
+                       } elseif (isset($catalog['data']['meta_description']) &&
+                           !empty($catalog['data']['meta_description']) &&
+                           !isset($schema['meta_description']['meta_title'])) {
+                           $meta_description_index = 'meta_description';
+                       }
 
-                    if (isset($catalog['data'][$meta_description_index]) &&
-                        $catalog['data'][$meta_description_index] != '') {
-                        $meta_description = $catalog['data'][$meta_description_index];
-                    } else {
-                        if (isset($catalog['data'][$section_description_index])) {
-                            $meta_description = $this->clearForMetaData($catalog['data'][$section_description_index]);
-                        }
-                    }
+                       if (isset($catalog['data'][$meta_description_index]) &&
+                           $catalog['data'][$meta_description_index] != '') {
+                           $meta_description = html_entity_decode($catalog['data'][$meta_description_index]);
+                       } else {
+                           if (isset($catalog['data'][$section_description_index])) {
+                               $meta_description =
+                    $this->clearForMetaData($catalog['data'][$section_description_index]);
+                           }
+                       }
 
-                    if ($meta_description != '') {
-                        if (Tools::strlen($meta_description) > 512) {
-                            /*  $this->debbug('## Warning. ' . $occurence .
-                                            ' Meta description has been cut->' .
-                                            print_r(Tools::strlen($meta_description), 1), 'syncdata');*/
-                            $meta_description = Tools::substr($meta_description, 0, 512);
+                       if ($meta_description != '') {
+                           if (Tools::strlen($meta_description) > 249) {*/
+                    /*  $this->debbug('## Warning. ' . $occurence .
+                                    ' Meta description has been cut->' .
+                                    print_r(Tools::strlen($meta_description), 1), 'syncdata');*/
+                    /*  $meta_description = Tools::substr($meta_description, 0, 249);
                         }
                         $cat->meta_description[$lang['id_lang']] = $meta_description;
-                    }
+                    }*/
 
 
                     /**
                      * Set Frindly url
                      */
-                    $friendly_url = '';
-                    $friendly_url_index = '';
+                    $friendly_url              = '';
+                    $friendly_url_index        = '';
                     $friendly_url_index_search = 'friendly_url_' . $lang['iso_code'];
 
                     if (isset(
-                        $catalog['data'][$friendly_url_index_search],
-                        $schema[$friendly_url_index_search]['language_code']
+                        $catalog['data'][ $friendly_url_index_search ],
+                        $schema[ $friendly_url_index_search ]['language_code']
                     ) &&
-                        !empty($catalog['data'][$friendly_url_index_search]) &&
-                        $schema[$friendly_url_index_search]['language_code'] == $lang['iso_code']) {
+                         ! empty($catalog['data'][ $friendly_url_index_search ]) &&
+                         $schema[ $friendly_url_index_search ]['language_code'] == $lang['iso_code']) {
                         $friendly_url_index = 'friendly_url_' . $lang['iso_code'];
                     } elseif (isset($catalog['data']['friendly_url']) &&
-                        !empty($catalog['data']['friendly_url']) &&
-                        !isset($schema['friendly_url']['language_code'])) {
+                               ! empty($catalog['data']['friendly_url']) &&
+                               ! isset($schema['friendly_url']['language_code'])) {
                         $friendly_url_index = 'friendly_url';
                     }
 
-                    if (isset($catalog['data'][$friendly_url_index]) && $catalog['data'][$friendly_url_index] != '') {
-                        $friendly_url = $catalog['data'][$friendly_url_index];
+                    if (isset($catalog['data'][ $friendly_url_index ]) &&
+                        $catalog['data'][ $friendly_url_index ] != '') {
+                        $friendly_url = $catalog['data'][ $friendly_url_index ];
                     } else {
-                        if (isset($catalog['data'][$section_name_index])) {
-                            $friendly_url = $catalog['data'][$section_name_index];
+                        if (isset($catalog['data'][ $section_name_index ])) {
+                            $friendly_url = $catalog['data'][ $section_name_index ];
                         }
                     }
 
                     if ($friendly_url != '') {
-                        $friendly_url = Tools::link_rewrite($friendly_url);
-                        $cat->link_rewrite[$lang['id_lang']] = $friendly_url;
+                        $friendly_url                          = Tools::link_rewrite($friendly_url);
+                        $cat->link_rewrite[ $lang['id_lang'] ] = $friendly_url;
                     }
 
                     /**
@@ -495,30 +569,31 @@ class SlCatalogues extends SalesLayerPimUpdate
                      */
 
                     if ($lang['id_lang'] != $this->defaultLanguage) {
-                        if ($catalog_name != '' && (!isset($cat->name[$this->defaultLanguage]) ||
-                                ($cat->name[$this->defaultLanguage] == null ||
-                                    $cat->name[$this->defaultLanguage] == ''))) {
-                            $cat->name[$this->defaultLanguage] = $catalog_name;
+                        if ($catalog_name != '' && (! isset($cat->name[ $this->defaultLanguage ]) ||
+                                                      ($cat->name[ $this->defaultLanguage ] == null ||
+                                                        $cat->name[ $this->defaultLanguage ] == ''))) {
+                            $cat->name[ $this->defaultLanguage ] = $catalog_name;
                         }
-                        if ($section_description != '' && (!isset($cat->description[$this->defaultLanguage]) ||
-                                ($cat->description[$this->defaultLanguage] == null ||
-                                    $cat->description[$this->defaultLanguage] == ''))) {
-                            $cat->description[$this->defaultLanguage] = $section_description;
-                        }
-                        if ($meta_title != '' && (!isset($cat->meta_title[$this->defaultLanguage]) ||
-                                ($cat->meta_title[$this->defaultLanguage] == null ||
-                                    $cat->meta_title[$this->defaultLanguage] == ''))) {
-                            $cat->meta_title[$this->defaultLanguage] = $meta_title;
-                        }
-                        if ($meta_description != '' && (!isset($cat->meta_description[$this->defaultLanguage]) ||
-                                ($cat->meta_description[$this->defaultLanguage] == null ||
-                                    $cat->meta_description[$this->defaultLanguage] == ''))) {
-                            $cat->meta_description[$this->defaultLanguage] = $meta_description;
-                        }
-                        if ($friendly_url != '' && (!isset($cat->link_rewrite[$this->defaultLanguage]) ||
-                                ($cat->link_rewrite[$this->defaultLanguage] == null ||
-                                    $cat->link_rewrite[$this->defaultLanguage] == ''))) {
-                            $cat->link_rewrite[$this->defaultLanguage] = $friendly_url;
+
+                        /*  if ($section_description != '' && (!isset($cat->description[$this->defaultLanguage]) ||
+                                  ($cat->description[$this->defaultLanguage] == null ||
+                                      $cat->description[$this->defaultLanguage] == ''))) {
+                              $cat->description[$this->defaultLanguage] = $section_description;
+                          }
+                          if ($meta_title != '' && (!isset($cat->meta_title[$this->defaultLanguage]) ||
+                                  ($cat->meta_title[$this->defaultLanguage] == null ||
+                                      $cat->meta_title[$this->defaultLanguage] == ''))) {
+                              $cat->meta_title[$this->defaultLanguage] = $meta_title;
+                          }
+                         if ($meta_description != '' && (!isset($cat->meta_description[$this->defaultLanguage]) ||
+                                  ($cat->meta_description[$this->defaultLanguage] == null ||
+                                      $cat->meta_description[$this->defaultLanguage] == ''))) {
+                              $cat->meta_description[$this->defaultLanguage] = $meta_description;
+                          }*/
+                        if ($friendly_url != '' && (! isset($cat->link_rewrite[ $this->defaultLanguage ]) ||
+                                                      ($cat->link_rewrite[ $this->defaultLanguage ] == null ||
+                                                        $cat->link_rewrite[ $this->defaultLanguage ] == ''))) {
+                            $cat->link_rewrite[ $this->defaultLanguage ] = $friendly_url;
                         }
                     }
                 }
@@ -533,6 +608,20 @@ class SlCatalogues extends SalesLayerPimUpdate
                         ) . ' id_parent ' . $cat->id_parent,
                         'syncdata'
                     );
+                } catch (Exception $e) {
+                    /**
+                     * An error occurred
+                     */
+
+                    $syncCat = true;
+                    $this->debbug(
+                        '## Error. ' . $occurence .
+                        ' Creating category  ID:' . $catalog['ID'] . ' ' . print_r($e->getMessage(), 1),
+                        'syncdata'
+                    );
+                }
+
+                if ($cat->id) {
                     Db::getInstance()->execute(
                         sprintf(
                             'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
@@ -544,19 +633,12 @@ class SlCatalogues extends SalesLayerPimUpdate
                             $comp_id
                         )
                     );
-                } catch (Exception $e) {
-                    $syncCat = true;
-                    $this->debbug(
-                        '## Error. ' . $occurence .
-                        ' Creating category  ID:' . $catalog['ID'] . ' ' . print_r($e->getMessage(), 1),
-                        'syncdata'
-                    );
                 }
 
                 Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
             }
 
-            $catalog_exists = (int)Db::getInstance()->getValue(
+            $catalog_exists = (int) Db::getInstance()->getValue(
                 sprintf(
                     'SELECT sl.ps_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
                      WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
@@ -566,13 +648,7 @@ class SlCatalogues extends SalesLayerPimUpdate
             );
 
             if (!$catalog_exists) {
-                $this->debbug(
-                    '## Error. Inserting register to sl table. Category  ID:' . $catalog['ID'],
-                    'syncdata'
-                );
-                // continue;
                 unset($cat);
-
                 return false;
             }
         }
@@ -583,6 +659,7 @@ class SlCatalogues extends SalesLayerPimUpdate
          */
         $this->first_sync_shop = true;
         foreach ($shops as $shop_id) {
+            $section_reference = '';
             Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
 
             $cat = new Category($catalog_exists, null, $shop_id);
@@ -613,6 +690,16 @@ class SlCatalogues extends SalesLayerPimUpdate
                 'Catalogue id_category_default after from sl bd ->' . print_r($cat->id_category_default, 1),
                 'syncdata'
             );
+
+            if (isset($catalog['data']['section_reference']) && $catalog['data']['section_reference'] != '') {
+                //Reload the category because after save Prestashop generates the Meta arrays.
+                // $cat = new Category($cat->id);
+
+                $section_reference = $catalog['data']['section_reference'];
+            }
+
+
+
 
             foreach ($this->shop_languages as $lang) {
                 $this->debbug('check attributes in language -> ' . print_r($lang['iso_code'], 1), 'syncdata');
@@ -766,15 +853,23 @@ class SlCatalogues extends SalesLayerPimUpdate
                 }
 
                 if ($meta_description != '' && $cat->meta_description[$lang['id_lang']] != $meta_description) {
-                    if (Tools::strlen($meta_description) > 512) {
+                    if (Tools::strlen($meta_description) > 255) {
                         /* $this->debbug('## Warning. ' . $occurence . ' Meta description has been cut->' .
                                        print_r(Tools::strlen($meta_description), 1), 'syncdata');*/
 
-                        $meta_description = Tools::substr($meta_description, 0, 512);
+                        $meta_description = Tools::substr($meta_description, 0, 255);
                     }
                     $cat->meta_description[$lang['id_lang']] = $meta_description;
                     // $need_update = true;
                 }
+
+                /**
+                 * Reference
+                 */
+                if ($section_reference != '') {
+                    $cat->meta_keywords[$lang['id_lang']] = $section_reference;
+                }
+
 
 
                 /**
@@ -879,16 +974,17 @@ class SlCatalogues extends SalesLayerPimUpdate
                 $this->debbug('Active stat before save ->' . print_r($cat->active, 1), 'syncdata');
                 $cat->save();
 
-
-                Db::getInstance()->execute(
-                    sprintf(
-                        'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
+                if ($cat->id) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
                          SET sl.date_upd = CURRENT_TIMESTAMP() 
                          WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
-                        $catalog['ID'],
-                        $comp_id
-                    )
-                );
+                            $catalog['ID'],
+                            $comp_id
+                        )
+                    );
+                }
             } catch (Exception $e) {
                 if (isset($section_reference) && !empty($section_reference)) {
                     $occurence = ' section reference :' . $section_reference;

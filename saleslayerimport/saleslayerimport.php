@@ -93,7 +93,7 @@ class SalesLayerImport extends Module
     public $rewrite_execution_frequency = true;
     public $log_module_path = _PS_MODULE_DIR_ . 'saleslayerimport/logs/';
     public $cpu_max_limit_for_retry_call = 4.00;
-    public $timeout_for_run_process_connections = 300;
+    public $timeout_for_run_process_connections = 1000;
     private $max_execution_time = 290;
     private $memory_min_limit = 300;
     private $sql_insert_limit = 5;
@@ -200,6 +200,7 @@ class SalesLayerImport extends Module
             'product_discount_2',
             'product_discount_2_type',
             'product_discount_2_quantity',
+            'wholesale_price',
             'meta_title',
             'meta_description',
             'friendly_url',
@@ -255,7 +256,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.11';
+        $this->version = '1.4.12';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -307,7 +308,7 @@ class SalesLayerImport extends Module
      */
     public function loadDebugMode()
     {
-        $schemaSQL_PS_SL_configdata = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_aditional_config ." (
+        $schemaSQL_PS_SL_configdata = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_aditional_config . " (
                                      `id_config` INT NOT NULL AUTO_INCREMENT,
                                       `configname` VARCHAR(100) NOT NULL,
                                       `save_value` VARCHAR(500) NULL,
