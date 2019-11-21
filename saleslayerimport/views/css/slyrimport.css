@@ -232,7 +232,7 @@ border:0 !important;
 #progressbar span {
   position: absolute;
   z-index: 10;
-  left: 44%;
+  left: 38%;
   top: 10%;
   font-size: 17px;
 }

@@ -117,35 +117,121 @@ class SlCatalogues extends SalesLayerPimUpdate
             /**
              * Category record not found in the table of SL
              */
-
             $found = false;
 
             if (isset($catalog['data']['section_reference']) && $catalog['data']['section_reference'] != '') {
                 $section_reference = $catalog['data']['section_reference'];
+                $search_first = '';
+                $registros = array();
+                if (is_numeric($section_reference)) { // buscar posible id de categoría de exportación
+                    $this->debbug(
+                        'Reference is numeric check if is a id_of category',
+                        'syncdata'
+                    );
 
-                $schemaCats = "SELECT id_category, id_lang, name, meta_keywords FROM " . $this->category_lang_table .
-                    " WHERE meta_keywords like '%" . $section_reference . "%' AND id_lang = " . $currentLanguage .
-                    " GROUP BY id_category, id_lang, name ORDER BY id_category ASC";
+                    $searchid_category = array();
+                    $test_id = (int) $section_reference;
+                    $name_multi_idioma = array();
+                    foreach ($this->shop_languages as $lang) {
+                        $section_name_index = 'section_name_' . $lang['iso_code'];
+                        if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index])) { // is multilenguage
+                            $this->debbug(
+                                'Set name from name ->' .
+                                print_r($section_name_index, 1) . ' value->' .
+                                print_r($catalog['data'][$section_name_index], 1),
+                                'syncdata'
+                            );
+                            $name_multi_idioma[$lang['id_lang']] = $catalog['data'][$section_name_index];
+                        }
+                    }
+                    if (!count($name_multi_idioma)) { // is not a multi language
+                        if (isset($catalog['data']['section_name']) &&
+                            !empty($catalog['data']['section_name']) &&
+                             !isset($schema['section_name']['language_code'])) {
+                            $name_multi_idioma[$currentLanguage] = $catalog['data']['section_name'];
+                        }
+                    }
+                    if ($test_id > 0 && count($name_multi_idioma)) {
+                        $this->debbug(
+                            'Go search by id , name, id_lang',
+                            'syncdata'
+                        );
 
-                $registros = Db::getInstance()->executeS($schemaCats);
+                        foreach ($name_multi_idioma as $id_lang => $cat_name) {
+                            $searchid_category[] = '(id_category = "' . $test_id . '" AND name="' . $cat_name .
+                                                   '" AND id_lang = "' . $id_lang . '" ) ';
+                        }
+                        $search_first = '(' . implode(' OR ', $searchid_category) . ')  ';
+
+                        $schemaCats_name = 'SELECT id_category FROM ' . $this->category_lang_table .
+                                      ' WHERE ' . $search_first .
+                                      ' GROUP BY id_category, id_lang, name ';
+                        $registros = Db::getInstance()->executeS($schemaCats_name);
+                    }
+                }
+
+
+                if (!count($registros)) { // not found any categories with the same id and name for languages
+                    $this->debbug(
+                        'The category id and name has not been recognized, go search by Keyword',
+                        'syncdata'
+                    );
+                    /**
+                     * Check Meta keywords as references
+                     */
+                    $check_kewordreferencess = array();
+                    foreach ($this->shop_languages as $lang) {
+                        $check_kewordreferencess[] = '( id_lang = "' . $lang['id_lang'] .
+                                                     '"  AND  meta_keywords LIKE "%' . $section_reference . '%" )';
+                    }
+
+                    $schemaCats = 'SELECT id_category FROM ' . $this->category_lang_table .
+                                  ' WHERE  ' . implode(' OR ', $check_kewordreferencess) .
+                                  ' GROUP BY id_category, id_lang, name ';
+                    $registros = Db::getInstance()->executeS($schemaCats);
+                }
+
+
 
                 if (count($registros) > 0) {
-                    foreach ($registros as $key => $registro) {
+                    $clearedids = array();
+                    foreach ($registros as $id_categories) {
+                        $clearedids[] = $id_categories['id_category'];
+                    }
+                    $this->debbug(
+                        'Categories returned as possible categories ->' .
+                        print_r($clearedids, 1) . ' Query->' . print_r($schemaCats, 1),
+                        'syncdata'
+                    );
+                    $register_order = array_count_values($clearedids);
+                    $this->debbug(
+                        'Counted and sorted by most likely from highest to lowest ->' .
+                        print_r($register_order, 1),
+                        'syncdata'
+                    );
+                    foreach (array_keys($register_order) as $id_category) {
+                        $this->debbug(
+                            'Most probably category for check ->' .
+                            print_r($id_category, 1),
+                            'syncdata'
+                        );
+                        $query_data_cat = 'SELECT id_category,id_lang,name,meta_keywords FROM ' .
+                                          $this->category_lang_table .
+                                          ' WHERE  id_category = "' . $id_category . '"  ' .
+                                          ' GROUP BY id_category, id_lang, name ';
+                        $registro = Db::getInstance()->getRow($query_data_cat);
+
+                        $this->debbug(
+                            'Register by most hits recognition ->' .
+                            print_r($registro, 1),
+                            'syncdata'
+                        );
                         // buscar categoria con registros por meta_keywords y la misma referencia y id idioma
                         $cat_meta_keywords = $registro['meta_keywords'];
                         $check_category_id = '';
 
                         if ($cat_meta_keywords != '') {
-                            if (strpos($cat_meta_keywords, ',')) {
-                                $cmk = explode(',', $cat_meta_keywords);
-                                if (!in_array($section_reference, $cmk, false)) {
-                                    $check_category_id = $registro['id_category'];
-                                }
-                            } else {
-                                if ($section_reference == $cat_meta_keywords) {
-                                    $check_category_id = $registro['id_category'];
-                                }
-                            }
+                            $check_category_id = $registro['id_category'];
                         }
 
                         if ($check_category_id != '') {
@@ -276,7 +362,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                                     continue;
                                 } else {
                                     $this->debbug(
-                                        'Category selected but not is vinculed to another category id->' .
+                                        'The category selected because it is not yet assigned to any ' .
+                                        'other with the same name is not linked to another category id->' .
                                         print_r($regsName[$keyName]['id_category'], 1)   .
                                         ' comp_id ->' . print_r($comp_id, 1),
                                         'syncdata'
@@ -448,9 +535,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                      * reference
                      */
                     if ($section_reference != '') {
-                        $cat->meta_keywords[ $lang['id_lang'] ] = $section_reference;
+                        $cat->meta_keywords[$lang['id_lang']] = $section_reference;
                     }
-
 
                     /**
                      * Meta title
@@ -682,7 +768,6 @@ class SlCatalogues extends SalesLayerPimUpdate
                 )
             );
 
-
             $cat->id_parent = ($catalog['ID_PARENT'] == '0') ? $defaultCategory : $catalog_parent_id;
             // $cat->id_category_default = ($catalog['ID_PARENT'] == '0') ? $defaultCategory : $catalog_exists;
             $cat->id_category_default = ($catalog['ID_PARENT'] == '0') ? $defaultCategory : $catalog_parent_id;
@@ -691,14 +776,9 @@ class SlCatalogues extends SalesLayerPimUpdate
                 'syncdata'
             );
 
-            if (isset($catalog['data']['section_reference']) && $catalog['data']['section_reference'] != '') {
-                //Reload the category because after save Prestashop generates the Meta arrays.
-                // $cat = new Category($cat->id);
-
-                $section_reference = $catalog['data']['section_reference'];
+            if (isset($catalog['data']['section_reference']) && !empty($catalog['data']['section_reference'])) {
+                $section_reference = trim($catalog['data']['section_reference']);
             }
-
-
 
 
             foreach ($this->shop_languages as $lang) {
@@ -868,9 +948,16 @@ class SlCatalogues extends SalesLayerPimUpdate
                  */
                 if ($section_reference != '') {
                     $cat->meta_keywords[$lang['id_lang']] = $section_reference;
+                    $this->debbug(
+                        'Updating reference->' . print_r($section_reference, 1),
+                        'syncdata'
+                    );
+                } else {
+                    $this->debbug(
+                        'Category reference is empty->' . print_r($section_reference, 1),
+                        'syncdata'
+                    );
                 }
-
-
 
                 /**
                  * Update Frindly url
@@ -897,6 +984,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                 } else {
                     if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index])) {
                         $friendly_url = $catalog['data'][$section_name_index];
+                    } else {
+                        $friendly_url = '';
                     }
                 }
 
@@ -951,25 +1040,25 @@ class SlCatalogues extends SalesLayerPimUpdate
 
             // $cat->save();
 
-            if (isset($catalog['data']['section_reference']) && $catalog['data']['section_reference'] != '') {
-                //Reload the category because after save Prestashop generates the Meta arrays.
-                // $cat = new Category($cat->id);
+            /* if (isset($catalog['data']['section_reference']) && $catalog['data']['section_reference'] != '') {
+                 //Reload the category because after save Prestashop generates the Meta arrays.
+                 // $cat = new Category($cat->id);
 
-                $section_reference = $catalog['data']['section_reference'];
+                 $section_reference = $catalog['data']['section_reference'];
 
-                foreach ($cat->meta_keywords as $key => $meta_keywords) {
-                    if ($meta_keywords === '') {
-                        $cat->meta_keywords[$key] = $section_reference;
-                    // $need_update = true;
-                    } else {
-                        $mk = explode(',', $meta_keywords);
-                        if (!in_array($section_reference, $mk, false)) {
-                            $cat->meta_keywords[$key] = $section_reference . ',' . $meta_keywords;
-                            //   $need_update = true;
-                        }
-                    }
-                }
-            }
+                 foreach ($cat->meta_keywords as $key => $meta_keywords) {
+                     if ($meta_keywords === '') {
+                         $cat->meta_keywords[$key] = $section_reference;
+                     // $need_update = true;
+                     } else {
+                         $mk = explode(',', $meta_keywords);
+                         if (!in_array($section_reference, $mk, false)) {
+                             $cat->meta_keywords[$key] = $section_reference . ',' . $meta_keywords;
+                             //   $need_update = true;
+                         }
+                     }
+                 }
+             }*/
             try {
                 $this->debbug('Active stat before save ->' . print_r($cat->active, 1), 'syncdata');
                 $cat->save();
@@ -1015,7 +1104,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                             }
                         }
                     }
-
+                    $protected_ids = array();
                     foreach ($catch_images as $key => $image_url) {
                         //$shops = Shop::getShops(true, null, true);
                         $url = trim($image_url);
@@ -1023,10 +1112,16 @@ class SlCatalogues extends SalesLayerPimUpdate
                         if (!empty($url)) {
                             $temp_file = $this->downloadImageToTemp($url);
                             if ($temp_file) {
+                                $cat->deleteImage(true);
                                 // $url = str_replace(' ', '%20', $url);
                                 $this->copyImg($cat->id, $cat->id, $temp_file, 'categories', true, true);
+                                $protected_ids[] = $cat->id;
                             }
                         }
+                    }
+                    if (empty($protected_ids)) {
+                        $this->debbug('In the category should not be images is launched image removal', 'syncdata');
+                        $cat->deleteImage(true);
                     }
                 }
                 $this->first_sync_shop = false;

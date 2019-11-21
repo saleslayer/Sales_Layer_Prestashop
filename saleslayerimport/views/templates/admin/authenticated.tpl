@@ -138,7 +138,7 @@
           }else{
               postFormEnable();
              /* showMessage('error', 'Error connect to server. Check your browser console for more information. Press F12');*/
-              console.error('Ajax connection error. Please check your ajax connections made in the Network panel -> XHR -> ajax -> Preview');
+              console.error('Ajax connection error. Please check your ajax connections made in the Network panel -> XHR -> ajax -> Preview, Continue send form with post');
           }
         },
         error: function () {
@@ -208,7 +208,6 @@
         }
       })
     }
-
     function check_status() {
       var token = $('#mymodule_wrapper').attr('data-token');
       var command = 'check_status';
@@ -223,7 +222,7 @@
             var start = document.getElementById('allelements').value;
             if (start == 0) {
               document.getElementById('allelements').value = parseInt(data_return['actual_stat']);
-              showProgressBarSL(0, start, data_return['next_cron_expected']);
+              showProgressBarSL(0, start, data_return['next_cron_expected'],data_return['work_stat']);
               clearInterval(timerCheck);
               timerCheck = setInterval(function () {
                 check_status()
@@ -236,7 +235,7 @@
               $('#messages').html('');
               clearTimeout(timeout);
               var actual = start - parseInt(data_return['actual_stat']);
-              showProgressBarSL(actual, start, data_return['next_cron_expected']);
+              showProgressBarSL(actual, start, data_return['next_cron_expected'],data_return['work_stat']);
               //   console.log('status start->'+ start +'  now->'+ data_return['actual_stat'] +' actual->' +actual);
               if (actual == start) {
                 clearInterval(timerCheck);
@@ -260,8 +259,7 @@
       })
     }
 
-    function showProgressBarSL(status, total, time = null) {
-
+    function showProgressBarSL(status, total, time = null,show_stat = '') {
       var onePr = total / 100;
       var statPr;
       if (status == 0) {
@@ -276,14 +274,13 @@
       }
       var div;
       var text_color;
-      if (statPr > 52) {
+      if (statPr > 60) {
         text_color = 'text-white'
       } else {
         text_color = 'text-body'
       }
-      div = '<div class="row"><div class="progress-bar " role="progressbar" style="width:' + statPr + '%" aria-valuenow="' + statPr + '" aria-valuemin="0" aria-valuemax="100"></div></div><span class="text-center ' + text_color + '">' + statPr + '%  (' + status + '/' + total + ')</span>';
+      div = '<div class="row"><div class="progress-bar " role="progressbar" style="width:' + statPr + '%" aria-valuenow="' + statPr + '" aria-valuemin="0" aria-valuemax="100"></div></div><span class="text-center ' + text_color + '">'+ show_stat + statPr + '%  (' + status + '/' + total + ')</span>';
       document.getElementById('progressbar').innerHTML = div
-
     }
     function postFormEnable(){
         showMessage('success', 'Before leaving please save your changes.')
@@ -300,7 +297,6 @@
       $('#messages').html(html);
       clear_messege_status()
     }
-
     function clear_messege_status() {
       clearTimeout(timeout);
       timeout = setTimeout(function () {
@@ -308,7 +304,6 @@
         clearTimeout(timeout)
       }, 12000)
     }
-
     document.addEventListener('DOMContentLoaded', function () {
       check_status()
     }, false)

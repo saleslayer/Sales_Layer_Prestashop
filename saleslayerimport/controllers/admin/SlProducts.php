@@ -614,7 +614,6 @@ class SlProducts extends SalesLayerPimUpdate
 
                     $product_desc_short_index = '';
                     $product_desc_short_index_search = 'product_description_short_' . $lang['iso_code'];
-
                     if (isset($product['data']['product_description_short'])
                         && !empty($product['data']['product_description_short'])
                         && !isset($schema['product_description_short']['language_code'])) {
@@ -1362,40 +1361,6 @@ class SlProducts extends SalesLayerPimUpdate
                                           implode(', ', $carriers_not_founded),
                                           1
                                       ), 'syncdata');
-                }
-
-                /**
-                 * Attachment Files upload
-                 */
-
-                if (isset($product['data']['product_attachment'])) {
-                    if (is_array($product['data']['product_attachment'])) {
-                        $attachments_files = array();
-                        foreach ($product['data']['product_attachment'] as $file) {
-                            if (isset($file['FILE'])) {
-                                $attachments_files[] = $file['FILE'];
-                            } else {
-                                if (is_array($file)) {
-                                    $attachments_files[] = reset($file);
-                                } else {
-                                    $attachments_files[] = $file;
-                                }
-                            }
-                        }
-                    } else {
-                        $attachments_files = explode(',', $product['data']['product_attachment']);
-                    }
-                    try {
-                        $this->syncProductAttachment($attachments_files, $productObject->id, $mulilanguage);
-                    } catch (Exception $e) {
-                        $this->debbug(
-                            '## Error. In syncProductAttachment ' . $occurence . ' ->' . print_r(
-                                $e->getMessage(),
-                                1
-                            ) . ' line->' . print_r($e->getLine(), 1),
-                            'syncdata'
-                        );
-                    }
                 }
 
 
@@ -2676,6 +2641,40 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 );
             }
 
+            /**
+             * Attachment Files upload
+             */
+
+            if (isset($product['data']['product_attachment'])) {
+                if (is_array($product['data']['product_attachment'])) {
+                    $attachments_files = array();
+                    foreach ($product['data']['product_attachment'] as $file) {
+                        if (isset($file['FILE'])) {
+                            $attachments_files[] = $file['FILE'];
+                        } else {
+                            if (is_array($file)) {
+                                $attachments_files[] = reset($file);
+                            } else {
+                                $attachments_files[] = $file;
+                            }
+                        }
+                    }
+                } else {
+                    $attachments_files = explode(',', $product['data']['product_attachment']);
+                }
+                try {
+                    $this->syncProductAttachment($attachments_files, $product_id, $mulilanguage);
+                } catch (Exception $e) {
+                    $this->debbug(
+                        '## Error. In syncProductAttachment ' . $occurence . ' ->' . print_r(
+                            $e->getMessage(),
+                            1
+                        ) . ' line->' . print_r($e->getLine(), 1),
+                        'syncdata'
+                    );
+                }
+            }
+
             try {
                 $this->syncFeatures($product_exists, $product, $schema);
             } catch (Exception $e) {
@@ -3044,7 +3043,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $attachment->name[$language['id_lang']] = (string) $fileReference;
                 if (isset($mulilanguage[$language['id_lang']])) {
                     $attachment->description[$language['id_lang']] =
-                        $mulilanguage[$language['id_lang']].' '.reset($explode);
+                        $mulilanguage[$language['id_lang']] . ' ' . reset($explode);
                 }
             }
 
@@ -3797,7 +3796,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $product['data'][$product_name_index],
                                 'Product'
                             );
-                            $this->debbug('Search by name but more have same reference' .
+                            $this->debbug('Search by name but more have same reference ' .
                                           $occurence, 'syncdata');
 
                             //Si hay más de una referencia buscamos producto por nombre similar,

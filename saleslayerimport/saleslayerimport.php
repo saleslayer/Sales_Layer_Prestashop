@@ -256,7 +256,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.12';
+        $this->version = '1.4.13';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -2618,7 +2618,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     {
         $item_type = 'accessories';
         $sync_type = 'update';
-        $sql_sel = "SELECT * FROM "._DB_PREFIX_."slyr_syncdata
+        $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
         WHERE sync_type = '$sync_type' AND item_type = '$item_type' LIMIT 1  ";
         $res = $this->slConnectionQuery('read', $sql_sel);
 
@@ -2641,12 +2641,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             try {
                 $item_data_to_insert = html_entity_decode(json_encode($this->product_accessories));
 
-                $sql_sel = "SELECT * FROM "._DB_PREFIX_."slyr_syncdata
+                $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
             WHERE sync_type = '$sync_type' AND item_type = '$item_type' Limit 1  ";
                 $res = $this->slConnectionQuery('read', $sql_sel);
 
                 if (!$res) {
-                    $sql_query_to_insert = "INSERT INTO "._DB_PREFIX_."slyr_syncdata".
+                    $sql_query_to_insert = "INSERT INTO " . _DB_PREFIX_ . "slyr_syncdata" .
                         " ( sync_type, item_type, item_data ) VALUES ".
                         "('".$sync_type."', '".$item_type."', '".addslashes($item_data_to_insert)."')";
                     $this->slConnectionQuery('-', $sql_query_to_insert);

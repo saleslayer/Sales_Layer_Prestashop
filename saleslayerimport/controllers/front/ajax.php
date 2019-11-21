@@ -45,12 +45,45 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['server_time'] = 'Server time: ' . date('H:i');
             $SLimport = new SalesLayerImport();
 
-            $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " . _DB_PREFIX_ . 'slyr_syncdata';
+            $sql_processing = 'SELECT count(*) as sl_cuenta_registros,sync_type,item_type FROM '
+                              . _DB_PREFIX_ . 'slyr_syncdata';
             $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
 
             if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
                 $return['status'] = 'processing';
                 $return['actual_stat'] = $items_processing['sl_cuenta_registros'];
+                //work_stat
+
+                $current_flag = $SLimport->slConnectionQuery(
+                    'read',
+                    'SELECT * FROM ' . $SLimport->saleslayer_syncdata_flag_table . ' ORDER BY id DESC LIMIT 1'
+                );
+                //work_stat
+                $Work_in_message = '';
+                if ($items_processing['sync_type'] == 'update') {
+                    $Work_in_message .= 'Updating ';
+                } else {
+                    if ($items_processing['item_type'] == 'product_format') {
+                        $Work_in_message .= 'Removing ';
+                    } else {
+                        $Work_in_message .= 'Deactivating ';
+                    }
+                }
+                if ($items_processing['item_type'] == 'category') {
+                    $Work_in_message .= 'categories';
+                } elseif ($items_processing['item_type'] == 'product') {
+                    $Work_in_message .= 'products';
+                } elseif ($items_processing['item_type'] == 'product_format') {
+                    $Work_in_message .= 'variants';
+                } elseif ($items_processing['item_type'] == 'accessories') {
+                    $Work_in_message .= 'accessories';
+                }
+
+                if (!count($current_flag)) {
+                    $Work_in_message = 'Waiting for cron';
+                }
+                $Work_in_message .= '&nbsp;';
+                $return['work_stat'] = $Work_in_message ;
 
                 $result = $SLimport->testSlcronExist();
                 $register_forProcess = $SLimport->checkRegistersForProccess();
