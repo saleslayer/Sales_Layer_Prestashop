@@ -251,6 +251,11 @@
             }, 10000);
             document.getElementById('progressbar').innerHTML = '';
             document.getElementById('allelements').value = 0
+            if(data_return['work_stat']!='undefined'){
+              if(data_return['work_stat']!=''){
+                showAditionalstatus(data_return['work_stat']);
+              }
+            }
           }
         },
         error: function () {
@@ -280,6 +285,10 @@
         text_color = 'text-body'
       }
       div = '<div class="row"><div class="progress-bar " role="progressbar" style="width:' + statPr + '%" aria-valuenow="' + statPr + '" aria-valuemin="0" aria-valuemax="100"></div></div><span class="text-center ' + text_color + '">'+ show_stat + statPr + '%  (' + status + '/' + total + ')</span>';
+      document.getElementById('progressbar').innerHTML = div
+    }
+    function showAditionalstatus(message){
+      div = '<div class="row"><div class="progress-bar " role="progressbar" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div><span class="text-center text-body">'+ message + '</span>';
       document.getElementById('progressbar').innerHTML = div
     }
     function postFormEnable(){

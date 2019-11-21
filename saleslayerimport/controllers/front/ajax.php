@@ -78,7 +78,6 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 } elseif ($items_processing['item_type'] == 'accessories') {
                     $Work_in_message .= 'accessories';
                 }
-
                 if (!count($current_flag)) {
                     $Work_in_message = 'Waiting for cron';
                 }
@@ -106,6 +105,12 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                     $return['next_cron_expected'] = 0;
                 }
             } else {
+                $Work_in_message = '';
+                $downloading_status = $SLimport->getConfiguration('DOWNLOADING');
+                if ($downloading_status != false) {
+                    $Work_in_message = 'Download in progress';
+                }
+                $return['work_stat'] = $Work_in_message ;
                 $return['status'] = 'complete';
             }
 

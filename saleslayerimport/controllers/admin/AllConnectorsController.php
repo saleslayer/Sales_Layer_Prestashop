@@ -255,12 +255,20 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
     public function renderList()
     {
         $messages = '';
+
+        $downloading_status = $this->SLimport->getConfiguration('DOWNLOADING');
+        if ($downloading_status != false) {
+            $messages .= '<ul class="messages"><li class="success-msg"><ul><li>' .
+                         'Download in progress </li></ul></li></ul>';
+        }
+
         $status_rows =  $this->SLimport->checkRegistersForProccess(true);
         if ($status_rows > 0) {
             /*show process*/
-            $messages .= '<ul class="messages"><li class="success-msg"><ul><li>' .
+            $messages = '<ul class="messages"><li class="success-msg"><ul><li>' .
                          $status_rows . ' items left to process </li></ul></li></ul>';
         }
+
 
         $developmentButton = '';
 

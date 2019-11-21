@@ -1113,6 +1113,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                             $temp_file = $this->downloadImageToTemp($url);
                             if ($temp_file) {
                                 $cat->deleteImage(true);
+                                $this->debbug('Uploading image', 'syncdata');
                                 // $url = str_replace(' ', '%20', $url);
                                 $this->copyImg($cat->id, $cat->id, $temp_file, 'categories', true, true);
                                 $protected_ids[] = $cat->id;

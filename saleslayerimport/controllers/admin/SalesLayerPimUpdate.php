@@ -28,6 +28,34 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->prestashop_all_shops = Shop::getShops();
     }
 
+    public function testDownloadingBlock()
+    {
+        $Downloading_block = $this->getConfiguration('DOWNLOADING');
+        if ($Downloading_block == false) {
+            $this->createDownloadingBlock();
+            return true;
+        } else {//exist downloading in course
+            $downloading_in_course = time() - $Downloading_block;
+            if ($downloading_in_course > 900) { // descarga ya está en curso  más que 15 minutos
+                // eliminar el registro antiguo y poner una nueva y continuar si se pasaron ya 900s
+                $this->removeDownloadingBlock();
+                $this->createDownloadingBlock();
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    public function createDownloadingBlock()
+    {
+        $this->saveConfiguration(['DOWNLOADING' => time()]);
+    }
+
+    public function removeDownloadingBlock()
+    {
+        $this->deleteConfiguration('DOWNLOADING');
+    }
 
     /**
      * Gets all the info from a connector and send it to update
@@ -57,6 +85,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
             return "There are still " . $items_processing['sl_cuenta_registros']
                 . " items processing, wait until they have finished and synchronize again.";
+        }
+
+        if (!$this->testDownloadingBlock()) {
+            $this->debbug(
+                "A download is already in progress. Try to run after 15 minutes."
+            );
+            return false;
         }
 
         $this->sl_time_ini_process = microtime(1);
@@ -108,7 +143,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         if ($api->hasResponseError()) {
             $this->debbug('## Error. : ' . $api->getResponseError() . ' Msg: ' . $api->getResponseErrorMessage());
-
+            $this->removeDownloadingBlock();
             return false;
         }
 
@@ -471,7 +506,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 unset($this->sl_catalogues, $this->sl_products, $this->sl_variants);
             }
         }
-
+        $this->removeDownloadingBlock();
         if (!$api->hasResponseError()) {
             $this->debbug('Actualizando last update ->' . $last_update_save . ' ');
             $this->sl_updater->setConnectorLastUpdate($connector_id, $last_update_save);
