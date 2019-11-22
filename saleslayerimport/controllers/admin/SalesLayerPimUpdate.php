@@ -93,7 +93,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             );
             return false;
         }
-        ini_set('max_execution_time', 7200);
+        ini_set('max_execution_time', 14400);
         $this->sl_time_ini_process = microtime(1);
 
         $this->debbug(" ==== Store Sync Data INIT ==== ");
