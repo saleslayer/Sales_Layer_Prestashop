@@ -78,7 +78,8 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 } elseif ($items_processing['item_type'] == 'accessories') {
                     $Work_in_message .= 'accessories';
                 }
-                if (!count($current_flag)) {
+                if (!count($current_flag) ||
+                    (isset($current_flag[0]['syncdata_pid']) && $current_flag[0]['syncdata_pid'] == 0)) {
                     $Work_in_message = 'Waiting for cron';
                 }
                 $Work_in_message .= '&nbsp;';
