@@ -93,7 +93,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             );
             return false;
         }
-
+        ini_set('max_execution_time', 7200);
         $this->sl_time_ini_process = microtime(1);
 
         $this->debbug(" ==== Store Sync Data INIT ==== ");
@@ -120,7 +120,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
 
         //Clear registers in Sales Layer table deleted in Prestashop
-        $this->clearDeletedSlyrRegs($conn_info['comp_id']);
+        $this->clearDeletedSlyrRegs();
 
 
         $api = new SalesLayerConn($connector_id, $secret_key);
