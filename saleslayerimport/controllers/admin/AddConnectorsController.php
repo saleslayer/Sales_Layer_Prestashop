@@ -74,8 +74,7 @@ class AddConnectorsController extends ModuleAdminController
             // $api->set_API_version('1.16');
             ini_set('memory_limit', '-1');
             $api->setGroupMulticategory(true);
-            $api->getInfo();
-
+            $api->getInfo(time() - 3800);
             if ($api->hasResponseError()) {
                 $error_MESSAGE = $this->SLimport->sl_updater->getResponseErrorMessage();
 
