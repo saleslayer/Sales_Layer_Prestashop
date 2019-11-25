@@ -533,6 +533,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
             || count($product_formats_items) > 0
             || count($product_formats_items_del) > 0
         ) {
+            $this->debbug(
+                'After connexion downloaded element for process' . print_r($arrayReturn, 1) .
+                ' from connector ->' . $connector_id . ' Petition last changes from  ->' . print_r($last_update, 1),
+                '',
+                true
+            );
             return $arrayReturn;
         } else {
             return false;
