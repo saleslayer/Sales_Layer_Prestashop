@@ -411,7 +411,6 @@ class SlCatalogues extends SalesLayerPimUpdate
             if (!$found) {
                 $this->debbug(
                     'Category has not been found is going to create ->' .
-                    print_r($regsName[ $keyName ]['id_category'], 1) .
                     ' comp_id ->' . print_r($comp_id, 1),
                     'syncdata'
                 );
