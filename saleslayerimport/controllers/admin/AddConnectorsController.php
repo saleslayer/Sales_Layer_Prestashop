@@ -72,9 +72,10 @@ class AddConnectorsController extends ModuleAdminController
 
             $api = new SalesLayerConn($conn_code, $conn_secret);
             // $api->set_API_version('1.16');
+            ini_set('max_execution_time', 14400);
             ini_set('memory_limit', '-1');
             $api->setGroupMulticategory(true);
-            $api->getInfo(time() - 3800);
+            $api->getInfo(time() - 5);
             if ($api->hasResponseError()) {
                 $error_MESSAGE = $this->SLimport->sl_updater->getResponseErrorMessage();
 
