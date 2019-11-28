@@ -916,7 +916,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                                 break;
                             case 'price_tax_excl':
-                                $comb->price = (float)$value;
+                                $comb->price = (float) $value;
 
                                 break;
                             case 'price_tax_incl':

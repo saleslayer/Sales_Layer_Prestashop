@@ -885,7 +885,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                 if (isset($catalog['data'][$meta_title_index]) && $catalog['data'][$meta_title_index] != '') {
                     $meta_title = $catalog['data'][$meta_title_index];
                 } else {
-                    if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index])) {
+                    if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index]) &&
+                        $cat->meta_title[$lang['id_lang']] == '') {
                         $meta_title = $this->clearForMetaData($catalog['data'][$section_name_index]);
                     }
                 }
@@ -926,7 +927,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                     $catalog['data'][$meta_description_index] != '') {
                     $meta_description = html_entity_decode($catalog['data'][$meta_description_index]);
                 } else {
-                    if ($section_description_index != '' && isset($catalog['data'][$section_description_index])) {
+                    if ($section_description_index != '' && isset($catalog['data'][$section_description_index]) &&
+                        $cat->meta_description[$lang['id_lang']] == '') {
                         $meta_description = $this->clearForMetaData($catalog['data'][$section_description_index]);
                     }
                 }

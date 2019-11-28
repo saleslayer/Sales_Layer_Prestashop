@@ -668,7 +668,8 @@ class SlProducts extends SalesLayerPimUpdate
                         $meta_title = $product['data'][$meta_title_index];
                     } else {
                         if (isset($product['data'][$product_name_index])
-                            && !empty($product['data'][$product_name_index])) {
+                            && !empty($product['data'][$product_name_index]) &&
+                            $productObject->meta_title[$lang['id_lang']] == '') {
                             $meta_title =  $this->clearForMetaData($product['data'][$product_name_index]);
                             if (Tools::strlen($meta_title) > 80) {
                                 $meta_title = Tools::substr($meta_title, 0, 80);
@@ -689,7 +690,7 @@ class SlProducts extends SalesLayerPimUpdate
                     /**
                      * Meta description
                      */
-
+                    $meta_description = '';
                     $meta_description_index = '';
                     $meta_description_index_search = 'meta_description_' . $lang['iso_code'];
                     if (isset(
@@ -710,7 +711,9 @@ class SlProducts extends SalesLayerPimUpdate
                         && $product['data'][$meta_description_index] != '') {
                         $meta_description = $product['data'][$meta_description_index];
                     } else {
-                        $meta_description =  $this->clearForMetaData($product_description_short);
+                        if ($productObject->meta_description[$lang['id_lang']] == '') {
+                            $meta_description =  $this->clearForMetaData($product_description_short);
+                        }
                     }
                     if (Tools::strlen($meta_description) > 180) {
                         $meta_description = Tools::substr($meta_description, 0, 180);
@@ -2268,9 +2271,9 @@ class SlProducts extends SalesLayerPimUpdate
                                             $id_supplier =   $supplier->id;
                                         } catch (Exception $e) {
                                             $this->debbug(
-                                                '## Error. '.$occurence.': in create new  supplier ->' .
-                                                print_r($e->getMessage(), 1).
-                                                'line->'.$e->getLine(),
+                                                '## Error. ' . $occurence . ': in create new  supplier ->' .
+                                                print_r($e->getMessage(), 1) .
+                                                'line->' . $e->getLine(),
                                                 'syncdata'
                                             );
                                         }
@@ -2281,9 +2284,9 @@ class SlProducts extends SalesLayerPimUpdate
                                             $productObject->addSupplierReference($id_supplier, 0, $supplier_reference);
                                         } catch (Exception $e) {
                                             $this->debbug(
-                                                '## Error. '.$occurence.': in add supplier Reference ->' .
-                                                print_r($e->getMessage(), 1).
-                                                'line->'.$e->getLine(),
+                                                '## Error. ' . $occurence . ': in add supplier Reference ->' .
+                                                print_r($e->getMessage(), 1) .
+                                                'line->' . $e->getLine(),
                                                 'syncdata'
                                             );
                                         }
