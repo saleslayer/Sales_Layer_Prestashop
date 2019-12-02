@@ -2129,32 +2129,67 @@ class SlProducts extends SalesLayerPimUpdate
                     }
 
                     if ($product_manufacturer != '') {
-                        $manufacturer = new Manufacturer();
+
 
                         $id_manufacturer = 0;
 
                         if (is_numeric($product_manufacturer)) {
-                            if ($manufacturer->manufacturerExists($product_manufacturer)) {
+                            $this->debbug(
+                                ' is numeric test if name of manufacturer is a id real-> ' .
+                                print_r(
+                                    $product_manufacturer,
+                                    1
+                                ),
+                                'syncdata'
+                            );
+
+                            if (Manufacturer::manufacturerExists($product_manufacturer)) {
                                 $id_manufacturer = $product_manufacturer;
+                                $this->debbug(
+                                    $occurence . ' selecting id as id manufacturer-> ' .
+                                    print_r(
+                                        $product_manufacturer,
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
                             }
-                        } else {
-                            $id_manufacturer = $manufacturer->getIdByName($product_manufacturer);
                         }
+
+                        if ($id_manufacturer == 0) {
+                            try {
+                                $id_manufacturer = Manufacturer::getIdByName($product_manufacturer);
+                            } catch (Exception $e) {
+                                $this->debbug(
+                                    '## Error. ' . $occurence . ' get id by name-> ' .
+                                    print_r(
+                                        $product_manufacturer,
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
+                            }
+                        }
+
 
                         if ($id_manufacturer != 0) {
                             /**
                              * Manufacturer Found
                              */
 
-                            $productObject->id_manufacturer = $id_manufacturer;
+                            $manufacturer = new Manufacturer($id_manufacturer);
+
+                            $productObject->id_manufacturer = $manufacturer->id;
+                            unset($manufacturer);
                         } else {
                             /**
                              * Create Manufacturer if not exist
                              */
+                            $manufacturer = new Manufacturer();
 
-                            $manufacturer->name       = $product_manufacturer;
+                            $manufacturer->name           = $product_manufacturer;
 
-                            if (!isset($manufacturer->meta_title)|| empty($manufacturer->meta_title)) {
+                            if (!isset($manufacturer->meta_title) || empty($manufacturer->meta_title)) {
                                 $manufacturer->meta_title = $product_manufacturer;
                             }
 
@@ -2164,14 +2199,16 @@ class SlProducts extends SalesLayerPimUpdate
                             try {
                                 $manufacturer->add();
                                 $productObject->id_manufacturer = $manufacturer->id;
+
                                 $this->debbug(
-                                    'Creating new Manufacturer correctly -> ' .
+                                    'Created new Manufacturer correctly -> ' .
                                     $product_manufacturer . ' with id -> ' . print_r(
                                         $manufacturer->id,
                                         1
                                     ),
                                     'syncdata'
                                 );
+                                unset($manufacturer);
                             } catch (Exception $e) {
                                 $syncCat = false;
                                 $this->debbug(
@@ -2256,9 +2293,9 @@ class SlProducts extends SalesLayerPimUpdate
                                         }
                                     } catch (Exception $e) {
                                         $this->debbug(
-                                            '## Error. '.$occurence.': supplier management ->' .
-                                            print_r($e->getMessage(), 1).
-                                            'line->'.$e->getLine(),
+                                            '## Error. ' . $occurence . ': supplier management ->' .
+                                            print_r($e->getMessage(), 1) .
+                                            'line->' . $e->getLine(),
                                             'syncdata'
                                         );
                                     }
@@ -2364,30 +2401,31 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 if ($productObject->{"$key_of_data"}[$key_for_test_array] !=
                                     $test_value[$key_for_test_array]) {
                                     $after_test_success = false;
-                                    $this->debbug('## Warning. '.$occurence.
-                                                  ' It has been detected that the value '.
-                                                  'you tried to save is not saved correctly.'.
-                                                  ' data saved as '.$key_of_data.' key ->'.$key_for_test_array.' ->'.
-                                                  print_r($productObject->{"$key_of_data"}[$key_for_test_array], 1).
-                                                  'data for save ->'.
+                                    $this->debbug('## Warning. ' . $occurence .
+                                                  ' It has been detected that the value ' .
+                                                  'you tried to save is not saved correctly.' .
+                                                  ' data saved as ' . $key_of_data . ' key ->' .
+                                                  $key_for_test_array . ' ->' .
+                                                  print_r($productObject->{"$key_of_data"}[$key_for_test_array], 1) .
+                                                  'data for save ->' .
                                                   print_r($test_value[$key_for_test_array], 1), 'syncdata');
                                 }
                             }
                         } else {
                             if ($productObject->{"$key_of_data"} != $test_value) {
                                 $after_test_success = false;
-                                $this->debbug('## Warning. '.$occurence.
-                                              ' It has been detected that the value '.
-                                              'you tried to save is not saved correctly.'.
-                                              ' data saved as '.$key_of_data.' ->'.
-                                              print_r($productObject->{"$key_of_data"}, 1).
-                                              'data for save ->'.print_r($test_value, 1), 'syncdata');
+                                $this->debbug('## Warning. ' . $occurence .
+                                              ' It has been detected that the value ' .
+                                              'you tried to save is not saved correctly.' .
+                                              ' data saved as ' . $key_of_data . ' ->' .
+                                              print_r($productObject->{"$key_of_data"}, 1) .
+                                              'data for save ->' . print_r($test_value, 1), 'syncdata');
                             }
                         }
                     }
                     if ($after_test_success) {
                         $this->debbug('The imported fields have been tested and if your information matches:'
-                            .implode(', ', array_keys($test_after_update)).
+                            . implode(', ', array_keys($test_after_update)) .
                             ' result: success', 'syncdata');
                     }
                 }
@@ -2498,7 +2536,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             }
                             $this->debbug('Data prepared for discount 1->' .
                                           print_r($product_discount_1_data, 1)
-                                          .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
+                                          . ' and id of shop for edit->' . print_r($shop_id, 1), 'syncdata');
                         }
                     }
 

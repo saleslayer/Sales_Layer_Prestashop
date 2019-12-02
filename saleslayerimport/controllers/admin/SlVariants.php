@@ -445,28 +445,75 @@ class SlVariants extends SalesLayerPimUpdate
                     'Founded rows  ->' . print_r($check_sl_product_format_array, 1),
                     'syncdata'
                 );
+                $in_cart = array();
+                if (count($check_sl_product_format_array)) {
+                    /**
+                     * Search variant in cart if exist order for buy this variants
+                     */
 
-                if ($sl_product_format_id == 0 && count($check_sl_product_format_array)) {
-                    $reset_value = reset($check_sl_product_format_array);
-                    $check_sl_product_format_id =  $reset_value['id_product_attribute'];
+                    foreach ($check_sl_product_format_array as $variant) {
+                        $query = sprintf(
+                            'SELECT ps.id_cart FROM `' . _DB_PREFIX_ . 'cart_product` ps
+                         WHERE ps.id_product_attribute = "%s" AND  ps.id_product = "%s" GROUP BY  id_product_attribute',
+                            $variant['id_product_attribute'],
+                            $product_id
+                        );
 
-                    if ($check_sl_product_format_id != 0) {
+                        $order_row = Db::getInstance()->getRow($query);
                         $this->debbug(
-                            'Variant found by Reference ->' . $reference,
+                            ' Variant -> ' . $variant['id_product_attribute'] .
+                            ' Test if in cart exist ->' . print_r($order_row, 1) .
+                            'query -> ' . print_r($query, 1),
                             'syncdata'
                         );
 
-                        Db::getInstance()->execute(
-                            sprintf(
-                                'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
+                        if (isset($order_row['id_cart']) && !empty($order_row['id_cart'])) {
+                            $this->debbug(
+                                'Exist in cart->' . print_r($order_row, 1),
+                                'syncdata'
+                            );
+
+                            $in_cart[] = $variant['id_product_attribute'];
+                        }
+                    }
+                    if ($sl_product_format_id == 0) {
+                        if (!count($in_cart)) {
+                            //no items found in the shopping cart
+                            $reset_value = reset($check_sl_product_format_array);
+                            $check_sl_product_format_id =  $reset_value['id_product_attribute'];
+                            $this->debbug(
+                                'Selected from first with the same sku ->' . print_r($check_sl_product_format_id, 1) .
+                                '. Duplicate variant removal will proceed.',
+                                'syncdata'
+                            );
+                        } else {
+                            //select first with registers in cart
+                            $check_sl_product_format_id = reset($in_cart);
+                            $this->debbug(
+                                'Selected from in_cart ->' . print_r($in_cart, 1) .
+                                '. Duplicate variant removal will proceed.',
+                                'syncdata'
+                            );
+                        }
+
+                        if ($check_sl_product_format_id != 0) {
+                            $this->debbug(
+                                'Variant found by Reference ->' . $reference,
+                                'syncdata'
+                            );
+
+                            Db::getInstance()->execute(
+                                sprintf(
+                                    'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
                                     (ps_id, slyr_id, ps_type, comp_id, date_add) 
                                     VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
-                                $check_sl_product_format_id,
-                                $product_format_id,
-                                'combination',
-                                $comp_id
-                            )
-                        );
+                                    $check_sl_product_format_id,
+                                    $product_format_id,
+                                    'combination',
+                                    $comp_id
+                                )
+                            );
+                        }
                     }
                 }
 
@@ -475,15 +522,35 @@ class SlVariants extends SalesLayerPimUpdate
                     $this->debbug(
                         '## Warning. More than one Variant with same sku detected  ->' . $reference .
                         '  count ->' . count($check_sl_product_format_array) .
-                        '. Duplicate variant removal will proceed.',
+                        'with cart ids ->' . print_r($in_cart, 1) .
+                        ' Duplicate variant removal will proceed.',
                         'syncdata'
                     );
-                    unset($check_sl_product_format_array[key($check_sl_product_format_array)]);
+                    // unset($check_sl_product_format_array[key($check_sl_product_format_array)]);
                     /**
                      * Delete all variant and save ony one with the same code
                      */
 
                     foreach ($check_sl_product_format_array as $id_combination) {
+                        if ($id_combination['id_product_attribute'] == $check_sl_product_format_id) {
+                            $this->debbug(
+                                'Jump to another this is variant selected' .
+                                $id_combination['id_product_attribute'],
+                                'syncdata'
+                            );
+                            continue;
+                        }
+                        if (in_array($id_combination['id_product_attribute'], $in_cart, false)) {
+                            $this->debbug(
+                                '## Warning. Duplicate variant with that sku cannot be deleted because ' .
+                                ' it is already stored in the shopping cart of some user. ' .
+                                'Please resolve this conflict manually.->' .
+                                $id_combination['id_product_attribute'],
+                                'syncdata'
+                            );
+                            continue;
+                        }
+
                         $this->debbug(
                             'Deleting Variant  id_product_attribute ->' . $id_combination['id_product_attribute'],
                             'syncdata'

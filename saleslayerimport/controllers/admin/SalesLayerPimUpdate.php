@@ -1298,7 +1298,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
     public function clearForMetaData($newtitle)
     {
-        return   preg_replace('/[^A-Za-z0-9\s.\s-]/', ' ', strip_tags(html_entity_decode($newtitle)));
+        return    strip_tags(html_entity_decode($newtitle));
     }
 
 
