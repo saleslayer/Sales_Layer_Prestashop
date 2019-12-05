@@ -182,7 +182,6 @@ class SlProducts extends SalesLayerPimUpdate
                                         . $this->category_table .
                                         " WHERE id_category = '" . $sl_product_parent_id . "' 
                                         ORDER BY id_category ASC LIMIT 1";
-
                                     $category = Db::getInstance()->executeS($schemaCats);
 
                                     if (isset($category[0]['id_category']) && $category[0]['id_category'] != 0
@@ -192,7 +191,17 @@ class SlProducts extends SalesLayerPimUpdate
                                             false
                                         )
                                     ) {
-                                        $sl_product_parent_id = $category[0]['id_parent'];
+                                        /*   $schemaCatslangg = 'SELECT id_category,name FROM '
+                                                         . $this->category_lang_table .
+                                                         " WHERE id_category = '" . $category[0]['id_category'] . "'
+                                                          AND id_lang = '1'
+                                           ORDER BY id_category ASC LIMIT 1";
+                                           $categorylang = Db::getInstance()->executeS($schemaCatslangg);
+
+                                           $this->debbug('Get name of category ->' .
+                                                         print_r($categorylang[0]['name'], 1) . ' return -> ' .
+                                                         print_r($categorylang, 1), 'syncdata');*/
+                                        $sl_product_parent_id =  $category[0]['id_parent'];
                                         $arrayIdCategories[] = $category[0]['id_category'];
                                     } else {
                                         $sl_product_parent_id = 0;
@@ -550,11 +559,11 @@ class SlProducts extends SalesLayerPimUpdate
 
                         // $product_name = preg_replace('/[^A-Za-z0-9\-]/', ' ', $product['data']['product_name']);
                         // if ($product_name == ''){ $product_name = 'Untitled Product'; }
-                        $product_name = $this->slValidateCatalogName(
-                            $product['data'][$product_name_index],
-                            'Product'
-                        );
-                        $productObject->name[$lang['id_lang']] = $product_name;
+                        $product_name = $product['data'][$product_name_index];
+                        if (trim($product_name) != '') {
+                            $productObject->name[$lang['id_lang']] = $product_name;
+                        }
+
 
                         $friendly_url_index = '';
                         $friendly_url_index_search = 'friendly_url_' . $lang['iso_code'];
@@ -577,9 +586,35 @@ class SlProducts extends SalesLayerPimUpdate
 
 
                         if ($friendly_url != '') {
+                            $friendly_url = $this->slValidateCatalogName($friendly_url, 'Product');
                             $productObject->link_rewrite[$lang['id_lang']] = Tools::link_rewrite($friendly_url);
                         }
                     }
+
+                    /**
+                     * Image alt atributes
+                     */
+                    /*   $product_alt_index = '';
+                       $product_alt_images = '';
+                       $product_alt_images_search = 'product_alt_' . $lang['iso_code'];
+
+                       if (isset(
+                           $product['data'][$product_alt_images_search],
+                           $schema[$product_alt_images_search]['language_code']
+                       ) &&
+                           !empty($product['data'][$product_alt_images_search])
+                           && $schema[$product_alt_images_search]['language_code'] == $lang['iso_code']) {
+                           $product_alt_index = 'product_alt_' . $lang['iso_code'];
+                       } elseif (isset($product['data'][$product_alt_images]) &&
+                                 !empty($product['data'][$product_alt_images])
+                                 && !isset($schema[$product_alt_images]['language_code'])) {
+                           $product_alt_index = 'product_alt';
+                       }
+
+                       if ($product_alt_index != '' && isset($product['data'][$product_alt_index]) &&
+                           !empty($product['data'][$product_alt_index])) {
+
+                       }*/
 
                     /**
                      *
@@ -1194,7 +1229,7 @@ class SlProducts extends SalesLayerPimUpdate
                 // $productObject->updateCategories($arrayIdCategories);
                 $this->debbug('Before updating categories ->' . print_r($arrayIdCategories, 1), 'syncdata');
                 try {
-                    $categories = $productObject->getProductCategories();
+                    $categories = Product::getProductCategories($productObject->id);
                     $this->debbug(
                         'before testing old categories -> ' . print_r(
                             $categories,
@@ -1210,21 +1245,20 @@ class SlProducts extends SalesLayerPimUpdate
 
                     if (!empty($categories) && count($categories)) {
                         $this->debbug(
-                            'Updating categories but product has old category value -> ' . print_r(
+                            'Updating categories but product has old category values -> ' . print_r(
                                 $categories,
                                 1
-                            ) . '  ',
+                            ) . ' newest after unique array -> ' . print_r($arrayIdCategories, 1),
                             'syncdata'
                         );
-                        $diferences = array_diff($categories, $arrayIdCategories);
-                        $this->debbug('This are differences -> ' . print_r($categories, 1), 'syncdata');
 
-                        if (count($diferences)) {
+                        if (count($arrayIdCategories) != count($categories)) {
                             $this->debbug(
                                 'Differences in categories  $diferences-> ' . print_r(
-                                    $diferences,
+                                    $categories,
                                     1
-                                ) . ' deleting old and setting new categories',
+                                ) . ' deleting old and setting new categories ->' .
+                                print_r($arrayIdCategories, 1),
                                 'syncdata'
                             );
                             $productObject->deleteCategories();
@@ -1294,7 +1328,7 @@ class SlProducts extends SalesLayerPimUpdate
                         );
                     } else {
                         $this->debbug(
-                            ' Product_price is empty ->' .
+                            'Product_price is empty ->' .
                             print_r(
                                 (isset($product['data']['product_price']) ?
                                     $product['data']['product_price'] : '!isset'),
@@ -1306,6 +1340,12 @@ class SlProducts extends SalesLayerPimUpdate
                         $active = false;
                     }
                 }
+
+                if (isset($product['data']['unity'])) {
+                    $productObject->unity       =  $product['data']['unity'];
+                }
+
+
 
                 if (isset($product['data']['product_active']) && $product['data']['product_active'] != '') {
                     $toactivate = $this->slValidateBoolean($product['data']['product_active']);
@@ -1365,7 +1405,6 @@ class SlProducts extends SalesLayerPimUpdate
                                           1
                                       ), 'syncdata');
                 }
-
 
                 /**
                  * Customizable text field
@@ -1892,6 +1931,32 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
 
+                if (isset($product['data']['unit_price_ratio'])) {
+                    $unit_price_ratio =  $this->priceForamat($product['data']['unit_price_ratio']);
+                    $unit_price_ratio = abs($unit_price_ratio);
+                    if (Validate::isPrice($unit_price_ratio)) {
+                        $this->debbug(
+                            ' unit_price_ratio -> ' . print_r(
+                                $unit_price_ratio,
+                                1
+                            ),
+                            'syncdata'
+                        );
+                        $productObject->unit_price_ratio = $unit_price_ratio;
+
+                        $productObject->unit_price =
+                            ($productObject->unit_price_ratio != 0 ?
+                                $productObject->price / $productObject->unit_price_ratio : 0);
+                    } else {
+                        $this->debbug(
+                            '## Warning. ' . $occurence . ' unit_price_ratio not is a valid price ->' .
+                            print_r($price, 1),
+                            'syncdata'
+                        );
+                    }
+                }
+
+
 
                 $productObject->upc = (isset($product['data']['product_upc'])
                     && Tools::strlen(
@@ -2129,8 +2194,6 @@ class SlProducts extends SalesLayerPimUpdate
                     }
 
                     if ($product_manufacturer != '') {
-
-
                         $id_manufacturer = 0;
 
                         if (is_numeric($product_manufacturer)) {
@@ -3134,7 +3197,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         } else {
             $occurence = ' ID :' . $product_id;
         }
-
+        $image_counter_position = 1;
         $this->debbug(
             $occurence . '  Beginning to synchronise images. First sync shop for this product->' . print_r(
                 $this->first_sync_shop,
@@ -3192,7 +3255,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     $catch_images_references = "'" . $catch_images_references . "'";
 
                     $slyr_images = Db::getInstance()->executeS(
-                        'SELECT * FROM '. _DB_PREFIX_ . "slyr_image im
+                        'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im
                         WHERE  im.origin = 'prod'  AND im.ps_product_id = '" . $product_id . "'
                         AND im.image_reference IN (" . $catch_images_references . ")  "
                     );
@@ -3279,7 +3342,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $slyr_images_to_delete = implode(',', array_unique($slyr_images_to_delete));
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM '. _DB_PREFIX_ . "slyr_image  WHERE id_image IN (" . $slyr_images_to_delete . ")"
+                        'DELETE FROM ' . _DB_PREFIX_ . "slyr_image  WHERE id_image IN (" . $slyr_images_to_delete . ")"
                     )
                 );
             }
@@ -3402,6 +3465,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                         } else {
                                             $image_cover->cover = null;
                                         }
+
+                                        $image_cover->position = $image_counter_position;
+                                        $image_counter_position++;
                                         $image_cover->id_product = $product_id;
                                         try {
                                             $this->debbug('updating image information ', 'syncdata');
@@ -3526,6 +3592,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 'syncdata'
                             );
                         }
+                        $image->position = $image_counter_position;
+
+
                         try {
                             $result_save_image = $image->add();
                         } catch (Exception $e) {
@@ -3565,6 +3634,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $cloned_image = new Image();
                                 $cloned_image->cover = $prepare_second_attempt_cover;
                                 $cloned_image->legend = $prepare_second_attempt_legend;
+                                $cloned_image->position = $image_counter_position;
                                 $cloned_image->id_product = (int) $product_id;
                                 $result_save_image = $cloned_image->add();
                             } catch (Explode $e) {
@@ -3585,7 +3655,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 );
                             }
                         }
-
+                        $image_counter_position++;
 
                         if ($validate_fields === true && $validate_language === true && $result_save_image) {
                             $this->debbug('Validation ok ', 'syncdata');
@@ -3617,7 +3687,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                  * INSERT INTO SL CACHE TABLE IMAGE WITH MD5, NAME OF FILE , ID
                                  */
                                 Db::getInstance()->execute(
-                                    'INSERT INTO '. _DB_PREFIX_ . "slyr_image
+                                    'INSERT INTO ' . _DB_PREFIX_ . "slyr_image
                                     (image_reference, id_image, md5_image, ps_product_id, origin )
                                     VALUES ('" . $image_reference . "', " . $image->id . ", '" . $md5_image .
                                     "','" . $product_id . "','prod')

@@ -175,6 +175,7 @@ class SalesLayerImport extends Module
             'format_images',
             'format_supplier',
             'format_supplier_reference',
+            'format_alt'
         );
     public $predefined_product_fields
         = array(
@@ -229,7 +230,10 @@ class SalesLayerImport extends Module
             'product_supplier_reference_1',
             'product_attachment',
             'product_tag',
-            'estimacion'
+            'estimacion',
+            'unit_price_ratio',
+            'unity',
+            'product_alt'
         );
     public $predefined_partial_cut_fields
         = array(
@@ -256,7 +260,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.14';
+        $this->version = '1.4.15';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;

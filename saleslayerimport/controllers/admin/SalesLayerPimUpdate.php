@@ -126,6 +126,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $api = new SalesLayerConn($connector_id, $secret_key);
 
         // $api->set_API_version('1.16');
+        $api->setFirstLevelParentModifications(true);
         $api->setParentsCategoryTree(true);
         $api->setGroupMulticategory(true);
 
