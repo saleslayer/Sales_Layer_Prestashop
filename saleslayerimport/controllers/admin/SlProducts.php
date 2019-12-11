@@ -1251,14 +1251,16 @@ class SlProducts extends SalesLayerPimUpdate
                             ) . ' newest after unique array -> ' . print_r($arrayIdCategories, 1),
                             'syncdata'
                         );
+                        $array_diff = $this->slArrayDiff($categories, $arrayIdCategories);
 
-                        if (count($arrayIdCategories) != count($categories)) {
+                        if (count($array_diff)) {
                             $this->debbug(
                                 'Differences in categories  $diferences-> ' . print_r(
                                     $categories,
                                     1
                                 ) . ' deleting old and setting new categories ->' .
-                                print_r($arrayIdCategories, 1),
+                                print_r($arrayIdCategories, 1) .
+                                ' diff->' . print_r($array_diff, 1),
                                 'syncdata'
                             );
                             $productObject->deleteCategories();

@@ -1299,7 +1299,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
     public function clearForMetaData($newtitle)
     {
-        return    strip_tags(html_entity_decode($newtitle));
+        $remove = array('(',')','>','<','{','}');
+        return    str_replace($remove, ' ', strip_tags(html_entity_decode($newtitle)));
     }
 
 

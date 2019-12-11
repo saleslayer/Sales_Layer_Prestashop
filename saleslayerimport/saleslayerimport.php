@@ -3549,7 +3549,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     {
         $current_flag = $this->slConnectionQuery(
             'read',
-            "SELECT * FROM ".$this->saleslayer_syncdata_flag_table." ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM " . $this->saleslayer_syncdata_flag_table . " ORDER BY id DESC LIMIT 1"
         );
 
         if (!empty($current_flag)) {
@@ -3559,6 +3559,30 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->slConnectionQuery('-', $sl_query_flag_to_update);
         }
     }
+
+    /**
+     * Returns differences between two arrays
+     * @param $array1
+     * @param $array2
+     *
+     * @return array
+     */
+    public function slArrayDiff($array1, $array2)
+    {
+        $diff = array();
+        foreach ($array1 as $value) {
+            if (!in_array($value, $array2, false)) {
+                $diff[] = $value;
+            }
+        }
+        foreach ($array2 as $value) {
+            if (!in_array($value, $array1, false)) {
+                $diff[] = $value;
+            }
+        }
+        return $diff;
+    }
+
 
     /**
      * Function to sort connectors by unix_to_update or auto_sync values.
