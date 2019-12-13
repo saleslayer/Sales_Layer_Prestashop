@@ -2291,6 +2291,7 @@ class SlProducts extends SalesLayerPimUpdate
                 $array_supplier = preg_grep('/product_supplier_\+?\d+$/i', array_keys($product['data']));
 
                 if (!empty($array_supplier)) {
+                    $default_founded = array();
                     $current_supplier_collection = ProductSupplier::getSupplierCollection(
                         $productObject->id,
                         false
@@ -2300,7 +2301,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                     foreach ($array_supplier as $supplier_field) {
                         $supplier_name = '';
-
+                        $default_supplier = false;
                         if (is_array(
                             $product['data'][$supplier_field]
                         ) && !empty($product['data'][$supplier_field])) {
@@ -2315,7 +2316,13 @@ class SlProducts extends SalesLayerPimUpdate
                             }
                         }
 
+
+
                         if ($supplier_name != '' && $supplier_name != null) {
+                            if (preg_match('/:default/', $supplier_name)) {
+                                $supplier_name = str_replace(':default', '', $supplier_name);
+                                $default_supplier = true;
+                            }
                             $number_field = str_replace('product_supplier_', '', $supplier_field);
 
                             if ($number_field) {
@@ -2382,6 +2389,9 @@ class SlProducts extends SalesLayerPimUpdate
                                     }
 
                                     if ($id_supplier != 0) {
+                                        if ($default_supplier) {
+                                            $default_founded[] = $id_supplier;
+                                        }
                                         try {
                                             $productObject->addSupplierReference($id_supplier, 0, $supplier_reference);
                                         } catch (Exception $e) {
@@ -2411,6 +2421,17 @@ class SlProducts extends SalesLayerPimUpdate
                             || !isset($processed_suppliers[$current_supplier_item->id_supplier])) {
                             $current_supplier_item->delete();
                         }
+                    }
+                    //set default supplier
+                    if (count($default_founded)) {
+                        $this->debbug(
+                            ' ## Warning. Set default suppliers ->' .
+                            print_r($default_founded, 1),
+                            'syncdata'
+                        );
+                        $productObject->id_supplier = reset($default_founded);
+                    } else {
+                        $productObject->id_supplier = 0;
                     }
                 }
                 $product_id = null;
