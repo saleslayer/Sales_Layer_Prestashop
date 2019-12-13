@@ -2425,7 +2425,7 @@ class SlProducts extends SalesLayerPimUpdate
                     //set default supplier
                     if (count($default_founded)) {
                         $this->debbug(
-                            ' ## Warning. Set default suppliers ->' .
+                            ' Set default suppliers ->' .
                             print_r($default_founded, 1),
                             'syncdata'
                         );
