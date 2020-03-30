@@ -66,6 +66,7 @@ class SlVariants extends SalesLayerPimUpdate
     ) {
         $syncCat = true;
         $reference = '';
+        $alt_attribute_for_image = array();
         $this->debbug(
             'The information that comes to synchronise variant  ->' . print_r(
                 $product_format,
@@ -83,25 +84,144 @@ class SlVariants extends SalesLayerPimUpdate
             return 'item_updated';
         }
 
-        if (isset($product_format['data']['reference']) && !empty($product_format['data']['reference'])) {
-            $reference = $product_format['data']['reference'];
-            $Alt_atribute_for_image = $product_format['data']['reference'];
-        } else {
-            $Alt_atribute_for_image = 'variant ' . $product_format['ID'];
+        /**
+         * Check alt attributes for images
+         * @var  $leng
+         */
+
+
+        foreach ($this->shop_languages as $leng) {
+            $variant_alt_index = '';
+            $variant_alt_images_search = 'format_alt_' . $leng['iso_code'];
+            if (isset(
+                $product_format['data'][$variant_alt_images_search],
+                $schema[$variant_alt_images_search]['language_code']
+            ) &&
+                !empty($product_format['data'][$variant_alt_images_search])
+                && $schema[$variant_alt_images_search]['language_code'] == $leng['iso_code']) {
+                $variant_alt_index = 'format_alt_' . $leng['iso_code'];
+            } elseif (isset($product_format['data']['format_alt']) &&
+                      !empty($product_format['data']['format_alt'])) {
+                $variant_alt_index = 'format_alt';
+            }
+
+
+            if ($variant_alt_index != '' && isset($product_format['data'][$variant_alt_index]) &&
+              !empty($product_format['data'][$variant_alt_index])) {
+                $alt_images_arr = array();
+                $product_format['data'][$variant_alt_index] =
+                    $this->clearStructureData($product_format['data'][$variant_alt_index]);
+                if (is_array($product_format['data'][$variant_alt_index])) {
+                    $alt_images_arr = $this->clearAndOrderArray($product_format['data'][$variant_alt_index]);
+                } else {
+                    $alt_images_arr = explode(',', $product_format['data'][$variant_alt_index]);
+                }
+                foreach ($alt_images_arr as $key => $value) {
+                    $alt_images_arr[$key] = trim($value);
+                }
+                $this->debbug('Save data from alt attribute variant. ' . print_r(
+                    $alt_images_arr,
+                    1
+                ) . ' id_lang -> ' . print_r($leng['id_lang'], 1), 'syncdata');
+                $alt_attribute_for_image[$leng['id_lang']] =  $alt_images_arr;
+                $this->debbug(' after save  ' . print_r(
+                    $alt_attribute_for_image,
+                    1
+                ), 'syncdata');
+            }
+            if ($variant_alt_index != '') {
+                unset($product_format['data'][$variant_alt_index]);
+            }
+
+            /**
+             * Place your custom multi-language code here
+             */
         }
 
+        /**
+         * Place your custom non multi-language code here
+         */
 
+
+
+
+
+
+        /**
+         * Clear all remove leftover fields of alt attribute (languages that do not match those of prestashop)
+         */
+
+        $array_alt_attributes = preg_grep('/format_alt?/', array_keys($product_format['data']));
+        if (!empty($array_alt_attributes)) {
+            foreach ($array_alt_attributes as $alt_field) {
+                if (isset($product_format['data'][$alt_field])) {
+                    unset($product_format['data'][$alt_field]);
+                }
+            }
+        }
+
+        $number_of_images = 0;
+        if (isset($product_format['data']['frmt_image']) || !empty($product_format['data']['frmt_image'])) {
+            $number_of_images = sizeof($product_format['data']['frmt_image']);
+            $this->debbug('Number of images in array ->  ' . print_r(
+                $number_of_images,
+                1
+            ), 'syncdata');
+        }
         if (isset($product_format['data']['reference']) && !empty($product_format['data']['reference'])) {
-            $occurence = ' variant reference :"' . $product_format['data']['reference'] . '" ';
+            $reference = $product_format['data']['reference'];
+            foreach ($this->shop_languages as $leng) {
+                $show_number = '';
+                for ($counter = 0; $counter < $number_of_images; $counter++) {
+                    if ($counter != 0) {
+                        $show_number = ' (' . $counter . ')';
+                    }
+                    if (empty($alt_attribute_for_image[$leng['id_lang']][$counter])) {
+                        $alt_attribute_for_image[$leng['id_lang']][$counter] = $reference . $show_number;
+                        $this->debbug(
+                            'Complete array with reference->' .
+                                      $leng['iso_code'] .
+                                      ' key->' . $counter . ' ->' .
+                                      print_r(
+                                          $alt_attribute_for_image[$leng['id_lang']][$counter],
+                                          1
+                                      ),
+                            'syncdata'
+                        );
+                    }
+                }
+            }
+            $occurrence = ' variant reference :"' . $reference . '" ';
         } else {
-            $occurence = ' variant ID :' . $product_format['ID'] . ' of Product ID:' . $product_format['ID_products'];
+            foreach ($this->shop_languages as $leng) {
+                $show_number = '';
+                for ($counter = 0; $counter < $number_of_images; $counter++) {
+                    if ($counter != 0) {
+                        $show_number = ' (' . $show_number . ')';
+                    }
+                    if (empty($alt_attribute_for_image[$leng['id_lang']][$counter])) {
+                        $alt_attribute_for_image[$leng['id_lang']][$counter] = 'variant ' . $product_format['ID'] .
+                                                                               $show_number;
+                        $this->debbug(
+                            'Complete array with variant and ID_sl lang->' .
+                                      $leng['iso_code'] .
+                                      ' key->' . $counter . ' ->' . print_r(
+                                          $alt_attribute_for_image[$leng['id_lang']][$counter],
+                                          1
+                                      ),
+                            'syncdata'
+                        );
+                    }
+                }
+            }
+            $occurrence = ' variant ID :' . $product_format['ID'] . ' of Product ID:' . $product_format['ID_products'];
         }
 
 
         $product_format_id = $product_format['ID'];
         $slyr_product_id = $product_format['ID_products'];
 
-        $product_id = (int)Db::getInstance()->getValue(
+        $product_id = (int) Db::getInstance()->getValue(
             sprintf(
                 'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl 
                  WHERE sl.comp_id = "%s" AND sl.slyr_id = "%s" AND sl.ps_type = "product"',
@@ -112,7 +232,7 @@ class SlVariants extends SalesLayerPimUpdate
 
         if ($product_id == null || $product_id == '') {
             $this->debbug(
-                '## Error. ' . $occurence . ' It has not been possible to find the Product ID of the variant,' .
+                '## Error. ' . $occurrence . ' It has not been possible to find the Product ID of the variant,' .
                  'It may necessary to make the parent product of this variant visible and' .
                   'visible again so that its synchronization is possible.' .
                   'Variant ID:' . $product_format_id . ',  ID product: ' .
@@ -140,7 +260,7 @@ class SlVariants extends SalesLayerPimUpdate
             if ($product_count_pack > 0 || $product_type_data['cache_is_pack'] == 1
                 || $product_type_data['is_virtual'] == 1) {
                 $this->debbug(
-                    '## Error.' . $occurence . '.  Product is a type pack or virtual and can not have variants ',
+                    '## Error.' . $occurrence . '.  Product is a type pack or virtual and can not have variants ',
                     'syncdata'
                 );
 
@@ -158,11 +278,11 @@ class SlVariants extends SalesLayerPimUpdate
 
                     if (!empty($array_supplier)) {
                         foreach ($array_supplier as $supplier_field) {
-                            if ($product_format['data'][$supplier_field] != ''
-                                && $product_format['data'][$supplier_field] != null) {
-                                $fieldsBase[$supplier_field] = $product_format['data'][$supplier_field];
-                                unset($product_format['data'][$supplier_field]);
-                            }
+                            /* if ($product_format['data'][$supplier_field] != ''
+                                 && $product_format['data'][$supplier_field] != null) {*/
+                            $fieldsBase[$supplier_field] = $product_format['data'][$supplier_field];
+                            unset($product_format['data'][$supplier_field]);
+                            // }
                         }
                     }
                     unset($fieldsBase[$key]);
@@ -233,7 +353,7 @@ class SlVariants extends SalesLayerPimUpdate
                                         'Is the same attribute but in other languages ' . print_r(
                                             $attribute_index,
                                             1
-                                        ) . ' Etiqueta language ->' . print_r($leng['iso_code'], 1),
+                                        ) . ' Tag language ->' . print_r($leng['iso_code'], 1),
                                         'syncdata'
                                     );
                                     $mulilanguage[$leng['id_lang']] = $product_format['data'][$attribute_index];
@@ -254,7 +374,7 @@ class SlVariants extends SalesLayerPimUpdate
                             }
                         } catch (Exception $e) {
                             $this->debbug(
-                                '## Error. ' . $occurence . ' Language::getIdByIso' . print_r($e->getMessage(), 1),
+                                '## Error. ' . $occurrence . ' Language::getIdByIso' . print_r($e->getMessage(), 1),
                                 'syncdata'
                             );
                         }
@@ -268,13 +388,13 @@ class SlVariants extends SalesLayerPimUpdate
                     } catch (Exception $e) {
                         unset($product_format['data'][$attributeGroupName]);
                         $this->debbug(
-                            '## Error. ' . $occurence . ' getAttributeGroupId' . print_r($e->getMessage(), 1),
+                            '## Error. ' . $occurrence . ' getAttributeGroupId' . print_r($e->getMessage(), 1),
                             'syncdata'
                         );
                     }
                     if ($attribute_group_id == null || $attribute_group_id == '') {
                         $this->debbug(
-                            '## Error. ' . $occurence . ' When you get the group ID of attribute
+                            '## Error. ' . $occurrence . ' When you get the group ID of attribute
                              ' . $attributeGroupName . ' for the company with  ID: ' . $comp_id,
                             'syncdata'
                         );
@@ -302,7 +422,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                                 if ($attribute_id == null || $attribute_id == '') {
                                     $this->debbug(
-                                        '## Error. ' . $occurence . ' When synchronizing the attribute 
+                                        '## Error. ' . $occurrence . ' When synchronizing the attribute 
                                         ' . $attributeGroupName . ' for the variant with ID: ' . $product_format_id,
                                         'syncdata'
                                     );
@@ -315,7 +435,7 @@ class SlVariants extends SalesLayerPimUpdate
                             } catch (Exception $e) {
                                 unset($product_format['data'][$attributeGroupName]);
                                 $this->debbug(
-                                    '## Error. ' . $occurence . ' synchronizeAttribute' . print_r(
+                                    '## Error. ' . $occurrence . ' synchronizeAttribute' . print_r(
                                         $e->getMessage(),
                                         1
                                     ),
@@ -343,7 +463,7 @@ class SlVariants extends SalesLayerPimUpdate
                             if ($attribute_id == null || $attribute_id == '') {
                                 unset($product_format['data'][$attributeGroupName]);
                                 $this->debbug(
-                                    '## Error. ' . $occurence . ' When synchronizing the attribute ' .
+                                    '## Error. ' . $occurrence . ' When synchronizing the attribute ' .
                                      $attributeGroupName . ' for the variant with ID: ' . $product_format_id,
                                     'syncdata'
                                 );
@@ -363,7 +483,7 @@ class SlVariants extends SalesLayerPimUpdate
                         } catch (Exception $e) {
                             unset($product_format['data'][$attributeGroupName]);
                             $this->debbug(
-                                '## Error. ' . $occurence . ' synchronizeAttribute as string: ' . print_r(
+                                '## Error. ' . $occurrence . ' synchronizeAttribute as string: ' . print_r(
                                     $e->getMessage(),
                                     1
                                 ) . ' line->' . print_r($e->getLine(), 1),
@@ -378,7 +498,7 @@ class SlVariants extends SalesLayerPimUpdate
 
             if (empty($attributes)) {
                 $this->debbug(
-                    '## Error. ' . $occurence . ' There are no configurable attributes. ' .
+                    '## Error. ' . $occurrence . ' There are no configurable attributes. ' .
                      'Please continue to the cloud of Sales Layer >> Channels ' .
                      '>> Edit Prestashop Connector >> Output data >> Variants >> Include new field ' .
                       'and insert field type (color,size,..) ',
@@ -646,8 +766,6 @@ class SlVariants extends SalesLayerPimUpdate
                 Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
 
 
-
-
                 $combination_changed = false;
                 if ($check_sl_product_format_id != 0) {
                     $existing_combination = new CombinationCore($check_sl_product_format_id, null, $shop_id);
@@ -716,7 +834,7 @@ class SlVariants extends SalesLayerPimUpdate
                                 )
                             );
                         } catch (Exception $e) {
-                            $this->debbug('## Error. ' . $occurence .
+                            $this->debbug('## Error. ' . $occurrence .
                                 ' In update combination table', 'syncdata');
                         }
                     }
@@ -802,7 +920,7 @@ class SlVariants extends SalesLayerPimUpdate
                             );
                         } catch (Exception $e) {
                             $this->debbug(
-                                '## Error. ' . $occurence . '. In parent product is different remove' .
+                                '## Error. ' . $occurrence . '. In parent product is different remove' .
                                  'old images from parent product and set to newest  error->' .
                                 print_r(
                                     $e->getMessage(),
@@ -855,7 +973,7 @@ class SlVariants extends SalesLayerPimUpdate
                     } catch (Exception $e) {
                         $syncCat = true;
                         $this->debbug(
-                            '## Error. ' . $occurence . ' In setAttributes->' . print_r($e->getMessage(), 1),
+                            '## Error. ' . $occurrence . ' In setAttributes->' . print_r($e->getMessage(), 1),
                             'syncdata'
                         );
                     }
@@ -870,7 +988,7 @@ class SlVariants extends SalesLayerPimUpdate
                     } catch (Exception $e) {
                         $syncCat = false;
                         $this->debbug(
-                            '## Error. ' . $occurence . ' In ProductSupplier::getSupplierCollection->' . print_r(
+                            '## Error. ' . $occurrence . ' In ProductSupplier::getSupplierCollection->' . print_r(
                                 $e->getMessage(),
                                 1
                             ),
@@ -892,10 +1010,11 @@ class SlVariants extends SalesLayerPimUpdate
                                 $number_field = str_replace('format_supplier_', '', $key);
 
                                 if ($number_field) {
-                                    $format_suplier_reference_index = 'format_supplier_reference_' . $number_field;
-                                    if (isset($fieldsBase[$format_suplier_reference_index])
-                                        && $fieldsBase[$format_suplier_reference_index] != '') {
-                                        $supplier_reference = $fieldsBase['format_supplier_reference_' . $number_field];
+                                    $supplier_processed = true;
+                                    if (!empty($value)) {
+                                        if (is_array($value)) {
+                                            $value = reset($value);
+                                        }
 
                                         $supplier = new Supplier();
 
@@ -904,10 +1023,18 @@ class SlVariants extends SalesLayerPimUpdate
                                         if (is_numeric($value)) {
                                             $supplier_exists = $supplier->supplierExists($value);
                                             if ($supplier_exists) {
-                                                $id_supplier = $value;
+                                                $id_supplier = (int) $value;
+                                            } else {
+                                                $supplier_exists = $supplier->getIdByName($value);
+                                                if ($supplier_exists) {
+                                                    $id_supplier = $supplier_exists;
+                                                }
+                                            }
+                                            if ($supplier_exists) {
+                                                $id_supplier = $supplier_exists;
                                             }
                                         } else {
-                                            $supplier_exists = $supplier->getIdByName(Tools::strtolower($value));
+                                            $supplier_exists = $supplier->getIdByName($value);
                                             if ($supplier_exists) {
                                                 $id_supplier = $supplier_exists;
                                             } else {
@@ -936,7 +1063,7 @@ class SlVariants extends SalesLayerPimUpdate
                                                 $id_supplier =   $supplier->id;
                                             } catch (Exception $e) {
                                                 $this->debbug(
-                                                    '## Error. ' . $occurence . ': in create new  supplier->' .
+                                                    '## Error. ' . $occurrence . ': in create new  supplier->' .
                                                     print_r($e->getMessage(), 1) .
                                                     'line->' . $e->getLine(),
                                                     'syncdata'
@@ -945,18 +1072,26 @@ class SlVariants extends SalesLayerPimUpdate
                                         }
 
                                         if ($id_supplier != 0) {
-                                            $productObject = new Product($product_id, null, null, $shop_id);
-
                                             try {
-                                                $productObject->addSupplierReference(
-                                                    $id_supplier,
-                                                    $comb->id,
-                                                    $supplier_reference
-                                                );
+                                                $format_supplier_reference_index = 'format_supplier_reference_' .
+                                                                              $number_field;
+                                                if (isset($fieldsBase[$format_supplier_reference_index])
+                                                && $fieldsBase[$format_supplier_reference_index] != '') {
+                                                    $productObject = new Product($product_id, null, null, $shop_id);
+                                                    $supplier_reference = $fieldsBase['format_supplier_reference_'  .
+                                                                                  $number_field];
+                                                    $productObject->addSupplierReference(
+                                                        $id_supplier,
+                                                        $comb->id,
+                                                        $supplier_reference
+                                                    );
+                                                    unset($productObject);
+                                                }
                                             } catch (Exception $e) {
                                                 $syncCat = false;
                                                 $this->debbug(
-                                                    '## Error. ' . $occurence . '  In addSupplierReference->' . print_r(
+                                                    '## Error. ' . $occurrence .
+                                                    '  In addSupplierReference->' . print_r(
                                                         $e->getMessage(),
                                                         1
                                                     ),
@@ -964,7 +1099,6 @@ class SlVariants extends SalesLayerPimUpdate
                                                 );
                                             }
                                             $processed_suppliers[$id_supplier] = 0;
-                                            $supplier_processed = true;
                                         }
                                     }
                                 }
@@ -982,6 +1116,31 @@ class SlVariants extends SalesLayerPimUpdate
                                 }
 
                                 break;
+                            case 'ecotax':
+                                $ecotax = (float)abs($value);
+                                if (Validate::isPrice($ecotax)) {
+                                    $comb->ecotax = $ecotax;
+                                }
+                                break;
+                            case 'available_date':
+                                if ($value != null && $value != '') {
+                                    if (is_array($value)) {
+                                        $value = reset($value);
+                                    }
+                                    if (is_string($value)) {
+                                        $date_val =  strtotime($this->fomatDate($value));
+                                        if (!$date_val) {
+                                            $value = $date_val;
+                                        }
+                                    }
+                                    if (is_numeric($value) && (int)$value == $value) {
+                                        $available_date = date('Y-m-d', $value);
+                                    } else {
+                                        $available_date = '0000-00-00';
+                                    }
+                                    $comb->available_date = $available_date;
+                                }
+                                break;
                             case 'price_tax_excl':
                                 $comb->price = (float) $value;
 
@@ -995,7 +1154,7 @@ class SlVariants extends SalesLayerPimUpdate
                                         $value
                                     ) / (1 + ($productObjectTaxes->getTaxesRate() / 100))
                                 );
-
+                                unset($productObjectTaxes);
                                 $comb->price = $price;
 
                                 break;
@@ -1009,6 +1168,7 @@ class SlVariants extends SalesLayerPimUpdate
                                         $productObject = new Product($product_id, null, null, $shop_id);
                                         $productObject->deleteDefaultAttributes();
                                         $comb->default_on = 1;
+                                        unset($productObject);
                                     }
                                 } else {
                                     $this->debbug('## Warning. Default_on is not boolean value ->' .
@@ -1028,7 +1188,7 @@ class SlVariants extends SalesLayerPimUpdate
                                         )
                                     );
                                 } else {
-                                    $this->debbug('## Warning. Mostraris not boolean value ->' .
+                                    $this->debbug('## Warning. Mostrar is not boolean value ->' .
                                                   print_r($value, 1), 'syncdata');
                                 }
                                 if (!empty($check_column)) {
@@ -1051,13 +1211,14 @@ class SlVariants extends SalesLayerPimUpdate
                                                 $value,
                                                 $currentLanguage,
                                                 $product_id,
-                                                $Alt_atribute_for_image,
+                                                $alt_attribute_for_image,
                                                 $comb->id
                                             );
                                         } catch (Exception $e) {
                                             $syncCat = true;
                                             $this->debbug(
-                                                '## Error. ' . $occurence . ' In syncVariantImageToProduct->' . print_r(
+                                                '## Error. ' . $occurrence . ' In syncVariantImageToProduct->' .
+                                                print_r(
                                                     $e->getMessage() . ' line->' . print_r($e->getLine(), 1) .
                                                     ' track->' . print_r($e->getTrace(), 1),
                                                     1
@@ -1178,7 +1339,7 @@ class SlVariants extends SalesLayerPimUpdate
                 } catch (Exception $e) {
                     $syncCat = true;
                     $this->debbug(
-                        '## Error. ' . $occurence . ' Update Variant->' .
+                        '## Error. ' . $occurrence . ' Update Variant->' .
                         print_r($e->getMessage(), 1),
                         'syncdata'
                     );
@@ -1224,7 +1385,7 @@ class SlVariants extends SalesLayerPimUpdate
                         $comb->setImages($format_img_ids);
                     } catch (Exception $e) {
                         $this->debbug(
-                            '##Error. ' . $occurence . ' Variant image in set image ->'
+                            '##Error. ' . $occurrence . ' Variant image in set image ->'
                             . $comb->id . 'set images to variants $format_img_ids ->' .
                             print_r($format_img_ids, 1) . ' errormessage->' . $e->getMessage() .
                             ' line->' . $e->getLine() .
@@ -1266,7 +1427,7 @@ class SlVariants extends SalesLayerPimUpdate
                         $comb->associateTo($set_to_shops);
                     } catch (Exception $e) {
                         $this->debbug(
-                            '##Error. ' . $occurence . ' Variant image in associate to ->'
+                            '##Error. ' . $occurrence . ' Variant image in associate to ->'
                             . $comb->id . ' calling to set images to all active shops-> ' . print_r(
                                 $all_shops_image,
                                 1
@@ -1326,9 +1487,19 @@ class SlVariants extends SalesLayerPimUpdate
                 $processedShop++;
             }
         }
-
         unset($comb);
         if ($syncCat) {
+            /**
+             * Run indexer
+             */
+            $this->debbug('Before run indexation', 'syncdata');
+            $microtime = microtime(1);
+            Search::indexation(false, $product_id);
+            $this->debbug('After run indexation time->' . print_r(
+                (microtime(1) - $microtime),
+                1
+            ), 'syncdata');
+
             return 'item_updated';
         } else {
             return 'item_not_updated';
@@ -1376,7 +1547,7 @@ class SlVariants extends SalesLayerPimUpdate
                         array(),
                         $this->defaultLanguage,
                         $ps_product_id,
-                        '',
+                        array(''),
                         $format_ps_id
                     );
                 } catch (Exception $e) {
@@ -1456,6 +1627,31 @@ class SlVariants extends SalesLayerPimUpdate
         $attribute_exists = Db::getInstance()->executeS($schema);
 
         try {
+
+            /**
+             * Verify if is a color
+             */
+
+            $schemaGroupAttributeColor = ' SELECT `is_color_group` ' .
+                                         ' FROM ' . $this->attribute_group_table .
+                                         " WHERE `id_attribute_group` = '" . $attribute_group_id . "' ";
+
+            $isColorGroupAttribute = Db::getInstance()->executeS($schemaGroupAttributeColor);
+            $this->debbug('before test Attribute is a color group ->' .
+                          print_r($isColorGroupAttribute[0]['is_color_group'], 1), 'syncdata');
+
+            $is_color = false;
+            if (count($isColorGroupAttribute) > 0) {
+                if ($isColorGroupAttribute[0]['is_color_group'] == 1) {
+                    $this->debbug('Attribute is a color group ->' .
+                                  print_r($isColorGroupAttribute[0]['is_color_group'], 1), 'syncdata');
+                    $is_color = true;
+                }
+            }
+
+
+            $sql_hexatag = '';
+            $color_hex = array();
             if (empty($multilanguage)) {
                 $left_group_lang = " = '" . $currentLanguage . "'";
 
@@ -1465,16 +1661,21 @@ class SlVariants extends SalesLayerPimUpdate
                     foreach ($separate as $value) {
                         if (!preg_match('/#/', $value)) {
                             $valid_values[] = trim($value);
+                        } else {
+                            $color_hex[] = trim($this->clearHexcolor($value));
                         }
                     }
                     $att_value = implode(': ', $valid_values);
                 } else {
                     $att_value = reset($separate);
+                    if (isset($separate[1]) && preg_match('/#/', $separate[1])) {
+                        $color_hex[] = trim($this->clearHexcolor($separate[1]));
+                    }
                 }
 
                 $left_group_value = " al.`name` LIKE '" . pSQL($att_value) . "'";
                 $this->debbug(
-                    'Search atribute query from  L1 name LIKE ->' . print_r($left_group_value, 1),
+                    'Search attribute query from  L1 name LIKE ->' . print_r($left_group_value, 1),
                     'syncdata'
                 );
             } else {
@@ -1485,24 +1686,31 @@ class SlVariants extends SalesLayerPimUpdate
                     $counter = 1;
                     //  $atr_values =   array_values($multilenguage);
                     $count_end = count($multilanguage);
-                    foreach ($multilanguage as $col_like) {
+                    foreach ($multilanguage as $id_lang => $col_like) {
                         $separate = explode(':', $col_like);
                         if (count($separate) > 2) {
                             $valid_values = [];
                             foreach ($separate as $value) {
                                 if (!preg_match('/#/', $value)) {
                                     $valid_values[] = trim($value);
+                                } else {
+                                    $color_hex[] = trim($this->clearHexcolor($value));
                                 }
                             }
                             $att_value = implode(': ', $valid_values);
                         } else {
                             $att_value = reset($separate);
+                            if (isset($separate[1]) && preg_match('/#/', $separate[1])) {
+                                $color_hex[] = trim($this->clearHexcolor($separate[1]));
+                            }
                         }
 
                         if ($count_end == $counter) {
-                            $left_group_value .= " al.`name` LIKE '" . pSQL($att_value) . "' ";
+                            $left_group_value .= " ( al.`name` LIKE '" . pSQL($att_value) .
+                                                 "' AND al.`id_lang` = '" . $id_lang . "' ) ";
                         } else {
-                            $left_group_value .= " al.`name` LIKE '" . pSQL($att_value) . "'  OR ";
+                            $left_group_value .= " ( al.`name` LIKE '" . pSQL($att_value) .
+                                                 "' AND al.`id_lang` = '" . $id_lang . "'  ) OR ";
                         }
                         $counter++;
                     }
@@ -1518,20 +1726,71 @@ class SlVariants extends SalesLayerPimUpdate
                         foreach ($separate as $value) {
                             if (!preg_match('/#/', $value)) {
                                 $valid_values[] = trim($value);
+                            } else {
+                                $color_hex[] = trim($this->clearHexcolor($value));
                             }
                         }
                         $att_value = implode(': ', $valid_values);
                     } else {
                         $att_value = reset($separate);
+                        if (isset($separate[1]) && preg_match('/#/', $separate[1])) {
+                            $color_hex[] = trim($this->clearHexcolor($separate[1]));
+                        }
                     }
 
                     $left_group_value = " al.`name` LIKE '" . pSQL($att_value) . "' ";
                     $this->debbug(
-                        'Search atribute query from  L3 name LIKE ->' . print_r($left_group_value, 1),
+                        'Search attribute query from  L3 name LIKE ->' . print_r($left_group_value, 1),
                         'syncdata'
                     );
                 }
             }
+
+            $color_hex_values = array_count_values($color_hex);
+            $count_var = count($color_hex_values);
+            $this->debbug(
+                'counter de hex ->' . print_r($count_var, 1),
+                'syncdata'
+            );
+            if ($count_var > 1) {
+                $this->debbug(
+                    '## Warning. ' . print_r($multilanguage, 1) .
+                    ' Several different values for the color have been detected. ' .
+                    'He needs your attention to fix it  ->' .
+                    print_r($color_hex, 1),
+                    'syncdata'
+                );
+                $more_colors = key($color_hex_values);
+                $sql_hexatag = ' AND a.`color` LIKE "' . $more_colors . '"';
+            } else {
+                if ($count_var) {
+                    $this->debbug(
+                        'Strict query for search this color ->' . print_r($color_hex, 1),
+                        'syncdata'
+                    );
+                    $sql_hexatag = ' AND a.`color` LIKE "' . reset($color_hex) . '"';
+                }
+            }
+            /**
+             * Ignore hex color code
+             */
+            if ($this->ignore_hex_color_code && $sql_hexatag != '') {
+                $this->debbug(
+                    'Hex color code will be ignored for respecting the set configuration.' .
+                            '-> ignore_hex_color_code ->' . print_r($this->ignore_hex_color_code, 1),
+                    'syncdata'
+                );
+                $sql_hexatag = '';
+            }
+            if (!$is_color && $sql_hexatag != '') {
+                $this->debbug(
+                    '## Warning. If the group is not a color group,' .
+                    ' all colors will be ignored. ->' . print_r(reset($color_hex), 1),
+                    'syncdata'
+                );
+                $sql_hexatag = '';
+            }
+
 
             //Buscamos id de atributo con padre,nombre e idioma ya existente
             $schemaAttribute = 'SELECT al.`id_attribute` ' .
@@ -1543,16 +1802,15 @@ class SlVariants extends SalesLayerPimUpdate
                 '	ON a.`id_attribute_group` = ag.`id_attribute_group` ' .
                 'LEFT JOIN ' . $this->attribute_lang_table . ' al ' .
                 '	ON (a.`id_attribute` = al.`id_attribute` AND al.`id_lang` ' . $left_group_lang . ') ' .
-                "WHERE  ag.`id_attribute_group` = '" . $attribute_group_id . "'  AND " . $left_group_value . '   ' .
-                ' GROUP BY al.`id_attribute` , agl.`name`, a.`position`' .
+                "WHERE  ag.`id_attribute_group` = '" . $attribute_group_id . "'  AND " . $left_group_value .
+                 $sql_hexatag . '  ' . ' GROUP BY al.`id_attribute` , agl.`name`, a.`position`' .
+
                 'ORDER BY agl.`name` ASC, a.`position` ASC';
-            $this->debbug(
-                'Search atribute query ' . print_r($schemaAttribute, 1),
-                'syncdata'
-            );
+
             $isAttribute = Db::getInstance()->executeS($schemaAttribute);
             $this->debbug(
-                'Search attribute query  result->' . print_r($schemaAttribute, 1),
+                'Search attribute query ->' . print_r($schemaAttribute, 1) .
+                ' and result ->' . print_r($isAttribute, 1),
                 'syncdata'
             );
             //   $this->debbug('## Busca el attributo query->'.print_r($schemaAttribute,1),'syncdata');
@@ -1570,43 +1828,95 @@ class SlVariants extends SalesLayerPimUpdate
         // $this->debbug('Attribute after search ->'.print_r($isAttribute,1),'syncdata');
         $attribute_value_id = 0;
         if (!$isAttribute || count($isAttribute) == 0) {
-            $this->debbug('Attribute does not exist ->' . print_r($isAttribute, 1), 'syncdata');
             /**
-             * Not exist this attribute
+             * ######################################################################################
+             * CREATION OF NEW ATTRIBUTES IF NOT EXIST
+             * ######################################################################################
+             * To disable creation of new attributes if they do not exist.
+             * For deactivate change $create_new_attributes to false in the saleslayerimport.php file
+             * ######################################################################################
              */
+            if ($this->create_new_attributes) {
+                $this->debbug('Attribute does not exist ->' . print_r($isAttribute, 1), 'syncdata');
+                /**
+                 * Not exist this attribute
+                 */
 
-            $schemaGroupAttributeColor = 'SELECT `is_color_group` ' .
-                ' FROM ' . $this->attribute_group_table .
-                " WHERE `id_attribute_group` = '" . $attribute_group_id . "' ";
+                $schemaGroupAttributeColor = 'SELECT `is_color_group` ' .
+                    ' FROM ' . $this->attribute_group_table .
+                    " WHERE `id_attribute_group` = '" . $attribute_group_id . "' ";
 
-            $isColorGroupAttribute = Db::getInstance()->executeS($schemaGroupAttributeColor);
+                $isColorGroupAttribute = Db::getInstance()->executeS($schemaGroupAttributeColor);
 
-            $is_color = false;
-            if (count($isColorGroupAttribute) > 0) {
-                if ($isColorGroupAttribute[0]['is_color_group'] == 1) {
-                    $is_color = true;
+                $is_color = false;
+                $this->debbug('Before test Attribute is a color group ->' .
+                              print_r($isColorGroupAttribute[0]['is_color_group'] .
+                                        ' query->' . print_r($schemaGroupAttributeColor, 1), 1), 'syncdata');
+                if (count($isColorGroupAttribute) > 0) {
+                    if ($isColorGroupAttribute[0]['is_color_group'] == 1) {
+                        $this->debbug('Attribute is a color group ->' .
+                                      print_r($isColorGroupAttribute[0]['is_color_group'], 1), 'syncdata');
+                        $is_color = true;
+                    }
                 }
-            }
-            $show_color = '#ffffff';
-            //Creamos nuevo atributo
-            $attribute = new AttributeCore();
-            $attribute->name = array();
-            try {
-                if (!empty($multilanguage)) {
-                    /**
-                     * Is multi-language create attribute with all Values with more languages
-                     */
+                $show_color = '#ffffff';
+                //Creamos nuevo atributo
+                $attribute = new AttributeCore();
+                $attribute->name = array();
+                try {
+                    if (!empty($multilanguage)) {
+                        /**
+                         * Is multi-language create attribute with all Values with more languages
+                         */
 
-                    foreach ($multilanguage as $id_lang => $att_value) {
-                        if ($is_color && $show_color == '#ffffff') {
-                            $picked = $this->stringToColorCode($att_value, $id_lang);
+                        foreach ($multilanguage as $id_lang => $att_value) {
+                            if ($is_color && $show_color == '#ffffff') {
+                                $picked = $this->stringToColorCode($att_value, $id_lang);
+                                if ($picked != null) {
+                                    $this->debbug('color encontrado ->' . print_r($picked, 1), 'syncdata');
+                                    $show_color = $picked;
+                                }
+                            }
+                            if (preg_match('/:#/', $att_value)) {
+                                $separate = explode(':', $att_value);
+                                if (count($separate) > 2) {
+                                    $valid_values = [];
+                                    foreach ($separate as $value) {
+                                        if (!preg_match('/#/', $value)) {
+                                            $valid_values[] = trim($value);
+                                        } else {
+                                            $show_color = trim($this->clearHexcolor($value));
+                                        }
+                                    }
+                                    $att_value = implode(': ', $valid_values);
+                                } else {
+                                    if (preg_match('/#/', $separate[1])) {
+                                        $show_color = trim($this->clearHexcolor(end($separate)));
+                                    }
+                                    $att_value = reset($separate);
+                                }
+                            }
+                            $attribute->name[$id_lang] = Tools::ucfirst($att_value);
+                            if ($id_lang != $this->defaultLanguage) {
+                                if ($attribute->name[$this->defaultLanguage] == null
+                                    || $attribute->name[$this->defaultLanguage] == '') {
+                                    $attribute->name[$this->defaultLanguage] = Tools::ucfirst($att_value);
+                                }
+                            }
+                        }
+                    } else {
+                        /**
+                         * Only one language
+                         */
+
+                        if ($is_color && $show_color == '#ffffff') { // is color? how to pick color from word
+                            $picked = $this->stringToColorCode($attributeValue, $currentLanguage);
                             if ($picked != null) {
-                                $this->debbug('color encontrado ->' . print_r($picked, 1), 'syncdata');
                                 $show_color = $picked;
                             }
                         }
-                        if (preg_match('/:#/', $att_value)) {
-                            $separate = explode(':', $att_value);
+                        if (preg_match('/:#/', $attributeValue)) {
+                            $separate = explode(':', $attributeValue);
 
                             if (count($separate) > 2) {
                                 $valid_values = [];
@@ -1614,97 +1924,70 @@ class SlVariants extends SalesLayerPimUpdate
                                     if (!preg_match('/#/', $value)) {
                                         $valid_values[] = trim($value);
                                     } else {
-                                        $show_color = trim($value);
+                                        $show_color = trim($this->clearHexcolor($value));
                                     }
                                 }
-                                $att_value = implode(': ', $valid_values);
+                                $attributeValue = implode(': ', $valid_values);
                             } else {
                                 if (preg_match('/#/', $separate[1])) {
-                                    $show_color = trim(end($separate));
+                                    $show_color = trim($this->clearHexcolor(end($separate)));
                                 }
-                                $att_value = reset($separate);
+                                $attributeValue = reset($separate);
                             }
                         }
-                        $attribute->name[$id_lang] = Tools::ucfirst($att_value);
-                        if ($id_lang != $this->defaultLanguage) {
-                            if ($attribute->name[$this->defaultLanguage] == null
+                        $attribute->name[$currentLanguage] = Tools::ucfirst($attributeValue);
+                        if ($currentLanguage != $this->defaultLanguage) {
+                            if (!isset($attribute->name[$this->defaultLanguage])
+                                || $attribute->name[$this->defaultLanguage] == null
                                 || $attribute->name[$this->defaultLanguage] == '') {
-                                $attribute->name[$this->defaultLanguage] = Tools::ucfirst($att_value);
+                                $attribute->name[$this->defaultLanguage] = Tools::ucfirst($attributeValue);
                             }
                         }
                     }
+                } catch (Exception $e) {
+                    $this->debbug(
+                        '## Error. ' . print_r($multilanguage, 1) . ' Creating attribute->' . print_r(
+                            $e->getMessage(),
+                            1
+                        ) . ' line->' . print_r($e->getLine(), 1) . ' track->' .
+                        print_r($e->getTrace(), 1),
+                        'syncdata'
+                    );
+                }
+
+                $attribute->id_attribute_group = $attribute_group_id;
+                $position = AttributeCore::getHigherPosition($attribute_group_id);
+                $attribute->position = $position == null ? 0 : $position + 1;
+
+                if ($is_color) {
+                    $attribute->color = $show_color;
+                    $this->debbug('Set color ->' . print_r($show_color, 1), 'syncdata');
                 } else {
-                    /**
-                     * Only one language
-                     */
-
-                    if ($is_color && $show_color == '#ffffff') { // is color? how to pick color from word
-                        $picked = $this->stringToColorCode($attributeValue, $currentLanguage);
-                        if ($picked != null) {
-                            $show_color = $picked;
-                        }
-                    }
-                    if (preg_match('/:#/', $attributeValue)) {
-                        $separate = explode(':', $attributeValue);
-
-                        if (count($separate) > 2) {
-                            $valid_values = [];
-                            foreach ($separate as $value) {
-                                if (!preg_match('/#/', $value)) {
-                                    $valid_values[] = trim($value);
-                                } else {
-                                    $show_color = trim($value);
-                                }
-                            }
-                            $attributeValue = implode(': ', $valid_values);
-                        } else {
-                            if (preg_match('/#/', $separate[1])) {
-                                $show_color = trim(end($separate));
-                            }
-                            $attributeValue = reset($separate);
-                        }
-                    }
-                    $attribute->name[$currentLanguage] = Tools::ucfirst($attributeValue);
-                    if ($currentLanguage != $this->defaultLanguage) {
-                        if (!isset($attribute->name[$this->defaultLanguage])
-                            || $attribute->name[$this->defaultLanguage] == null
-                            || $attribute->name[$this->defaultLanguage] == '') {
-                            $attribute->name[$this->defaultLanguage] = Tools::ucfirst($attributeValue);
-                        }
+                    if ($show_color != '#ffffff' && !$is_color) {
+                        $this->debbug('## Warning. A color cannot be added to this group because it is not a ' .
+                                      ' Color or Texture group ->' . print_r($show_color, 1), 'syncdata');
                     }
                 }
-            } catch (Exception $e) {
-                $this->debbug(
-                    '## Error. ' . print_r($multilanguage, 1) . ' Creating attribute->' . print_r(
-                        $e->getMessage(),
-                        1
-                    ) . ' line->' . print_r($e->getLine(), 1) . ' track->' .
-                    print_r($e->getTrace(), 1),
-                    'syncdata'
-                );
-            }
 
-            $attribute->id_attribute_group = $attribute_group_id;
-            $position = AttributeCore::getHigherPosition($attribute_group_id);
-            $attribute->position = $position == null ? 0 : $position + 1;
-
-            if ($is_color) {
-                $attribute->color = $show_color;
+                try {
+                    $attribute->add();
+                } catch (Exception $e) {
+                    $this->debbug(
+                        '## Error. ' . print_r($multilanguage, 1) . '  Creating New attribute ->' . print_r(
+                            $e->getMessage(),
+                            1
+                        ) . ' line->' . print_r($e->getLine(), 1) .
+                            ' trace->' . print_r($e->getTrace(), 1),
+                        'syncdata'
+                    );
+                }
+                $attribute_value_id = $attribute->id;
+            } else {
+                $this->debbug('## Error. The attribute not found and ' .
+                              'creation of new attributes is disabled. ->' .
+                              print_r($multilanguage, 1) . print_r($attributeValue, 1), 'syncdata');
+                return null;
             }
-
-            try {
-                $attribute->add();
-            } catch (Exception $e) {
-                $this->debbug(
-                    '## Error. ' . print_r($multilanguage, 1) . '  Creating New attribute ->' . print_r(
-                        $e->getMessage(),
-                        1
-                    ) . ' line->' . print_r($e->getLine(), 1) .
-                        ' trace->' . print_r($e->getTrace(), 1),
-                    'syncdata'
-                );
-            }
-            $attribute_value_id = $attribute->id;
         } else {
             $this->debbug('Attribute found send only id' . print_r($isAttribute, 1), 'syncdata');
             //Obtenemos id de atributo ya existente
@@ -1726,8 +2009,6 @@ class SlVariants extends SalesLayerPimUpdate
                  */
                 $update_needed = false;
                 $attribute = new AttributeCore($attribute_value_id);
-
-
 
                 foreach ($multilanguage as $id_lang => $Value) {
                     if (($attribute->name[$id_lang] == null
@@ -1828,7 +2109,7 @@ class SlVariants extends SalesLayerPimUpdate
                 );  // id_lang     $id_lang
             } else {
                 $this->debbug(
-                    ' register found, updating $attribute_lang_exists->' . print_r($attribute_lang_exists, 1),
+                    ' Register found, updating $attribute_lang_exists->' . print_r($attribute_lang_exists, 1),
                     'syncdata'
                 );
                 //Actualiza registro de lenguaje en tabla Slyr
@@ -1847,11 +2128,12 @@ class SlVariants extends SalesLayerPimUpdate
 
             if ($attribute_exists_id != $attribute_value_id) {
                 $this->debbug(
-                    'Register  founded, updating $attribute_exists_id != $attribute_value_id,
-                    $attribute_exists_id ->' . print_r(
+                    'Register  founded, updating $attribute_exists_id != $attribute_value_id,' .
+                    '  $attribute_exists_id ->' . print_r(
                         $attribute_exists_id,
                         1
-                    ) . '   $attribute_value_id->' . print_r($attribute_value_id, 1),
+                    ) . '  $attribute_value_id->' .
+                    print_r($attribute_value_id, 1),
                     'syncdata'
                 );                      //Cambia registro de lenguaje en tabla Slyr por nuevo
                 Db::getInstance()->execute(
@@ -2047,6 +2329,12 @@ class SlVariants extends SalesLayerPimUpdate
         return $attribute_value_id;
     }
 
+    private function clearHexcolor($value)
+    {
+        $value = str_replace(array( '# ', ':# ' ), array( '#', ':#' ), $value);
+        return $value;
+    }
+
     /**
      *Load the predefined colors in the colors folder and look for color name to attach the hex code
      * @param $str string name of color as string
@@ -2128,10 +2416,26 @@ class SlVariants extends SalesLayerPimUpdate
         $variant_id
     ) {
         if (isset($product_name) && !empty($product_name)) {
-            $occurence = ' Variant name :' . print_r($product_name, 1) . '  ';
+            $first_name = reset($product_name);
+            if (is_array($first_name)) {
+                $first_name = reset($product_name);
+            }
+            $occurence = ' Variant name :' . print_r($first_name, 1) ;
         } else {
             $occurence = ' ID :' . $product_id;
         }
+
+        $counter_images = 0;
+        $position_image = 1;
+
+        $this->debbug(
+            '$multilanguage array->' . print_r(
+                $product_name,
+                1
+            ),
+            'syncdata'
+        );
+
         $image_ids = array();
         $this->debbug(
             'Variant ' . $occurence . ' Entering to a synchronize images from variant ' .
@@ -2155,7 +2459,6 @@ class SlVariants extends SalesLayerPimUpdate
 
         if (isset($images) && count($images)) {
             /**
-             *
              * Process images from this connection
              * Imagenes de formato que han entrado
              */
@@ -2164,10 +2467,11 @@ class SlVariants extends SalesLayerPimUpdate
                 if (is_array($image_list)) {
                     /**
                      * Check correct sizes and filter images
-                     * Revisar corectos  y filtrar
+                     * Revisar correctos y filtrar
                      */
                     $this->debbug(
-                        'Checking correct sizes of image references ->' . $image_reference . ' value ->' . print_r(
+                        'Checking correct sizes of image references ->' .
+                        $image_reference . ' value ->' . print_r(
                             $image_list,
                             1
                         ),
@@ -2186,17 +2490,20 @@ class SlVariants extends SalesLayerPimUpdate
             $slyr_images = array();
 
             if (!empty($catch_images)) {
-                // imagenes elegidos para subir a este formato buscar en producto padre si en ya hay este imagen
                 /**
                  * How to a search images cached in SL table for MD5 hash
                  */
 
                 $catch_images_references = "'" . implode("','", array_keys($catch_images)) . "'";
-                $slyr_images = Db::getInstance()->executeS(
-                    'SELECT * FROM ' . _DB_PREFIX_ . 'slyr_image
-                    WHERE image_reference IN (' . $catch_images_references . ")
-                      AND ps_product_id = '" . $product_id . "' "
-                );
+                $prepare_sql = 'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im
+                        WHERE  im.ps_product_id = '" . $product_id . "'
+                        AND im.image_reference IN (" . $catch_images_references . ")  ";
+
+                $this->debbug('Prepared sql for search images  ->' .
+                              print_r($catch_images_references, 1)
+                              . ' query->' .
+                              print_r($prepare_sql, 1), 'syncdata');
+                $slyr_images = Db::getInstance()->executeS($prepare_sql);
                 $this->debbug('Searching images cached in SL table for MD5 hash ->' .
                               print_r($slyr_images, 1), 'syncdata');
             }
@@ -2214,7 +2521,30 @@ class SlVariants extends SalesLayerPimUpdate
             } else {
                 $cover = false;
             }
+            /**
+             * Get minimal position of images for this variant
+             */
+            $min_position_query =  'SELECT MIN(`position`) AS min ' .
+                    ' FROM ' . _DB_PREFIX_ . 'image i ' .
+                    ' INNER JOIN ' . _DB_PREFIX_ . 'product_attribute_image pai ' .
+                    ' ON i.id_image = pai.id_image ' .
+                    ' INNER JOIN ' . _DB_PREFIX_ . 'product_attribute pa ' .
+                    ' ON pai.id_product_attribute = pa.id_product_attribute ' .
+                    ' WHERE  pa.id_product = "' . $product_id . '"';
 
+            $min_position = Db::getInstance()->getRow($min_position_query);
+            $position_image = 0;
+
+            if (isset($min_position['min']) && !empty($min_position['min'])) {
+                if ($min_position['min'] > 0) {
+                    $this->debbug('Set min image position of this variant  -> ' .
+                                  print_r($min_position['min'], 1), 'syncdata');
+                    $position_image = (int) $min_position['min'];
+                }
+            }
+            if ($position_image == 0) { //if not exist position of images for this variant save highest position
+                $position_image = Image::getHighestPosition($product_id) + 1;
+            }
 
             foreach ($catch_images as $image_reference => $image_url) {
                 $this->debbug(
@@ -2332,19 +2662,32 @@ class SlVariants extends SalesLayerPimUpdate
                                             ' in variants ids -> ' . print_r($variant_ids, 1),
                                             'syncdata'
                                         );
-                                        if (in_array(
+                                        /*   if (in_array(
+                                               (string) $variant_id,
+                                               $variant_ids,
+                                               false
+                                           )
+                                           ) { // image is the same and this variant is in the array
+                                               $this->debbug(
+                                                   'Image is the same and this variant is in the array->' .
+                                                   print_r($variant_id, 1) .
+                                                   ' in variants ids -> ' . print_r($variant_ids, 1),
+                                                   'syncdata'
+                                               );
+                                               $image_ids[] = $slyr_image['id_image'];
+
+                                           } else {*/
+
+                                        // set this variant it to the foto
+                                        /**
+                                         * aqui continuar con editcion de imagen
+                                         */
+                                        if (!in_array(
                                             (string) $variant_id,
                                             $variant_ids,
                                             false
-                                        )
-                                        ) { // image is the same and this variant is in the array
-                                            $this->debbug(
-                                                'image is the same and this variant is in the array->' .
-                                                print_r($variant_id, 1) .
-                                                ' in variants ids -> ' . print_r($variant_ids, 1),
-                                                'syncdata'
-                                            );
-                                            $image_ids[] = $slyr_image['id_image'];
+                                        )) {
+                                            $variant_ids[] = (string) $variant_id;
                                         } else {
                                             $this->debbug(
                                                 'Not in the array ->' .
@@ -2352,101 +2695,124 @@ class SlVariants extends SalesLayerPimUpdate
                                                 ' in variants ids -> ' . print_r($variant_ids, 1),
                                                 'syncdata'
                                             );
-                                            // set this variant it to the foto
-                                            /**
-                                             *
-                                             * aqui continuar con editcion de imagen
-                                             */
+                                        }
+                                        $need_update = false;
 
-                                            $variant_ids[] = (string) $variant_id;
-                                            $need_update = false;
+                                        $image_cover = new Image($slyr_image['id_image']);
+                                        $old_position = $image_cover->position;
+                                        foreach ($this->shop_languages as $shop_language) {
+                                            $name_of_product_save = '';
+                                            if (is_array($product_name[$shop_language['id_lang']])) {
+                                                $index_alt = $counter_images;
 
-                                            $image_cover = new Image($slyr_image['id_image']);
-                                            foreach ($this->shop_languages as $shop_language) {
-                                                if (!isset($image_cover->legend[$shop_language['id_lang']])) {   // if is empty
-                                                    if ($product_name != ''
-                                                        && (!isset($image_cover->legend[$shop_language['id_lang']])
-                                                            && (empty($image_cover->legend[$shop_language['id_lang']])
-                                                                || trim(
-                                                                    $image_cover->legend[$shop_language['id_lang']]
-                                                                ) != trim($product_name)))
+                                                if (isset($product_name[$shop_language['id_lang']][$index_alt])) {
+                                                    $name_of_product_save =
+                                                            $product_name[$shop_language['id_lang']][$index_alt];
+                                                } else {
+                                                    $name_of_product_save =
+                                                            reset($product_name[$shop_language['id_lang']]) .
+                                                            '_(' . $counter_images . ')';
+                                                }
+                                            }
+
+                                            if ($name_of_product_save != '' &&
+                                                         trim(
+                                                             $image_cover->legend[$shop_language['id_lang']]
+                                                         ) != trim($name_of_product_save)
                                                     ) {
-                                                        $need_update = true;
-                                                        $image_cover->legend[$shop_language['id_lang']] = $product_name;
-                                                        $this->debbug('Set image alt atribute need update this image ' .
-                                                          'info ->' .
-                                                          print_r($image_cover->legend[$shop_language['id_lang']], 1) .
-                                                          '  !=  ' . print_r($product_name, 1), 'syncdata');
-                                                    } else {
-                                                        $this->debbug(
-                                                            'Image is the same, image alt attribute not is needed 
+                                                $need_update = true;
+                                                $image_cover->legend[$shop_language['id_lang']] =
+                                                            $name_of_product_save;
+                                                $this->debbug(
+                                                    'Set image alt attribute need update this image ' .
+                                                            'info ->' .
+                                                            print_r(
+                                                                $image_cover->legend[$shop_language['id_lang']],
+                                                                1
+                                                            ) .
+                                                            '  !=  ' .
+                                                            print_r($name_of_product_save, 1),
+                                                    'syncdata'
+                                                );
+                                            } else {
+                                                $this->debbug(
+                                                    'Image is the same, image alt attribute not is needed 
                                                             update this image info ->' .
                                                             print_r(
                                                                 $image_cover->legend[$shop_language['id_lang']],
                                                                 1
                                                             ) .
                                                             '  ==  ' .
-                                                            print_r($product_name, 1),
-                                                            'syncdata'
-                                                        );
-                                                    }
-                                                }
+                                                            print_r($name_of_product_save, 1),
+                                                    'syncdata'
+                                                );
                                             }
-                                            if ($cover && !$image_cover->cover
+                                        }
+                                        if ($cover && !$image_cover->cover
                                                 && count(
                                                     $ps_images
                                                 ) == 1
                                             ) { //  is first image  set to cover && Image is already like cover
-                                                try {
-                                                    Image::deleteCover(
-                                                        $product_id
-                                                    ); // delete cover image from this product
-                                                } catch (Exception $e) {
-                                                    $this->debbug(
-                                                        '## Error. ' . $occurence . ' Delete cover ->' . print_r(
-                                                            $e->getMessage(),
-                                                            1
-                                                        ),
-                                                        'syncdata'
-                                                    );
-                                                }
-                                                $need_update = true;
-                                                $image_cover->cover = $cover; // set this image as cover
-                                                $cover = false;
+                                            try {
+                                                Image::deleteCover(
+                                                    $product_id
+                                                ); // delete cover image from this product
+                                            } catch (Exception $e) {
                                                 $this->debbug(
-                                                    'Image is the only one for this product, setting it as cover ',
+                                                    '## Error. ' . $occurence . ' Delete cover ->' . print_r(
+                                                        $e->getMessage(),
+                                                        1
+                                                    ),
                                                     'syncdata'
                                                 );
-                                            } else {
-                                                $image_cover->cover = null;
                                             }
+                                            $need_update = true;
+                                            $image_cover->cover = $cover; // set this image as cover
+                                            $cover = false;
+                                            $this->debbug(
+                                                'Image is the only one for this product, setting it as cover ',
+                                                'syncdata'
+                                            );
+                                        } else {
+                                            $image_cover->cover = null;
+                                        }
+                                        $this->debbug('set position to image -> ' .
+                                                      print_r($position_image, 1), 'syncdata');
+                                        $image_cover->position = $position_image;
+                                        $position_image++;
+                                        $counter_images++;
 
-                                            if ($need_update) {
-                                                $this->debbug('Image needs to update ', 'syncdata');
+                                        if ($need_update) {
+                                            $this->debbug('Image needs to update ', 'syncdata');
 
-                                                try {
-                                                    $image_cover->save();
-                                                } catch (Exception $e) {
-                                                    $this->debbug(
-                                                        '## Error. ' . $occurence . ' Updating Image info product->' .
+                                            try {
+                                                $image_cover->save();
+                                                //recalcula pisotion for all images
+                                                $image_cover->updatePosition($old_position, $image_cover->position);
+                                            } catch (Exception $e) {
+                                                $this->debbug(
+                                                    '## Error. ' . $occurence . ' Updating Image info product->' .
                                                         print_r(
                                                             $e->getMessage(),
                                                             1
                                                         ),
-                                                        'syncdata'
-                                                    );
-                                                }
+                                                    'syncdata'
+                                                );
                                             }
-
-                                            $variant_ids = json_encode($variant_ids);
-                                            $this->debbug('Updating variant ids of image', 'syncdata');
-                                            Db::getInstance()->execute(
-                                                'UPDATE ' . _DB_PREFIX_ . "slyr_image SET ps_variant_id ='" .
+                                        }
+                                        $variant_ids = array_unique($variant_ids);
+                                        $variant_ids = json_encode($variant_ids);
+                                        $this->debbug('Updating variant ids of image', 'syncdata');
+                                        Db::getInstance()->execute(
+                                            'UPDATE ' . _DB_PREFIX_ . "slyr_image SET ps_variant_id ='" .
                                                 $variant_ids .
                                                 "' WHERE id_image = '" . $image_cover->id . "' "
-                                            );
-                                            $image_ids[] = $image_cover->id;
-                                        }
+                                        );
+
+
+                                        $image_ids[] = $image_cover->id;
+
+                                        //  }
                                         unlink($temp_image);
                                         unset($image_cover);
                                         $this->debbug('Before continue to level 2', 'syncdata');
@@ -2464,21 +2830,36 @@ class SlVariants extends SalesLayerPimUpdate
                             $image = new Image();
                             $variant_ids = array((string) $variant_id);
                             $image->id_product = (int)$product_id;
-                            $image->position = Image::getHighestPosition($product_id) + 1;
+                            $image->position = $position_image;// Image::getHighestPosition($product_id) + 1
+                            $position_image++;
 
                             foreach ($this->shop_languages as $shop_language) {
                                 if (!isset($image->legend[$shop_language['id_lang']])) {   // if is empty
-                                    if ($product_name != ''
+                                    $name_of_product_save = '';
+                                    if (is_array($product_name[$shop_language['id_lang']])) {
+                                        $index_alt = $counter_images;
+
+                                        if (isset($product_name[$shop_language['id_lang']][$index_alt])) {
+                                            $name_of_product_save =
+                                                $product_name[$shop_language['id_lang']][$index_alt];
+                                        } else {
+                                            $name_of_product_save =
+                                                reset($product_name[$shop_language['id_lang']]) .
+                                                ' (' . $counter_images . ')';
+                                        }
+                                    }
+                                    if ($name_of_product_save != ''
                                         && (!isset($image->legend[$shop_language['id_lang']])
                                             && (empty($image->legend[$shop_language['id_lang']])
                                                 || trim(
                                                     $image->legend[$shop_language['id_lang']]
-                                                ) != trim($product_name)))
+                                                ) != trim($name_of_product_save)))
                                     ) {
-                                        $image->legend[$shop_language['id_lang']] = $product_name;
+                                        $image->legend[$shop_language['id_lang']] =
+                                            $name_of_product_save;
                                     //$this->debbug('Set image alt atribute  need update this image info ->' .
                                         // print_r($image->legend[$shop_language['id_lang']], 1) . '  !=  ' .
-                                        // print_r($product_name, 1), 'syncdata');
+                                        // print_r($name_of_product_save, 1), 'syncdata');
                                     } else {
                                         $this->debbug(
                                             'The image is the same and the alt attribute of the image has not 
@@ -2487,7 +2868,7 @@ class SlVariants extends SalesLayerPimUpdate
                                             print_r(
                                                 $image->legend[$shop_language['id_lang']],
                                                 1
-                                            ) . '  ==  ' . print_r($product_name, 1),
+                                            ) . '  ==  ' . print_r($name_of_product_save, 1),
                                             'syncdata'
                                         );
                                     }
@@ -2537,6 +2918,7 @@ class SlVariants extends SalesLayerPimUpdate
                                     'syncdata'
                                 );
                             }
+                            $counter_images++;
                             try {
                                 $result_save_image = $image->add();
                             } catch (Exception $e) {
@@ -2573,6 +2955,10 @@ class SlVariants extends SalesLayerPimUpdate
 
                             if ($validate_fields === true && $validate_language === true && $result_save_image) {
                                 if (!$this->copyImg($product_id, $image->id, $temp_image, 'products', true, true)) {
+                                    $this->debbug(
+                                        '## Error. in copy file, send image to delete id_image->' . $image->id,
+                                        'syncdata'
+                                    );
                                     $image->delete();
                                 } else {
                                     $all_shops_image = Shop::getShops(true, null, true);
@@ -2596,7 +2982,7 @@ class SlVariants extends SalesLayerPimUpdate
                                 }
                             } else {
                                 unlink($temp_image);
-                                $this->debbug('Image of Variant not accepted as Valid ', 'syncdata');
+                                $this->debbug('## Warning. Image of Variant not accepted as Valid ', 'syncdata');
                             }
                         } catch (Exception $e) {
                             $this->debbug(
@@ -2632,7 +3018,8 @@ class SlVariants extends SalesLayerPimUpdate
             foreach ($slyr_images as $keySLImg => $slyr_image) {
                 $this->debbug('Testing if it is needed to delete this image ' .
                         print_r($slyr_image, 1) . ' variants ids ->' .
-                        print_r($slyr_image['ps_variant_id'], 1), 'syncdata');
+                        print_r($slyr_image['ps_variant_id'], 1) . 'id_image->' .
+                        print_r($slyr_image['id_image'], 1), 'syncdata');
 
                 $variant_ids = array();
                 if ($slyr_image['ps_variant_id'] != null) {

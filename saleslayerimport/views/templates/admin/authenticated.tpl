@@ -38,9 +38,16 @@
     </div>
     <div class="row" id="progressbar"></div>
     <div class="row mar-top-btt-40" id="slyr-import-module-block">
-      <div class="mar-top-btt-10 mar-top-btt-40"><h1>
-          {$COMPANY_NAME|escape:'htmlall':'UTF-8'} - Update Categories &amp; Products</h1></div>
-      <div class="row text-center"><span id="messages">{$messages|escape:"quotes"}</span></div>
+      <div class="col-md-11 mar-top-btt-40"><h1>
+          {$COMPANY_NAME|escape:'htmlall':'UTF-8'} - Update Categories &amp; Products</h1>
+      </div>
+      <div class="col-md-1 mar-top-btt-40">
+        <div class="row mar-5"><span title="Cpu usage">Cpu</span><span style="float:right" id="cpuv"></span></div>
+        <div class="row mar-5"><span title="Memory usage">Mem</span><span style="float:right" id="memv"></span></div>
+        <div class="row mar-5"><span title="Swap memory usage">Swp</span><span style="float:right" id="swpv"></span></div>
+      </div>
+      <div class="row text-center">
+        <span id="messages">{$messages|escape:"quotes"}</span></div>
       {if isset($SLY_HAS_ERRORS)}
         <div class="sy-alert sy-danger">
           <p>Error! Wrong credentials.</p>
@@ -79,6 +86,10 @@
       </table>
       <div class="col-md-12 hide" id="submit_btt">
         <button type="submit" name="savechanges" class="btn btn-success mar-10 mar-top-btt-40 right" onclick="isSubmiting();"><i class="fa fa-floppy-o" aria-hidden="true"></i> Save Changes</button>
+      </div>
+      <div class="btn-group-toggle">
+      <a href="https://github.com/saleslayer/Sales_Layer_Prestashop/blob/master/Sales%20Layer%20Prestashop%20manual%20(ES).pdf" title="Documentation ES" class="btn btn-success mar-top-btt-40 mar-5" target="_blank"><i class="fa fa-book fa-2x" aria-hidden="true"></i> ES</a>
+      <a href="https://github.com/saleslayer/Sales_Layer_Prestashop/blob/master/Sales%20Layer%20Prestashop%20manual%20(EN).pdf" title="Documentation EN" class="btn btn-success mar-top-btt-40 mar-5" target="_blank"><i class="fa fa-book fa-2x" aria-hidden="true"></i> EN</a>
       </div>
     </div>
     </form>
@@ -257,11 +268,33 @@
               }
             }
           }
+          //health
+          if(data_return['health']!='undefined') {
+                document.getElementById('cpuv').classList = getSetColor(data_return['health']['cpu']);
+                document.getElementById('cpuv').innerHTML = data_return['health']['cpu']+' %';
+                document.getElementById('memv').classList = getSetColor(data_return['health']['mem']);
+                document.getElementById('memv').innerHTML = data_return['health']['mem']+' %';
+                document.getElementById('swpv').classList = getSetColor(data_return['health']['swp']);
+                document.getElementById('swpv').innerHTML = data_return['health']['swp']+' %';
+          }
+
         },
         error: function () {
           document.getElementById('allelements').value = 0
         }
       })
+    }
+
+    function getSetColor(val){
+        if(val > 70){
+          return 'error-msg';
+        }
+        if(val > 50){
+          return 'warning-msg';
+        }
+        if(val < 50){
+          return 'success-msg';
+        }
     }
 
     function showProgressBarSL(status, total, time = null,show_stat = '') {

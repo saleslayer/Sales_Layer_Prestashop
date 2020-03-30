@@ -100,10 +100,10 @@
     .btn-group > .btn:first-child{margin-left:0}
     .btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle){border-top-right-radius:0;border-bottom-right-radius:0}
     .btn-group > .btn:last-child:not(:first-child){border-top-left-radius:0;border-bottom-left-radius:0}
-    .alert{padding:15px;margin-bottom:20px;border:1px solid transparent;border-radius:4px}
-    .alert-info{color:#31708f;background-color:#d9edf7;border-color:#bce8f1}
-    .alert-warning{color:#8a6d3b;background-color:#fcf8e3;border-color:#faebcc}
-    .alert-danger{color:#a94442;background-color:#f2dede;border-color:#ebccd1}
+    .forinfo > .alert{margin-bottom:20px;border:1px solid transparent;border-radius:0px !important;min-height:64px;min-width:250px;clear:right !important;border-left:0 !important;}
+    .forinfo >.alert-info{color:#31708f;background-color:#d9edf7;border-color:#bce8f1}
+    .forinfo >.alert-warning{color:#8a6d3b;background-color:#fcf8e3;border-color:#faebcc}
+    .forinfo >.alert-danger{color:#a94442;background-color:#f2dede;border-color:#ebccd1}
     .container-fluid:after,.container-fluid:before,.row:after,.row:before{display:table;content:" "}
     .container-fluid:after,.row:after{clear:both}
     .pull-left{float:left!important}
@@ -253,8 +253,9 @@
     <div class="col-lg-5 col-md-4 col-xs-12 pad-10" id="slh1selector">
     </div>
     <div class="col-lg-5 col-md-4 col-xs-12 pad-10 forinfo">
-      <span class="pull-left" id="sllisted"></span><span class="pull-left" id="slwarnings"></span><span
-        class="pull-left" id="slerrors"></span>
+      <span class="pull-left" id="sllisted"></span>
+      <span class="pull-left" id="slwarnings"></span>
+      <span class="pull-left" id="slerrors"></span>
       <span id="messages"></span>
     </div>
   </div>
@@ -418,6 +419,12 @@
           data: {'logcommand': command, 'token': $('#mymodule_wrapper').attr('data-token'), 'value': value},
           dataType: 'json'
         }).done(function (data_return) {
+          var ajax = document.getElementById('ajaxtest');
+          if(ajax){
+            ajax.classList = 'text-success';
+            ajax.innerHTML = 'Ajax works correctly';
+          }
+
           if (data_return['message_type'] === 'success') {
             if (data_return['function'] === 'showlogfiles') {
               if (data_return['content']['file'].length >= 1) {
@@ -624,11 +631,16 @@
               }
             }
           } else {
-            showMessage(data_return['message_type'], data_return['content']);
+           // showMessage(data_return['message_type'], data_return['content']);
             clear_messege_status()
           }
           document.getElementById('ajaxonline').value = '0'
         }).fail(function () {
+          var ajax = document.getElementById('ajaxtest');
+          if(ajax){
+            ajax.classList = 'text-danger';
+            ajax.innerHTML = 'It does not work';
+          }
           console.log('Ajax connection error, trying send document as post');
           if(command == 'debugmode' || command == 'performance'){
             document.getElementById('downloadfile').value = "";

@@ -226,6 +226,7 @@ class SlProducts extends SalesLayerPimUpdate
              * Update Product
              */
             $this->first_sync_shop = true;
+
             foreach ($shops as $shop_id) {
                 Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
 
@@ -433,7 +434,6 @@ class SlProducts extends SalesLayerPimUpdate
                                         $productObject->setWsType('pack');
                                     }
 
-
                                     Pack::deleteItems($productObject->id);
 
                                     foreach ($product_packs_data as $product_pack_data) {
@@ -465,20 +465,155 @@ class SlProducts extends SalesLayerPimUpdate
                         }
                     }
                 }
+                /**
+                 * Update tax rule
+                 */
+                $this->debbug(
+                    'before tax rules updating ->' . print_r(
+                        (isset($product['data']['product_id_tax_rules_group']) ?
+                            $product['data']['product_id_tax_rules_group']:'empty'),
+                        1
+                    ),
+                    'syncdata'
+                );
+
+                $tax_updated = false;
+                if (isset($product['data']['product_id_tax_rules_group']) &&
+                    $product['data']['product_id_tax_rules_group'] != null &&
+                    $product['data']['product_id_tax_rules_group'] != '') {
+                    $is_percentage = false;
+                    $id_tax_rules_group_default_from_cloud = array();
+
+
+                    if (preg_match('/%/', $product['data']['product_id_tax_rules_group'])) {
+                        $is_percentage = true;
+                        $product['data']['product_id_tax_rules_group'] =
+                            trim(str_replace('%', '', $product['data']['product_id_tax_rules_group']));
+                    }
+                    if ($product['data']['product_id_tax_rules_group'] != '') {
+                        if (is_numeric($product['data']['product_id_tax_rules_group'])) {
+                            if ($is_percentage) {
+                                $format_rate = number_format(
+                                    $product['data']['product_id_tax_rules_group'],
+                                    3,
+                                    '.',
+                                    ' '
+                                );
+                                $query_for_search_tax =  '';
+                                try {
+                                    $query_for_search_tax = sprintf(
+                                        'SELECT trg.id_tax_rules_group FROM ' .
+                                            $this->product_tax_rules_group_table . ' trg ' .
+                                            ' INNER JOIN ' . $this->product_tax_rules_group_shop_table . ' trgs ' .
+                                            ' ON  ( trg.id_tax_rules_group = trgs.id_tax_rules_group AND ' .
+                                            ' trgs.id_shop = "%s" ) ' .
+                                            ' INNER JOIN ' . $this->product_tax_rule_table . ' tr  ' .
+                                            ' ON  trg.id_tax_rules_group = tr.id_tax_rules_group   ' .
+                                            ' INNER JOIN ' . $this->product_tax_table . ' t ' .
+                                            ' ON  tr.id_tax = t.id_tax  ' .
+                                            ' WHERE t.rate = "%s" AND t.active ="1" AND t.deleted = "0" ' .
+                                            ' GROUP BY trg.id_tax_rules_group LIMIT 2 ',
+                                        $shop_id,
+                                        $format_rate
+                                    );
+                                    $id_tax_rules_group_default_from_cloud =
+                                    Db::getInstance()->executeS($query_for_search_tax);
+
+                                    if (count($id_tax_rules_group_default_from_cloud)) {
+                                        /**
+                                         * Founded tax rule
+                                         */
+                                        $first = (int) $id_tax_rules_group_default_from_cloud[0]['id_tax_rules_group'];
+                                        $product['data']['product_id_tax_rules_group'] = $first;
+                                        if (count($id_tax_rules_group_default_from_cloud) > 1) {
+                                            $this->debbug(
+                                                '## Warning. ' . $occurence . ' There are more rules with this tax.' .
+                                                          ' The first one has been chosen but it may be that a ' .
+                                                          'rule with the same percentage is chosen for a different ' .
+                                                          'type of product. For more precision use id_tax_rules_group.',
+                                                'syncdata'
+                                            );
+                                        }
+                                    } else {
+                                        /**
+                                         *  id_tax_rules_group not founded
+                                         */
+                                        $this->debbug('## Error. ' . $occurence . ' There is no tax rule for' .
+                                                      ' this store and this rate.' .
+                                                  'Please first create a rule create a rule for that tax.' .
+                                                  print_r($product['data']['product_id_tax_rules_group'], 1) .
+                                                  '% store_id-> ' .
+                                                  print_r($shop_id, 1), 'syncdata');
+                                    }
+                                } catch (Exception $e) {
+                                    $this->debbug('## Error. ' . $occurence .
+                                                  ' in seach tax rule group in query ' . $e->getMessage() .
+                                              ' ->' . print_r($query_for_search_tax, 1), 'syncdata');
+                                }
+                            } else {
+                                $id_tax_rules_group_default_from_cloud =  Db::getInstance()->executeS(
+                                    sprintf(
+                                        'SELECT id_tax_rules_group FROM ' .
+                                        $this->product_tax_rules_group_table .
+                                        ' WHERE id_tax_rules_group = "%s" AND active ="1"  LIMIT 1',
+                                        $product['data']['product_id_tax_rules_group']
+                                    )
+                                );
+                            }
+
+                            if (count($id_tax_rules_group_default_from_cloud)) {
+                                $this->debbug(
+                                    'Tax_rules  updating ->' . print_r(
+                                        $id_tax_rules_group_default_from_cloud,
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
+
+                                $productObject->id_tax_rules_group =
+                                    (int) $product['data']['product_id_tax_rules_group'];
+                                $tax_updated = true;
+                            } else {
+                                if (!$is_percentage) {
+                                    $this->debbug(
+                                        '## Error. ' . $occurence . ' id of tax rule not founded ->' . print_r(
+                                            $product['data']['product_id_tax_rules_group'],
+                                            1
+                                        ),
+                                        'syncdata'
+                                    );
+                                }
+                            }
+                        } else {
+                            $this->debbug(
+                                '## Error. ' . $occurence . ' tax rules is not a numeric value ->' . print_r(
+                                    $product['data']['product_id_tax_rules_group'],
+                                    1
+                                ),
+                                'syncdata'
+                            );
+                        }
+                    }
+                }
 
                 if ($shop_id != $productObject->id_shop_default) {
                     $id_tax_rules_group_default = (int)Db::getInstance()->getValue(
                         sprintf(
                             'SELECT id_tax_rules_group FROM ' .
-                            $this->product_shop_table . ' WHERE id_product = "%s" AND id_shop = "%s"',
+                            $this->product_shop_table .
+                            ' WHERE id_product = "%s" AND id_shop = "%s"',
                             $product_exists,
                             $productObject->id_shop_default
                         )
                     );
 
                     if ($id_tax_rules_group_default != $productObject->id_tax_rules_group) {
-                        $productObject->id_tax_rules_group = $id_tax_rules_group_default;
-                        $productObject->price = 0;
+                        if (!$tax_updated) {
+                            $productObject->id_tax_rules_group = $id_tax_rules_group_default;
+                        }
+                        if ($productObject->price == null) {
+                            $productObject->price = 0;
+                        }
                         if ($productObject->low_stock_alert == null) {
                             $productObject->low_stock_alert = false;
                         }
@@ -509,6 +644,9 @@ class SlProducts extends SalesLayerPimUpdate
                 $carriers_not_founded = array();
                 $update_carriers = false;
                 $product_carriers_ids = array();
+                $alt_images = array();
+
+
                 foreach ($this->shop_languages as $lang) {
                     $defaultLenguage = (int) $this->defaultLanguage;
 
@@ -519,7 +657,6 @@ class SlProducts extends SalesLayerPimUpdate
                     $product_name = '';
 
                     /**
-                     *
                      * Set Name of product
                      */
 
@@ -563,7 +700,7 @@ class SlProducts extends SalesLayerPimUpdate
                         if (trim($product_name) != '') {
                             $productObject->name[$lang['id_lang']] = $product_name;
                         }
-
+                        $mulilanguage[$lang['id_lang']] = $product['data'][$product_name_index];
 
                         $friendly_url_index = '';
                         $friendly_url_index_search = 'friendly_url_' . $lang['iso_code'];
@@ -591,30 +728,7 @@ class SlProducts extends SalesLayerPimUpdate
                         }
                     }
 
-                    /**
-                     * Image alt atributes
-                     */
-                    /*   $product_alt_index = '';
-                       $product_alt_images = '';
-                       $product_alt_images_search = 'product_alt_' . $lang['iso_code'];
 
-                       if (isset(
-                           $product['data'][$product_alt_images_search],
-                           $schema[$product_alt_images_search]['language_code']
-                       ) &&
-                           !empty($product['data'][$product_alt_images_search])
-                           && $schema[$product_alt_images_search]['language_code'] == $lang['iso_code']) {
-                           $product_alt_index = 'product_alt_' . $lang['iso_code'];
-                       } elseif (isset($product['data'][$product_alt_images]) &&
-                                 !empty($product['data'][$product_alt_images])
-                                 && !isset($schema[$product_alt_images]['language_code'])) {
-                           $product_alt_index = 'product_alt';
-                       }
-
-                       if ($product_alt_index != '' && isset($product['data'][$product_alt_index]) &&
-                           !empty($product['data'][$product_alt_index])) {
-
-                       }*/
 
                     /**
                      *
@@ -765,7 +879,7 @@ class SlProducts extends SalesLayerPimUpdate
                         $productObject->meta_description[$lang['id_lang']] = $meta_description;
                     }
                     /**
-                     * Load  customization variable with all languages
+                     * Load customization variable with all languages
                      */
 
                     $customization_index = '';
@@ -944,41 +1058,6 @@ class SlProducts extends SalesLayerPimUpdate
                                 }
                             }
                         }
-
-                        // if ($category_default_value != 0){
-
-                        //  $ps_category_default_id = (int) Db::getInstance()->getValue(
-                        //sprintf('SELECT ps_id
-                        // FROM '._DB_PREFIX_.'slyr_category_product
-                        //  WHERE slyr_id = "%s" AND comp_id = "%s" AND ps_type = "slCatalogue"',
-                        // $category_default_value, $comp_id));
-
-                        //  if ($ps_category_default_id == 0){
-
-                        //      $ps_category_default_id = (int) Db::getInstance()->getValue(sprintf('SELECT id_category
-                        // FROM '.$this->category_lang_table.
-                        //' WHERE id_lang = "%s" AND meta_keywords LIKE "%s"',$this->currentLanguage,
-                        // $category_default_value));
-
-
-                        //  }
-
-
-                        //  if ($ps_category_default_id != 0){
-
-                        //      $productObject->id_category_default = $ps_category_default_id;
-
-                        //      if (!in_array($ps_category_default_id, $arrayIdCategories)){
-
-                        //          $arrayIdCategories[] = $ps_category_default_id;
-
-                        //      }
-
-                        //      $category_default_found = true;
-
-                        //  }
-
-                        // }
                     }
 
                     if (!$category_default_found) {
@@ -1064,15 +1143,12 @@ class SlProducts extends SalesLayerPimUpdate
                                 }
                                 if (!$match) {
                                     if (!in_array($product_carrier, $carriers_not_founded, false)) {
-                                        //&& (!isset($carriers_not_founded[$position]) ||
-                                        // empty($carriers_not_founded[$position]))
                                         $carriers_not_founded[$position] =  $product_carrier;
                                     }
                                 }
                             }
                         }
                     }
-
 
                     /**
                      * Tags
@@ -1107,73 +1183,92 @@ class SlProducts extends SalesLayerPimUpdate
                     }
 
                     /**
-                     *
-                     * Sync images
-                     *
+                     * Image alt atributes
+                     */
+                    $product_alt_index = '';
+                    $product_alt_images_search = 'product_alt_' . $lang['iso_code'];
+
+                    if (isset(
+                        $product['data'][$product_alt_images_search],
+                        $schema[$product_alt_images_search]['language_code']
+                    ) &&
+                        !empty($product['data'][$product_alt_images_search])
+                        && $schema[$product_alt_images_search]['language_code'] == $lang['iso_code']) {
+                        $product_alt_index = 'product_alt_' . $lang['iso_code'];
+                    } elseif (isset($product['data']['product_alt']) &&
+                              !empty($product['data']['product_alt'])) {
+                        $product_alt_index = 'product_alt';
+                    }
+                    $this->debbug('index selected for alt ->  ' . print_r(
+                        $product_alt_index,
+                        1
+                    )
+                    . ' id_lang -> ' .
+                    print_r($lang['id_lang'], 1), 'syncdata');
+
+                    if ($product_alt_index != '' && isset($product['data'][$product_alt_index]) &&
+                        !empty($product['data'][$product_alt_index])) {
+                        $alt_images_arr = array();
+                        $product['data'][$product_alt_index] =
+                            $this->clearStructureData($product['data'][$product_alt_index]);
+                        if (is_array($product['data'][$product_alt_index])) {
+                            $alt_images_arr = $this->clearAndOrderArray($product['data'][$product_alt_index]);
+                        } else {
+                            $alt_images_arr = explode(',', $product['data'][$product_alt_index]);
+                        }
+                        foreach ($alt_images_arr as $key => $value) {
+                            $alt_images_arr[$key] = trim($value);
+                        }
+                        $this->debbug('Save data from alt attribute product  ' . print_r(
+                            $alt_images_arr,
+                            1
+                        )
+                        . ' id_lang -> ' .
+                        print_r($lang['id_lang'], 1), 'syncdata');
+                        $alt_images[$lang['id_lang']] =  $alt_images_arr;
+                        $this->debbug(' after save  ' . print_r(
+                            $alt_images,
+                            1
+                        ), 'syncdata');
+                    } else {
+                        $this->debbug(' after save from else  ' . print_r(
+                            $alt_images,
+                            1
+                        ), 'syncdata');
+                    }
+
+                    /**
+                     * Autogenerate attribute alt for images if is empty
+                     * Rellenar faltantes atributos alt
+                     */
+                    if (isset($product['data']['product_image'])) {
+                        $images_in_array = sizeof($product['data']['product_image']);
+                        for ($counter = 0; $counter < $images_in_array; $counter++) {
+                            $show_number = '';
+                            if ($counter != 0) {
+                                $show_number = ' (' . $counter . ')';
+                            }
+                            if (empty($alt_images[ $lang['id_lang'] ][ $counter ]) &&
+                                !empty($mulilanguage[ $lang['id_lang'] ])) {
+                                $alt_images[ $lang['id_lang'] ][ $counter ] =
+                                        $this->clearForMetaData($mulilanguage[ $lang['id_lang'] ]) . $show_number;
+                                $this->debbug('complete array with name ->  ' . print_r(
+                                    $alt_images[ $lang['id_lang'] ][ $counter ],
+                                    1
+                                ), 'syncdata');
+                            }
+                        }
+                    }
+
+                    /**
+                     * Place your custom multi-language code here
                      */
 
-                    if ($this->first_sync_shop && $product_name != '') {
-                        $mulilanguage = array();
-
-                        /**
-                         * Search Name in another language and prepare array with ids of pestashop language ids
-                         */
-
-                        foreach ($this->shop_languages as $shop_language) {
-                            $product_name_index = '';
-                            $product_name_index_alt = 'product_name_' . $shop_language['iso_code'];
-
-                            if (isset(
-                                $product['data'][$product_name_index_alt],
-                                $schema[$product_name_index_alt]['language_code']
-                            ) &&
-                                !empty($product['data'][$product_name_index_alt])
-                                && $schema[$product_name_index_alt]['language_code'] == $shop_language['iso_code']) {
-                                $product_name_index = 'product_name_' . $shop_language['iso_code'];
-                            } elseif (isset($product['data']['product_name'])
-                                && !empty($product['data']['product_name'])
-                                && !isset($schema['product_name']['language_code'])) {
-                                $product_name_index = 'product_name';
-                            }
-
-                            if ($product_name_index != '' && isset($product['data'][$product_name_index])
-                                && !empty($product['data'][$product_name_index])) {
-                                $this->debbug(
-                                    'Search for name in several languages : ' . $product_name_index . ' ->' .
-                                    print_r(
-                                        $product['data'][$product_name_index],
-                                        1
-                                    ) . ' language ->' . print_r($shop_language['iso_code'], 1),
-                                    'syncdata'
-                                );
-                                $mulilanguage[$shop_language['id_lang']] = $product['data'][$product_name_index];
-                            }
-                        }
 
 
-                        try {
-                            if (isset($product['data']['product_image'])) {
-                                $this->syncProductImages(
-                                    $product['data']['product_image'],
-                                    $lang['id_lang'],
-                                    $productObject->id,
-                                    $mulilanguage
-                                );
-                            }
 
-                            unset($product['data']['product_image']);
-                        } catch (Exception $e) {
-                            $this->debbug(
-                                '## Error. ' . $occurence . ' In Synchronization of images :' . print_r(
-                                    $e->getMessage(),
-                                    1
-                                ),
-                                'syncdata'
-                            );
-                        }
 
-                        $this->first_sync_shop = false;
-                    }
+
 
                     /**
                      *
@@ -1225,6 +1320,59 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
 
+
+
+                /**
+                 * Place your custom non multi-language code here
+                 */
+
+
+
+
+
+
+
+                /**
+                 * Clear all remove leftover fields of alt attribute (languages that do not match those of prestashop)
+                 */
+
+                $array_alt_attributes = preg_grep('/format_alt?/', array_keys($product['data']));
+                if (!empty($array_alt_attributes)) {
+                    foreach ($array_alt_attributes as $alt_field) {
+                        if (isset($product['data'][$alt_field])) {
+                            unset($product['data'][$alt_field]);
+                        }
+                    }
+                }
+
+                /**
+                 * Sync images
+                 */
+
+                if ($this->first_sync_shop) {
+                    try {
+                        if (isset($product['data']['product_image'])) {
+                            $this->syncProductImages(
+                                $product['data']['product_image'],
+                                $lang['id_lang'],
+                                $productObject->id,
+                                $alt_images
+                            );
+                        }
+
+                        unset($product['data']['product_image']);
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '## Error. ' . $occurence . ' In Synchronization of images :' . print_r(
+                                $e->getMessage(),
+                                1
+                            ),
+                            'syncdata'
+                        );
+                    }
+
+                    $this->first_sync_shop = false;
+                }
                 // $productObject->addToCategories($arrayIdCategories);
                 // $productObject->updateCategories($arrayIdCategories);
                 $this->debbug('Before updating categories ->' . print_r($arrayIdCategories, 1), 'syncdata');
@@ -1347,6 +1495,9 @@ class SlProducts extends SalesLayerPimUpdate
                     $productObject->unity       =  $product['data']['unity'];
                 }
 
+                if (isset($product['data']['location'])) {
+                    $productObject->location    =  $product['data']['location'];
+                }
 
 
                 if (isset($product['data']['product_active']) && $product['data']['product_active'] != '') {
@@ -1370,15 +1521,57 @@ class SlProducts extends SalesLayerPimUpdate
                         $product['data']['product_creation_date']
                     )
                 ) {
-                    $productObject->date_add = $product['data']['product_creation_date'];
+                    if ($product['data']['product_creation_date'] != null &&
+                        $product['data']['product_creation_date'] != '') {
+                        if (is_array($product['data']['product_creation_date'])) {
+                            $product['data']['product_creation_date'] =
+                                reset($product['data']['product_creation_date']);
+                        }
+                        if (is_string($product['data']['product_creation_date'])) {
+                            $creation_date = strtotime($this->fomatDate($product['data']['product_creation_date']));
+                            if (!$creation_date) {
+                                $product['data']['product_creation_date'] = $creation_date;
+                            }
+                        }
+                        if (is_numeric($product['data']['product_creation_date']) &&
+                            (int)$product['data']['product_creation_date'] ==
+                            $product['data']['product_creation_date']) {
+                            $date_add = date('Y-m-d H:i:s', $product['data']['product_creation_date']);
+                        } else {
+                            $date_add = null;
+                        }
+                        if ($date_add != null) {
+                            $productObject->date_add = $date_add;
+                        }
+                    }
                 }
 
                 if (isset($product['data']['product_available_date'])
-                    && Validate::isDate(
-                        $product['data']['product_available_date']
-                    )
                 ) {
-                    $productObject->available_date = $product['data']['product_available_date'];
+                    if ($product['data']['product_available_date'] != null &&
+                       $product['data']['product_available_date'] != '') {
+                        if (is_array($product['data']['product_available_date'])) {
+                            $product['data']['product_available_date'] =
+                                reset($product['data']['product_available_date']);
+                        }
+                        if (is_string($product['data']['product_available_date'])) {
+                            $date_result =
+                                strtotime($this->fomatDate($product['data']['product_available_date']));
+                            if (!$date_result) {
+                                $product['data']['product_available_date'] = $date_result;
+                            }
+                        }
+                        if (is_numeric($product['data']['product_available_date']) &&
+                           (int) $product['data']['product_available_date'] ==
+                           $product['data']['product_available_date']) {
+                            $available_date = date('Y-m-d', $product['data']['product_available_date']);
+                        } else {
+                            $available_date = '0000-00-00';
+                        }
+                        if (Validate::isDate($available_date)) {
+                            $productObject->available_date = $available_date;
+                        }
+                    }
                 }
 
                 /**
@@ -1481,12 +1674,12 @@ class SlProducts extends SalesLayerPimUpdate
                                             $field_arr = array($field);
                                         }
                                         $field_arr = array_map('strtolower', $field_arr);
-                                        if (in_array('file', $field_arr, false)||
-                                                 in_array('files', $field_arr, false)||
+                                        if (in_array('file', $field_arr, false) ||
+                                                 in_array('files', $field_arr, false) ||
                                                  in_array('archivo', $field_arr, false)) {
-                                            $number_of_file_fields ++;
+                                            $number_of_file_fields++;
                                         } else {
-                                            $number_of_text_fields ++;
+                                            $number_of_text_fields++;
                                         }
                                     }
                                 }
@@ -1507,11 +1700,11 @@ class SlProducts extends SalesLayerPimUpdate
                                 }
                                 $field_arr = array_map('strtolower', $field_arr);
                                 if (in_array('file', $field_arr, false) ||
-                                         in_array('files', $field_arr, false)||
+                                         in_array('files', $field_arr, false) ||
                                          in_array('archivo', $field_arr, false)) {
-                                    $number_of_file_fields ++;
+                                    $number_of_file_fields++;
                                 } else {
-                                    $number_of_text_fields ++;
+                                    $number_of_text_fields++;
                                 }
                                 $productObject->text_fields      = $number_of_text_fields;
                                 $productObject->uploadable_files = $number_of_file_fields;
@@ -1695,7 +1888,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             $name_for_save = $field_arr[0];
                                             $field_arr = array_map('strtolower', $field_arr);
                                             if (in_array('file', $field_arr, false) ||
-                                                         in_array('files', $field_arr, false)||
+                                                         in_array('files', $field_arr, false) ||
                                                          in_array('archivo', $field_arr, false)) {
                                                 $this->debbug(
                                                     'command file in array->' .
@@ -1771,8 +1964,8 @@ class SlProducts extends SalesLayerPimUpdate
                                             );
                                             $name_for_save = $field_arr[0];
                                             $field_arr = array_map('strtolower', $field_arr);
-                                            if (in_array('file', $field_arr, false)||
-                                                     in_array('files', $field_arr, false)||
+                                            if (in_array('file', $field_arr, false) ||
+                                                     in_array('files', $field_arr, false) ||
                                                      in_array('archivo', $field_arr, false)) {
                                                 $this->debbug(
                                                     'command file in array->' .
@@ -1782,7 +1975,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                 $type = 0;
                                             }
                                             if (in_array('required', $field_arr, false) ||
-                                                     in_array('require', $field_arr, false)||
+                                                     in_array('require', $field_arr, false) ||
                                                      in_array('requerido', $field_arr, false)) {
                                                 $this->debbug(
                                                     'command required in array->' .
@@ -1808,10 +2001,10 @@ class SlProducts extends SalesLayerPimUpdate
                                         'syncdata'
                                     );
                                     $query = 'UPDATE `' . _DB_PREFIX_ . 'customization_field`
-                                                SET '.
-                                                 ($value_field['type'] != $type ? '`type` = "' . $type . '" ':'').
+                                                SET ' .
+                                                 ($value_field['type'] != $type ? '`type` = "' . $type . '" ':'') .
                                                  ($value_field['type'] != $type &&
-                                                  $required != $value_field['required']? ',':'').
+                                                  $required != $value_field['required']? ',':'') .
                                                  ($required != $value_field['required']?
                                                      ' `required` = "' . $required . '" ':'') .
                                                 'WHERE `id_customization_field` = ' .
@@ -1849,7 +2042,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             SET `name` = "' . pSQL(trim($name_for_save)) . '" ' .
                                             'WHERE `id_customization_field` = "' .
                                          (int) $value_field['id_customization_field'] . '"' .
-                                            ' AND `id_shop` = "' . (int) $shop_id.'" '.
+                                            ' AND `id_shop` = "' . (int) $shop_id . '" ' .
                                             ' AND `id_lang` = "' . (int) $value_field['id_lang'] . '" ';
 
                                 if (!Db::getInstance()->execute($query)) {
@@ -2086,13 +2279,21 @@ class SlProducts extends SalesLayerPimUpdate
                             }
                         } else {
                             $this->debbug(
-                                '## Warning. '.$occurence.' product_out_of_stock ->' .
+                                '## Warning. ' . $occurence . ' product_out_of_stock ->' .
                                 print_r($out_of_stock, 1) .
-                                'Value has not been recognized. Please use:'.
+                                'Value has not been recognized. Please use:' .
                                 ' denegar|deny|false|permitir|allow|true|defecto|default|0|1|2 ',
                                 'syncdata'
                             );
                         }
+                    }
+                }
+
+                if (isset($product['data']['low_stock_threshold'])) {
+                    if (!empty($product['data']['low_stock_threshold'])) {
+                        $productObject->low_stock_threshold = (int) $product['data']['low_stock_threshold'];
+                    } else {
+                        $productObject->low_stock_threshold = null;
                     }
                 }
 
@@ -2140,6 +2341,7 @@ class SlProducts extends SalesLayerPimUpdate
                     'product_weight' => 'weight',
                     'additional_shipping_cost' => 'additional_shipping_cost',
                 );
+
                 foreach ($fieldsTransport as $fieldSales => $fieldPresta) {
                     if (isset($product['data'][$fieldSales])) {
                         $value = (float) str_replace(',', '.', $product['data'][$fieldSales]);
@@ -2315,123 +2517,155 @@ class SlProducts extends SalesLayerPimUpdate
                                 $supplier_name = $product['data'][$supplier_field];
                             }
                         }
-
-
+                        if (preg_match('/:default/', $supplier_name)) {
+                            $supplier_name = trim(str_replace(':default', '', $supplier_name));
+                            $default_supplier = true;
+                        }
 
                         if ($supplier_name != '' && $supplier_name != null) {
-                            if (preg_match('/:default/', $supplier_name)) {
-                                $supplier_name = str_replace(':default', '', $supplier_name);
-                                $default_supplier = true;
-                            }
                             $number_field = str_replace('product_supplier_', '', $supplier_field);
 
                             if ($number_field) {
-                                $product_suplier_reference_index = 'product_supplier_reference_' . $number_field;
+                                $supplier = new Supplier();
 
-                                if (isset($product['data'][$product_suplier_reference_index])
-                                    && $product['data'][$product_suplier_reference_index] != '') {
-                                    $supplier_reference = $product['data'][$product_suplier_reference_index];
-
-                                    $supplier = new Supplier();
-
-                                    $id_supplier = 0;
-                                    try {
-                                        if (is_numeric($supplier_name)) {
-                                            $supplier_exists = $supplier->supplierExists($supplier_name);
-                                            if ($supplier_exists) {
-                                                $id_supplier = $supplier_name;
-                                            }
+                                $id_supplier = 0;
+                                try {
+                                    if (is_numeric($supplier_name)) {
+                                        $supplier_exists = $supplier->supplierExists($supplier_name);
+                                        if ($supplier_exists) {
+                                            $id_supplier = $supplier_name;
+                                        } else {
+                                            $supplier_exists = $supplier->getIdByName($supplier_name);
+                                        }
+                                        if ($supplier_exists) {
+                                            $id_supplier = $supplier_exists;
+                                        }
+                                    } else {
+                                        $supplier_exists = $supplier->getIdByName(
+                                            $supplier_name
+                                        );
+                                        if ($supplier_exists) {
+                                            $id_supplier = $supplier_exists;
                                         } else {
                                             $supplier_exists = $supplier->getIdByName(
-                                                Tools::strtolower($supplier_name)
+                                                Tools::strtolower(str_replace('_', ' ', $supplier_name))
                                             );
                                             if ($supplier_exists) {
                                                 $id_supplier = $supplier_exists;
                                             } else {
                                                 $supplier_exists = $supplier->getIdByName(
-                                                    Tools::strtolower(str_replace('_', ' ', $supplier_name))
+                                                    Tools::strtolower(str_replace(' ', '_', $supplier_name))
                                                 );
                                                 if ($supplier_exists) {
                                                     $id_supplier = $supplier_exists;
-                                                } else {
-                                                    $supplier_exists = $supplier->getIdByName(
-                                                        Tools::strtolower(str_replace(' ', '_', $supplier_name))
-                                                    );
-                                                    if ($supplier_exists) {
-                                                        $id_supplier = $supplier_exists;
-                                                    }
                                                 }
                                             }
                                         }
-                                    } catch (Exception $e) {
-                                        $this->debbug(
-                                            '## Error. ' . $occurence . ': supplier management ->' .
+                                    }
+                                } catch (Exception $e) {
+                                    $this->debbug(
+                                        '## Error. ' . $occurence . ': supplier management ->' .
                                             print_r($e->getMessage(), 1) .
                                             'line->' . $e->getLine(),
-                                            'syncdata'
-                                        );
-                                    }
-                                    if ($id_supplier == 0) {
-                                        try {
-                                            $supplier             = new Supplier();
-                                            $supplier->name       = $supplier_name;
-                                            $supplier->active     = 1;
-                                            $supplier->add();
-                                            $id_supplier =   $supplier->id;
-                                        } catch (Exception $e) {
-                                            $this->debbug(
-                                                '## Error. ' . $occurence . ': in create new  supplier ->' .
-                                                print_r($e->getMessage(), 1) .
-                                                'line->' . $e->getLine(),
-                                                'syncdata'
-                                            );
-                                        }
-                                    }
-
-                                    if ($id_supplier != 0) {
-                                        if ($default_supplier) {
-                                            $default_founded[] = $id_supplier;
-                                        }
-                                        try {
-                                            $productObject->addSupplierReference($id_supplier, 0, $supplier_reference);
-                                        } catch (Exception $e) {
-                                            $this->debbug(
-                                                '## Error. ' . $occurence . ': in add supplier Reference ->' .
-                                                print_r($e->getMessage(), 1) .
-                                                'line->' . $e->getLine(),
-                                                'syncdata'
-                                            );
-                                        }
-
-                                        $processed_suppliers[$id_supplier] = 0;
-                                    } else {
+                                        'syncdata'
+                                    );
+                                }
+                                if ($id_supplier == 0) {
+                                    try {
+                                        $supplier             = new Supplier();
+                                        $supplier->name       = $supplier_name;
+                                        $supplier->active     = 1;
+                                        $supplier->add();
+                                        $id_supplier =   $supplier->id;
+                                    } catch (Exception $e) {
                                         $this->debbug(
-                                            ' ## Warning. An problem detected in supplier management ->' .
-                                            print_r($id_supplier, 1),
+                                            '## Error. ' . $occurence . ': in create new  supplier ->' .
+                                                print_r($e->getMessage(), 1) .
+                                                'line->' . $e->getLine(),
                                             'syncdata'
                                         );
                                     }
+                                }
+
+                                if ($id_supplier != 0) {
+                                    if ($default_supplier) {
+                                        $default_founded[] = $id_supplier;
+                                    }
+                                    try {
+                                        $product_supplier_reference_index = 'product_supplier_reference_'
+                                                                            . $number_field;
+                                        if (isset($product['data'][$product_supplier_reference_index])) {
+                                            if ($product['data'][$product_supplier_reference_index] != '') {
+                                                $supplier_reference =
+                                                    $product['data'][$product_supplier_reference_index];
+                                                $productObject->addSupplierReference(
+                                                    $id_supplier,
+                                                    0,
+                                                    $supplier_reference
+                                                );
+                                            }
+                                        } else {
+                                            /* $this->debbug(
+                                                 ' ## Warning. Supplier reference is empty management ->' .
+                                                     print_r($supplier_name, 1),
+                                                 'syncdata'
+                                             );*/
+                                        }
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. ' . $occurence . ': in add supplier Reference ->' .
+                                                print_r($e->getMessage(), 1) .
+                                                'line->' . $e->getLine(),
+                                            'syncdata'
+                                        );
+                                    }
+                                    $processed_suppliers[$id_supplier] = 0;
+                                } else {
+                                    $this->debbug(
+                                        ' ## Warning. An problem detected in supplier management ->' .
+                                            print_r($id_supplier, 1),
+                                        'syncdata'
+                                    );
                                 }
                             }
                         }
                     }
 
                     foreach ($current_supplier_collection as $current_supplier_item) {
-                        if ($current_supplier_item->id_product_attribute > 0
-                            || !isset($processed_suppliers[$current_supplier_item->id_supplier])) {
+                        if ($current_supplier_item->id_product_attribute == 0
+                            && !isset($processed_suppliers[$current_supplier_item->id_supplier])) {
+                            $this->debbug(
+                                ' Delete old suppliers ->' .
+                                print_r($current_supplier_item->id_supplier, 1),
+                                'syncdata'
+                            );
                             $current_supplier_item->delete();
                         }
                     }
                     //set default supplier
                     if (count($default_founded)) {
                         $this->debbug(
-                            ' Set default suppliers ->' .
-                            print_r($default_founded, 1),
+                            'Set default suppliers ->' .
+                            print_r(reset($default_founded), 1),
                             'syncdata'
                         );
                         $productObject->id_supplier = reset($default_founded);
                     } else {
-                        $productObject->id_supplier = 0;
+                        if (count($processed_suppliers)) {
+                            $this->debbug(
+                                'Set default from first supplier ->' .
+                                print_r(key($processed_suppliers), 1),
+                                'syncdata'
+                            );
+                            $productObject->id_supplier = key($processed_suppliers);
+                        } else {
+                            $this->debbug(
+                                'Set 0 as default supplier ->' .
+                                print_r(key($processed_suppliers), 1),
+                                'syncdata'
+                            );
+                            $productObject->id_supplier = 0;
+                        }
                     }
                 }
                 $product_id = null;
@@ -2515,6 +2749,13 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             ' result: success', 'syncdata');
                     }
                 }
+                $this->debbug('Before run indexation', 'syncdata');
+                $microtime = microtime(1);
+                Search::indexation(false, $product_id);
+                $this->debbug('After run indexation time->' . print_r(
+                    (microtime(1) - $microtime),
+                    1
+                ), 'syncdata');
 
                 unset($productObject);
 
@@ -2602,6 +2843,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             'type_reduction' => (isset($product_discount_1_data['type_reduction']) ?
                                 $product_discount_1_data['type_reduction'] : 'amount'),
                             'from_quantity' => 1,
+                            'from_time' => '0000-00-00 00:00:00',
+                            'to_time' => '0000-00-00 00:00:00'
                         );
                         if (is_numeric($product_discount_1_value) && $product_discount_1_value > 0) {
                             if (isset($product['data']['product_discount_1_quantity'])
@@ -2624,6 +2867,45 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                           print_r($product_discount_1_data, 1)
                                           . ' and id of shop for edit->' . print_r($shop_id, 1), 'syncdata');
                         }
+                        /**
+                         * check time from discount
+                         */
+                        if (isset($product['data']['product_discount_1_from'])) {
+                            if (!empty($product['data']['product_discount_1_from'])) {
+                                if (is_array($product['data']['product_discount_1_from'])) {
+                                    $product['data']['product_discount_1_from'] =
+                                        reset($product['data']['product_discount_1_from']);
+                                }
+                                $fromtime = strtotime($this->fomatDate($product['data']['product_discount_1_from']));
+                                if ($fromtime) {
+                                    $product_discount_1_data['from_time'] = date('Y-m-d H:i:s', $fromtime);
+                                } else {
+                                    $this->debbug('## Warning. product_discount_1_from date not recognized ->' .
+                                                  print_r($product['data']['product_discount_1_from'], 1), 'syncdata');
+                                }
+                            }
+                        }
+                        unset($product['data']['product_discount_1_from']);
+
+                        /**
+                         * check time to discount
+                         */
+                        if (isset($product['data']['product_discount_1_to'])) {
+                            if (!empty($product['data']['product_discount_1_to'])) {
+                                if (is_array($product['data']['product_discount_1_to'])) {
+                                    $product['data']['product_discount_1_to'] =
+                                        reset($product['data']['product_discount_1_to']);
+                                }
+                                $totime = strtotime($this->fomatDate($product['data']['product_discount_1_to']));
+                                if ($totime) {
+                                    $product_discount_1_data['to_time'] = date('Y-m-d H:i:s', $totime);
+                                } else {
+                                    $this->debbug('## Warning. product_discount_1_to date not recognized ->' .
+                                                  print_r($product['data']['product_discount_1_to'], 1), 'syncdata');
+                                }
+                            }
+                        }
+                        unset($product['data']['product_discount_1_to']);
                     }
 
                     /**
@@ -2695,6 +2977,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 'type_reduction' => (isset($product_discount_2_data['type_reduction']) ?
                                     $product_discount_2_data['type_reduction'] : 'amount'),
                                 'from_quantity' => 1,
+                                'from_time' => '0000-00-00 00:00:00',
+                                'to_time' => '0000-00-00 00:00:00'
                             );
 
 
@@ -2715,10 +2999,53 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $product_discount_2_data['from_quantity'] = 1;
                             }
                         }
+
+                        /**
+                         * check time from discount
+                         */
+                        if (isset($product['data']['product_discount_2_from'])) {
+                            if (!empty($product['data']['product_discount_2_from'])) {
+                                if (is_array($product['data']['product_discount_2_from'])) {
+                                    $product['data']['product_discount_2_from'] =
+                                        reset($product['data']['product_discount_2_from']);
+                                }
+                                $fromtime = strtotime($this->fomatDate($product['data']['product_discount_2_from']));
+                                if ($fromtime) {
+                                    $product_discount_2_data['from_time'] = date('Y-m-d H:i:s', $fromtime);
+                                } else {
+                                    $this->debbug('## Warning. product_discount_2_from ' .
+                                                  ' format of date not recognized ->' .
+                                                  print_r($product['data']['product_discount_2_from'], 1), 'syncdata');
+                                }
+                                $this->debbug(' data  ->' .
+                                              print_r($product['data']['product_discount_2_from'], 1), 'syncdata');
+                            } else {
+                                $this->debbug(' empty ->' .
+                                              print_r($product_discount_2_data['from_time'], 1), 'syncdata');
+                            }
+                        }
+                        unset($product['data']['product_discount_2_from']);
+
+                        /**
+                         * check time to discount
+                         */
+                        if (isset($product['data']['product_discount_2_to'])) {
+                            if (!empty($product['data']['product_discount_2_to'])) {
+                                if (is_array($product['data']['product_discount_2_to'])) {
+                                    $product['data']['product_discount_2_to'] =
+                                        reset($product['data']['product_discount_2_to']);
+                                }
+                                $totime = strtotime($this->fomatDate($product['data']['product_discount_2_to']));
+                                if ($totime) {
+                                    $product_discount_2_data['to_time'] = date('Y-m-d H:i:s', $totime);
+                                } else {
+                                    $this->debbug('## Warning. product_discount_2_to format of date not recognized ->' .
+                                                  print_r($product['data']['product_discount_2_to'], 1), 'syncdata');
+                                }
+                            }
+                        }
+                        unset($product['data']['product_discount_2_to']);
                     }
-
-
-
 
                     $this->debbug('Sync special price $context_store :' . $context_store, 'syncdata');
 
@@ -2853,7 +3180,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 }
             }
             $this->debbug(
-                'Before array_dif: $update_tag->' . print_r($update_tag, 1) . ' $my_tags->' .
+                'Before array_diff: $update_tag->' . print_r($update_tag, 1) . ' $my_tags->' .
                 print_r(
                     $my_tags,
                     1
@@ -2861,18 +3188,17 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 'syncdata'
             );
 
-            $difference = array_diff($my_tags, $update_tag);
+            $difference = $this->slArrayDiff($my_tags, $update_tag);
             if (count($difference)) {
                 $this->debbug(
-                    'adding tags  : ' . print_r($difference, 1),
+                    'adding new tags  : ' . print_r($difference, 1),
                     'syncdata'
                 );
-
                 Tag::addTags($lang['id_lang'], $id_product, $difference);
             }
 
             $this->debbug(
-                'add tags after add : diff ->' .
+                'Add tags after add : diff ->' .
                 print_r(
                     $difference,
                     1
@@ -2894,16 +3220,15 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             SELECT tg.id_tag 
                             FROM ' . _DB_PREFIX_ . 'product_tag tg
                             WHERE tg.`id_tag` = ' . (int) $tagObj->id .
-                           ' AND tg.`id_product` != '.$id_product .
-                           ' AND tg.`id_lang` != '.$lang['id_lang'].'
+                           ' AND tg.`id_product` != ' . $id_product .
+                           ' AND tg.`id_lang` != ' . $lang['id_lang'] . '
                         ');
                         $countconter = Db::getInstance()->executeS('
                             SELECT tg.id_tag 
                             FROM ' . _DB_PREFIX_ . 'tag_count tg
                             WHERE tg.`id_tag` = ' . (int) $tagObj->id .
-                            ' AND tg.`id_shop` != '.$idShop .
-                            ' AND tg.`id_lang` != '.$lang['id_lang'].'
-                        ');
+                            ' AND tg.`id_shop` != ' . $idShop .
+                            ' AND tg.`id_lang` != ' . $lang['id_lang' ]);
                         if (!count($count) && !count($countconter)) {
                             // delete tag if exist only in this product and store
                             $tagObj->delete();
@@ -2920,8 +3245,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 Db::getInstance()->execute(
                                     'DELETE  FROM ' . _DB_PREFIX_ . 'product_tag 
                                      WHERE `id_tag` = ' . (int) $tagObj->id .
-                                    ' AND `id_product` = '.$id_product .
-                                    ' AND `id_lang` = '.$lang['id_lang']
+                                    ' AND `id_product` = ' . $id_product .
+                                    ' AND `id_lang` = ' . $lang['id_lang']
                                 );
                             }
 
@@ -2941,7 +3266,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         } catch (Exception $e) {
             $this->debbug('## Error. Occurred in sync tags ->' . $e->getMessage() .
                           ' line->' . $e->getLine() .
-                           'trace->'.print_r($e->getTrace(), 1), 'syncdata');
+                           'trace->' . print_r($e->getTrace(), 1), 'syncdata');
         }
     }
     public function syncProductAttachment($files, $product_id, $mulilanguage)
@@ -2999,7 +3324,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
             foreach ($newfileArray as $fileReference => $file_url) {
                 $this->debbug(
-                    'Processing images of variant and setting it to a product from this connection ->' . print_r(
+                    'Processing file of product from this connection ->' . print_r(
                         $file_url,
                         1
                     ),
@@ -3119,10 +3444,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
          * DELETE ATTACHMENTS
          */
 
-        $this->debbug('We will check if any of the images have been imported in the past with this variant');
-        /*  $slyr_attachments = Db::getInstance()->executeS(
-              'SELECT * FROM ' . _DB_PREFIX_ . "slyr_attachment at WHERE  at.ps_product_id = '" . $product_id . "' "
-          );*/
+        $this->debbug('We will check if any of the attachments have been imported' .
+                      ' in the past with this variant', 'syncdata');
+
         $slyr_attachments = Db::getInstance()->executeS(
             'SELECT * FROM ' . _DB_PREFIX_ . "product_attachment at WHERE  at.id_product = '" . $product_id . "' "
         );
@@ -3170,7 +3494,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $attachment->name[$language['id_lang']] = (string) $fileReference;
                 if (isset($mulilanguage[$language['id_lang']])) {
                     $attachment->description[$language['id_lang']] =
-                        $mulilanguage[$language['id_lang']] . ' ' . reset($explode);
+                        Tools::substr($mulilanguage[$language['id_lang']] . ' ' . reset($explode), 128);
                 }
             }
 
@@ -3188,8 +3512,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
             if ($attachment->id) {
                 Db::getInstance()->execute('
-                        INSERT INTO `'._DB_PREFIX_.'product_attachment` (`id_attachment`, `id_product`)
-                        VALUES ('.(int)$attachment->id.', '.(int)$id_product.')
+                        INSERT INTO `' . _DB_PREFIX_ . 'product_attachment` (`id_attachment`, `id_product`)
+                        VALUES (' . (int)$attachment->id . ', ' . (int)$id_product . ')
                         ');
             }
 
@@ -3216,11 +3540,25 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         $mulilanguage
     ) {
         if (isset($mulilanguage) && !empty($mulilanguage)) {
-            $occurence = ' product name :' . reset($mulilanguage);
+            $first_name = reset($mulilanguage);
+            if (is_array($first_name)) {
+                $first_name = reset($mulilanguage);
+            }
+            $occurence = ' product name :' . print_r($first_name, 1) ;
         } else {
             $occurence = ' ID :' . $product_id;
         }
         $image_counter_position = 1;
+
+        $this->debbug(
+            '$multilanguage array->' . print_r(
+                $mulilanguage,
+                1
+            ),
+            'syncdata'
+        );
+
+
         $this->debbug(
             $occurence . '  Beginning to synchronise images. First sync shop for this product->' . print_r(
                 $this->first_sync_shop,
@@ -3272,16 +3610,16 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                  * How to a search images cached in SL table for MD5 hash
                  */
                 $this->debbug(' How to a search images cached in SL table for MD5 hash ', 'syncdata');
-                $catch_images_references = implode("','", array_keys($catch_images));
+                // $catch_images_references = implode("','", array_keys($catch_images));
 
-                if ($catch_images_references != '') {
-                    $catch_images_references = "'" . $catch_images_references . "'";
+                if (count($catch_images)) {
+                    // $catch_images_references = "'" . $catch_images_references . "'";
 
                     $slyr_images = Db::getInstance()->executeS(
                         'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im
-                        WHERE  im.origin = 'prod'  AND im.ps_product_id = '" . $product_id . "'
-                        AND im.image_reference IN (" . $catch_images_references . ")  "
-                    );
+                        WHERE   im.ps_product_id = '" . $product_id . "'"
+                    ); //im.origin = 'prod'  AND  AND im.image_reference IN (" . $catch_images_references . ")  "
+                    $this->debbug('Images of product -> ' . print_r($slyr_images, 1), 'syncdata');
                 }
             }
 
@@ -3310,9 +3648,15 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     $this->debbug('loop Stored product images', 'syncdata');
                     foreach ($slyr_images as $keySLImg => $slyr_image) { // from sl cache
                         $image_found = false;
-
                         foreach ($ps_images as $keyPSImg => $ps_image) { // PS product images
-                            if ($slyr_image['md5_image'] !== '' && $slyr_image['id_image'] == $ps_image['id_image']) { // comparation valid
+                            $variants = 0;
+                            if ($slyr_image['ps_variant_id'] != null) {
+                                $variants = count(json_decode($slyr_image['ps_variant_id'], 1));
+                            }
+                            if ($slyr_image['md5_image'] !== '' && $slyr_image['id_image'] == $ps_image['id_image'] &&
+                                (array_key_exists($slyr_image['image_reference'], $catch_images) || $variants > 0)) { // Is image from producto or is image from variant
+                                $this->debbug('Protect image->' .
+                                              print_r($slyr_image['id_image'], 1), 'syncdata');
                                 $image_found = true;
                                 unset($ps_images[$keyPSImg]);
                                 break;
@@ -3320,41 +3664,43 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         }
 
                         if (!$image_found) { // Product image not found send delete it from sl cache
+                            $this->debbug('Send for delete id_image->' .
+                                          print_r($slyr_image['id_image'], 1), 'syncdata');
                             $slyr_images_to_delete[] = $slyr_image['id_image'];
                             unset($slyr_images[$keySLImg]);
                         }
                     }
 
-
                     /**
                      * Images for delete that do not match in SL
                      */
-                    $this->debbug('Images to be deleted that do not match in SL', 'syncdata');
-                    foreach ($ps_images as $ps_image) {
+                    $this->debbug('Images to be deleted that do not match in SL id_images->' .
+                                  print_r($ps_images, 1), 'syncdata');
+                    /*foreach ($ps_images as $ps_image) {
                         $image_delete = new Image($ps_image['id_image']);
                         $image_delete->delete();
-
                         $slyr_images_to_delete[] = $ps_image['id_image'];
-                    }
+                    }*/
                 }
-            } else {
+            } //else {
+            /**
+             * There are no cached images in the SL TABLE for this product
+             */
+            $this->debbug('There are no cached images in the SL TABLE for this product. id_image->' .
+                              print_r($ps_images, 1), 'syncdata');
+            if (!empty($ps_images)) {
                 /**
-                 * There are no cached images in the SL TABLE for this product
+                 * Images send for delete
                  */
-                $this->debbug('There are no cached images in the SL TABLE for this product', 'syncdata');
-                if (!empty($ps_images)) {
-                    /**
-                     * Images send for delete
-                     */
 
-                    foreach ($ps_images as $ps_image) {
-                        $image_delete = new Image($ps_image['id_image']);
-                        $image_delete->delete();
+                foreach ($ps_images as $ps_image) {
+                    $image_delete = new Image($ps_image['id_image']);
+                    $image_delete->delete();
 
-                        $slyr_images_to_delete[] = $ps_image['id_image'];
-                    }
+                    $slyr_images_to_delete[] = $ps_image['id_image'];
                 }
             }
+            // }
 
             if (!empty($slyr_images_to_delete)) {
 
@@ -3404,13 +3750,16 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                      */
 
                                     unset($slyr_images[$keySLImg]);
-
                                     if ($slyr_image['md5_image'] !== $md5_image) {
 
                                         /**
                                          * Image with same name but different md5
                                          */
-
+                                        $this->debbug(
+                                            'Image with same name but different md5. Delete image ->' .
+                                            print_r($slyr_image['id_image'], 1),
+                                            'syncdata'
+                                        );
                                         $image_delete = new Image($slyr_image['id_image']);
                                         $image_delete->delete();
                                         break;
@@ -3423,6 +3772,16 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
                                         try {
                                             foreach ($mulilanguage as $id_lang_multi => $name_of_product) {
+                                                if (is_array($name_of_product)) {
+                                                    $index_alt = $image_counter_position - 1;
+                                                    if (isset($name_of_product[$index_alt])) {
+                                                        $name_of_product = $name_of_product[$index_alt];
+                                                    } else {
+                                                        $name_of_product = reset($name_of_product) .
+                                                                           ' (' . $image_counter_position . ')';
+                                                    }
+                                                }
+
                                                 if ($name_of_product != ''
                                                     && (!isset($image_cover->legend[$id_lang_multi])
                                                         || trim(
@@ -3434,7 +3793,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                         'Recording a new image alt attribute, ' .
                                                          'you need to update this image information ->' .
                                                         print_r(
-                                                            $image_cover->legend[$id_lang],
+                                                            $image_cover->legend[$id_lang_multi],
                                                             1
                                                         ) .
                                                         '  !=  ' .
@@ -3443,11 +3802,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                     );
                                                 } else {
                                                     $this->debbug(
-                                                        'The image is the same, the alt attribute of the image ' .
+                                                        'The image is the same or empty,' .
+                                                        ' the alt attribute of the image ' .
                                                          'is the same. It is not necessary to update the information ' .
                                                          'of this image ->' .
                                                         print_r(
-                                                            $image_cover->legend[$id_lang],
+                                                            $image_cover->legend[$id_lang_multi],
                                                             1
                                                         ) .
                                                         '  ==  ' .
@@ -3511,7 +3871,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                             );
                                         }
 
-
                                         unlink($temp_image);
                                         unset($image_cover);
 
@@ -3533,6 +3892,17 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         $image->position = Image::getHighestPosition($product_id) + 1;
 
                         foreach ($mulilanguage as $id_lang_multi => $name_of_product) {
+                            if (is_array($name_of_product)) {
+                                $index_alt = $image_counter_position - 1;
+                                if (isset($name_of_product[$index_alt])) {
+                                    $name_of_product = $name_of_product[$index_alt];
+                                } else {
+                                    $name_of_product = reset($name_of_product) .
+                                                       ' (' . $image_counter_position . ')';
+                                }
+                            }
+
+
                             if ($name_of_product != ''
                                 && (!isset($image->legend[$id_lang_multi])
                                     || trim(
@@ -3543,7 +3913,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $this->debbug(
                                     'Setting image alt attribute. You  to update this image info ->' .
                                     print_r(
-                                        $image->legend[$id_lang],
+                                        $image->legend[$id_lang_multi],
                                         1
                                     ) .
                                     '  !=  ' .
@@ -3555,9 +3925,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 );
                             } else {
                                 $this->debbug(
-                                    'Image is the same, image alt attribute not is
-                                    needed, update this image info ->' . print_r(
-                                        $image->legend[$id_lang],
+                                    'Image is the same, image alt attribute not is ' .
+                                    ' needed, update this image info ->' .
+                                    print_r(
+                                        $image->legend[$id_lang_multi],
                                         1
                                     ) .
                                     '  ==  ' .
@@ -3568,11 +3939,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     'syncdata'
                                 );
                             }
-                            /*  if($name_of_product != '' && $id_lang_multi != $this->defaultLanguage
-                            && ( $image->legend[$this->defaultLanguage] == null ||
-                            $image->legend[$this->defaultLanguage] == '' )){
-                                  $image->legend[$this->defaultLanguage] = $name_of_product;
-                              }*/
                         }
 
                         if ($cover) {
@@ -3653,7 +4019,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $prepare_second_attempt_legend = $image->legend;
 
                                 $image->delete();
-
+                                $this->debbug(
+                                    'Delete image after repair ' . print_r($image->id, 1),
+                                    'syncdata'
+                                );
                                 $cloned_image = new Image();
                                 $cloned_image->cover = $prepare_second_attempt_cover;
                                 $cloned_image->legend = $prepare_second_attempt_legend;
@@ -3693,7 +4062,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             ) {  //imageUrl
                                 $this->debbug(
                                     'There was a problem copying the image, eliminating 
-                                    the temporary image',
+                                    the temporary image id_image->' . print_r($image->id, 1),
                                     'syncdata'
                                 );
                                 $image->delete();
@@ -3730,7 +4099,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 ) . ', result save image->' . print_r(
                                     ($result_save_image ? 'true' : 'false'),
                                     1
-                                ) . ', url->' . $url,
+                                ) . ', url->' . $url . ' id_image->' . print_r($image->id, 1),
                                 'syncdata'
                             );
                             //  $this->debbug('## Error. '.$occurence.'. object->'.print_r($image,1), 'syncdata');
@@ -3743,7 +4112,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $this->debbug('END processing this image Timing ->' . ($time_ini_image - microtime(1)), 'syncdata');
             }
         } else {
-            $this->debbug('We will check if any of the images have been imported in the past with this variant');
+            $this->debbug('We will check if any of the images have been imported ' .
+                          'in the past with this variant', 'syncdata');
             $slyr_images = Db::getInstance()->executeS(
                 'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im WHERE  im.ps_product_id = '" . $product_id . "' "
             );
@@ -3762,12 +4132,13 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         'syncdata'
                     );
 
-                    if (empty($variant_ids)) {// this variant  is unique variant in use this file
+                    if (empty($variant_ids)) {     // this variant  is unique variant in use this file
+                        $image_delete = new Image($slyr_image['id_image']);
                         $this->debbug(
-                            'Deleting image because it does not belong to any products or variants',
+                            'Deleting image because it does not belong to any products or variants.' .
+                            ' id_image ->' . print_r($slyr_image['id_image'], 1),
                             'syncdata'
                         );
-                        $image_delete = new Image($slyr_image['id_image']);
                         $image_delete->delete();
                         Db::getInstance()->execute(
                             'DELETE FROM ' . _DB_PREFIX_ . "slyr_image
@@ -4171,8 +4542,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             } else {
                 $productObject->minimal_quantity = 1;
             }
+            if (!isset($product['data']['product_available_for_order'])) {
+                $productObject->available_for_order = true;
+            }
 
-            $productObject->available_for_order = true;
             try {
                 $productObject->save();
             } catch (Exception $e) {
@@ -4256,12 +4629,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     ) {
                     $this->debbug('Id shop for discount edit existing->' .
                                   print_r($prodSPExisting['id_shop'], 1)
-                        .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
+                        . ' and id of shop for edit->' . print_r($shop_id, 1), 'syncdata');
 
                     if ($id_specific_price_1 == 0 && !empty($product_discount_1_data['reduction'])) {
                         $this->debbug('Id shop for discount edit existing->' .
                                       print_r($prodSPExisting['id_shop'], 1)
-                                      .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
+                                      . ' and id of shop for edit->' . print_r($shop_id, 1), 'syncdata');
                         $id_specific_price_1 = $prodSPExisting['id_specific_price'];
                         unset($prodSPsExisting[$keySP]);
                         continue;
@@ -4279,7 +4652,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         if (!empty($product_discount_1_data['reduction'])) {
             $this->debbug('Data for sync discount 1->' .
                           print_r($product_discount_1_data, 1)
-                          .' and id of shop for edit->'.print_r($shop_id, 1), 'syncdata');
+                          . ' and id of shop for edit->' . print_r($shop_id, 1), 'syncdata');
             if ($product_discount_1_data['type_reduction'] == 'percentage') {
                 $product_discount_1_data['reduction'] /= 100;
             }
@@ -4296,8 +4669,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPrice->price = (float)'-1.000000';
                 $specificPrice->reduction_tax = 1;
                 $specificPrice->from_quantity = $product_discount_1_data['from_quantity'];
-                $specificPrice->from = '0000-00-00 00:00:00';
-                $specificPrice->to = '0000-00-00 00:00:00';
+                $specificPrice->from = $product_discount_1_data['from_time'];
+                $specificPrice->to   = $product_discount_1_data['to_time'];
                 $specificPrice->id_shop = $shop_id;
                 $specificPrice->add();
                 $protected_ids[] = $specificPrice->id;
@@ -4309,20 +4682,21 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPriceProduct->reduction = $product_discount_1_data['reduction'];
                 $specificPriceProduct->reduction_type = $product_discount_1_data['type_reduction'];
                 $specificPriceProduct->from_quantity = $product_discount_1_data['from_quantity'];
+                $specificPriceProduct->from    = $product_discount_1_data['from_time'];
+                $specificPriceProduct->to      = $product_discount_1_data['to_time'];
                 $specificPriceProduct->id_shop = $shop_id;
                 $specificPriceProduct->update();
                 $protected_ids[] = $id_specific_price_1;
-                $this->debbug(
-                    'Updating special price->' .
-                              print_r($product_discount_1_data, 1) .
-                              'shop_id->'.print_r($shop_id, 1),
-                    'syncdata'
-                );
+
                 unset($specificPriceProduct);
             }
         }
 
         if (!empty($product_discount_2_data['reduction'])) {
+            $this->debbug('Data for sync discount 2->' .
+                          print_r($product_discount_2_data, 1)
+                          . ' and id of shop for edit->' . print_r($shop_id, 1), 'syncdata');
+
             if ($product_discount_2_data['type_reduction'] == 'percentage') {
                 $product_discount_2_data['reduction'] /= 100;
             }
@@ -4339,8 +4713,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPrice->price = (float)"-1.000000";
                 $specificPrice->reduction_tax = 1;
                 $specificPrice->from_quantity = $product_discount_2_data['from_quantity'];
-                $specificPrice->from = "0000-00-00 00:00:00";
-                $specificPrice->to = "0000-00-00 00:00:00";
+                $specificPrice->from = $product_discount_2_data['from_time'];
+                $specificPrice->to = $product_discount_2_data['to_time'];
                 $specificPrice->id_shop = $shop_id;
                 $specificPrice->add();
                 $protected_ids[] = $specificPrice->id;
@@ -4350,6 +4724,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $specificPriceProduct->reduction = $product_discount_2_data['reduction'];
                 $specificPriceProduct->reduction_type = $product_discount_2_data['type_reduction'];
                 $specificPriceProduct->from_quantity = $product_discount_2_data['from_quantity'];
+                $specificPriceProduct->from = $product_discount_2_data['from_time'];
+                $specificPriceProduct->to   = $product_discount_2_data['to_time'];
                 $specificPriceProduct->id_shop = $shop_id;
                 $specificPriceProduct->update();
                 $protected_ids[] = $id_specific_price_2;
@@ -4361,7 +4737,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         foreach ($prodSPsExisting as $specific_price) {
             $this->debbug('Entry for a delete special price with same ->' .
                           print_r($specific_price, 1)
-                          .' and id of shop for delete->'.print_r($shop_id, 1), 'syncdata');
+                          . ' and id of shop for delete->' . print_r($shop_id, 1), 'syncdata');
             if (($specific_price['id_shop'] == $shop_id ||
                  ($shop_id == 0 && $specific_price['id_shop'] == Shop::getContextShopID())) &&
                 !in_array($specific_price['id_specific_price'], $protected_ids, false)) {
@@ -4780,7 +5156,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             // si viene con comando para crear caracteristica
                                             // como custom la quitamos rellenamos como custom
 
-                                            $value = str_replace(array( ':custom', ':CUSTOM' ), '', $value);
+                                            $value = trim(str_replace(array( ':custom', ':CUSTOM' ), '', $value));
                                             $create_as_custom = true;
                                         } else {
                                             $create_as_custom = $this->create_new_features_as_custom;
@@ -5467,8 +5843,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             for (; $stat < $count; $stat++) {
                                 $create_as_custom = $this->create_new_features_as_custom;
                                 $filtered = array();
-                                foreach ($prepare_values_feature as $id_lang => $line) { //filter array level
-
+                                foreach ($prepare_values_feature as $id_lang => $line) {
                                     if (isset($line[$stat]) && preg_match('/:(custom|CUSTOM)/', $line[$stat])) {
                                         // si viene con comando para crear caracteristica
                                         // como custom la quitamos rellenamos como custom

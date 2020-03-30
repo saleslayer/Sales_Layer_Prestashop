@@ -59,6 +59,13 @@ class AdminDiagtoolsController extends ModuleAdminController
         $return .= '<table class="table">';
         $this->showtable = $return;
 
+        if ($this->SLimport->i_am_a_developer) {
+            /**
+             * Refresh integrity of plugin
+             */
+            $this->SLimport->createIntegrity();
+        }
+
 
         $array_toshow = ['Php version',phpversion()];
         $this->formatTable($array_toshow);
@@ -130,6 +137,57 @@ class AdminDiagtoolsController extends ModuleAdminController
                                                      $this->SLimport->getConfiguration('LATEST_CRON_EXECUTION')
                                                  ) . '</span>'];
         $this->formatTable($array_toshow);
+
+        if (!$this->SLimport->compareIntegrity()) {
+            $class = "text-danger";
+            $text = 'The files are not properly installed, install the plugin to correct this bug.';
+        } else {
+            $class = "text-success";
+            $text = 'All files are well installed.';
+        }
+
+        $array_toshow = ['Module Integrity','<span class="' . $class . '" title="' . $text .
+                                             '">' . $text .
+                                            ' &nbsp;&nbsp;&nbsp;&nbsp;Control token: ' .
+                                            hash('crc32', json_encode($this->SLimport->loadIntegrity())) .
+                                            ' &nbsp;&nbsp;&nbsp;&nbsp;Generated: ' . date(
+                                                'd/m/Y H:i:s',
+                                                filemtime($this->SLimport->integrityPathDirectory .
+                                                $this->SLimport->integrityFile)
+                                            ) . ' </span>'];
+        $this->formatTable($array_toshow);
+
+        $array_toshow = ['Ajax connections','<span id="ajaxtest" class="text-danger" ' .
+                                            ' title="Ajax connections">It does not work</span>'];
+        $this->formatTable($array_toshow);
+
+        $class = "text-success";
+        $text  = 'It has not yet been possible to analyze if there is enough memory to receive data.';
+        $max_memory_usage =  $this->SLimport->getConfiguration('MAX_MEMORY_USAGE');
+        $free_memory = $this->SLimport->checkServerUse();
+        if ($max_memory_usage) {
+            $array_toshow = ['Max used memory',
+                '<span title="Memory used in its largest synchronization for download data.">' .
+                                                                 $max_memory_usage . ' Mb</span>'];
+            $this->formatTable($array_toshow);
+
+
+
+            if ($max_memory_usage > $free_memory) {
+                $class = "text-danger";
+                $text = 'For synchronization you needed more memory than is available now.';
+            } else {
+                $class = "text-success";
+                $text = 'There is supposedly enough memory to receive data.';
+            }
+        }
+
+        $array_toshow = ['Free memory','<span class="' . $class . '" title="' . $text . '">' .
+                                       $free_memory['frmem'] . ' Mb</span>'];
+        $this->formatTable($array_toshow);
+
+
+
 
         $this->showtable .= '</table>';
 
@@ -239,6 +297,7 @@ class AdminDiagtoolsController extends ModuleAdminController
     }
     private function showlogfiles()
     {
+        $ignored_files = array('index.php');
         $files = array();
         $log_dir_path = $this->SLimport->log_module_path;
 
@@ -248,13 +307,14 @@ class AdminDiagtoolsController extends ModuleAdminController
             }
         }
 
-        $log_folder_files = scandir($log_dir_path);
+        $log_folder_files = array_slice(scandir($log_dir_path), 2);
 
         if (!empty($log_folder_files)) {
             foreach ($log_folder_files as $log_folder_file) {
-                if (strpos($log_folder_file, '_saleslayer_') !== false) { //_debbug_log_saleslayer_
-                    $files[] = $log_folder_file;
+                if (in_array($log_folder_file, $ignored_files, false)) {
+                    continue;
                 }
+                $files[] = $log_folder_file;
             }
         }
         /*titles*/

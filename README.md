@@ -129,6 +129,20 @@ This button will help you to eliminate in bulk all the categories, products and 
    and change the value to <b>true</b>.</p>
 </div>
 
+V 1.4.16
+<ul>
+<li> New features for rules for taxes (tax). From this version it is possible to use, aside
+from ids of the tax, the direct value of the tax adding a channel “number+%”.</li>
+<li> Attributes addition to create discounts between dates. </li>
+<li> Custom alt attributes for images.</li>
+<li> The order of the images works now for variants. It is respected the order in Sales
+layer when exporting.</li>
+<li> Possibility of adding many suppliers. </li>
+<li>The system verifies the integrity of the uploaded files.</li>
+<li> Performance improved.</li>
+<li> Added message status for the CPU load level and added warning messages.</li>
+<li> Direct access to documentation from plugin page.</li>
+</ul>
 
 
 

@@ -29,6 +29,10 @@
   border-color: #eed3d7
 }
 
+.mar-5 {
+  margin: 5px
+}
+
 .mar-10 {
   margin: 10px
 }
@@ -81,7 +85,9 @@ border:0 !important;
 .success-msg {
   color: #72c279
 }
-
+.warning-msg {
+  color: #fcba03
+}
 .error-msg {
   color: #b94a48
 }

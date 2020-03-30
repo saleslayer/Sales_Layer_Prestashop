@@ -149,6 +149,7 @@ class AddConnectorsController extends ModuleAdminController
                     );
                 } else {
                     try {
+                        $this->SLimport->checkFreeSpaceMemory();
                         $this->SLimport->sl_updater->setIdentification($conn_code, $conn_secret);
                         $this->SLimport->sl_updater->getConnectorsInfo($conn_code);
                         $this->SLimport->sl_updater->update(true, null, true);

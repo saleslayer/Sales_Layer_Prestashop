@@ -114,6 +114,10 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 $return['work_stat'] = $Work_in_message ;
                 $return['status'] = 'complete';
             }
+            /**
+             * system health
+             */
+              $return['health'] = $SLimport->checkServerUse();
 
             die(Tools::jsonEncode($return));
         }

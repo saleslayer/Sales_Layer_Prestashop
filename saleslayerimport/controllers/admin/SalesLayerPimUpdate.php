@@ -133,7 +133,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
         ini_set('memory_limit', '-1');
-
+        $this->checkFreeSpaceMemory();
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
         } else {
@@ -525,6 +525,16 @@ class SalesLayerPimUpdate extends SalesLayerImport
             )
         );
         $this->deleteOldDebugFiles();
+        $mem = round(sprintf("%05.2f", (memory_get_usage(true) / 1024) / 1024));
+        $max_memory = $this->getConfiguration('MAX_MEMORY_USAGE');
+        if ($max_memory) {
+            if ($max_memory < $mem) {
+                $this->saveConfiguration(['MAX_MEMORY_USAGE' => $mem]);
+            }
+        } else {
+            $this->saveConfiguration(['MAX_MEMORY_USAGE' => $mem]);
+        }
+
 
 
         if (count($catalogue_items) > 0 || count($catalogue_items_del) > 0 || count($product_items) > 0
@@ -1070,6 +1080,17 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return false;
         }
     }
+    public function decodeUrl($url)
+    {
+        $url_parse = parse_url($url);
+        $explode = explode('/', $url_parse['path']);
+        $new_path = array();
+        foreach ($explode as $elm) {
+            $new_path[] = rawurlencode(urldecode($elm));
+        }
+        $newurl = $url_parse['scheme'] . '://' . $url_parse['host'] . implode('/', $new_path) ;
+        return $newurl;
+    }
 
     public function urlSendCustomJson(
         $type,
@@ -1077,9 +1098,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $json = null,
         $wait_for_response = true
     ) {
-
         //  $time_ini_urlsendcustomjson = microtime(1);
-        $ch = curl_init($url);
+        $ch = curl_init($this->decodeUrl($url));
         $agent = 'SALES-LAYER PIM, Connector Prestashop->' . $this->name . ', Sync-Data';
         curl_setopt($ch, CURLOPT_USERAGENT, $agent);
         if ($json !== null) {
@@ -1102,13 +1122,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
         } else {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         }
+        //curl_setopt($ch, CURLOPT_FAILONERROR, true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $type);
         curl_setopt($ch, CURLOPT_HEADER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_ENCODING, 'UTF-8');
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-
 
         $result = curl_exec($ch);
 
@@ -1119,21 +1139,21 @@ class SalesLayerPimUpdate extends SalesLayerImport
             $http_stat = true;
         } else {
             if ($wait_for_response) {
-                if ($this->debugmode && $httpcode == 0) {
-                    $this->debbug(' curl error result  ' . curl_error($ch), 'syncdata');
+                if ($httpcode == 0) {
+                    $this->debbug(' ## Error. curl problem connection result  ' . curl_error($ch), 'syncdata');
                 }
-                if ($this->debugmode) {
-                    $this->debbug(
-                        ' error result connection http:' . $httpcode . ' -> ' . print_r(
-                            $result,
-                            1
-                        ) . ' type :' . $type . '   json decoded-> ' . print_r(
-                            json_decode($json, 1),
-                            1
-                        ) . ' URL -> ' . $url,
-                        'syncdata'
-                    );
-                }
+                $this->debbug(
+                    '## Error. result connection http:' . $httpcode . ' -> ' . print_r(
+                        $result,
+                        1
+                    ) . ' type :' . $type . '   json decoded-> ' . print_r(
+                        json_decode($json, 1),
+                        1
+                    ) . ' URL -> ' . $url . ' curl_error ->' .
+                    print_r(curl_error($ch), 1) .
+                    ' $result->' . print_r($result, 1),
+                    'syncdata'
+                );
                 $http_stat = false;
             } else {
                 $http_stat = true;
@@ -1232,7 +1252,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             || (is_string($value)
                 && in_array(
                     Tools::strtolower($value),
-                    array('true', '1', 'yes', 'si'),
+                    array('true', '1', 'yes', 'si','sí'),
                     false
                 ))
         ) {
@@ -1299,7 +1319,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
     public function clearForMetaData($newtitle)
     {
-        $remove = array('(',')','>','<','{','}');
+        $remove = array('(',')','>','<','{','}','/','\\','#','=');
         return    str_replace($remove, ' ', strip_tags(html_entity_decode($newtitle)));
     }
 
@@ -1600,7 +1620,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     );
                 } else {
                     $this->debbug('Name of newest group attribute ->' . print_r($keyStruct, 1));
-                    $in_search = array('color', 'texture');
+                    $in_search = array('color', 'texture','textura');
                     $is_color_attribute = false;
 
                     $contextShopID = Shop::getContextShopID();
@@ -1621,11 +1641,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                     $fieldNamePublic = $tablaStructure[$attribute_search_index]['title'];
                                 }
 
-
                                 if (in_array(Tools::strtolower($fieldName), $in_search, false)) {
                                     $is_color_attribute = true;
                                 }
-
 
                                 $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                                 $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);

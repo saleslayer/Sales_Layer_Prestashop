@@ -112,25 +112,26 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
 
     public function checkFilesLogs()
     {
-        $files = array('system.log', 'exception.log');
+        $ignore_files = array('index.php');
+        $files = array();
+        $table = array('file' => array(), 'lines' => array(), 'warnings' => array(), 'errors' => array());
         $response = array();
         $response[1] = array();
         $log_dir_path = $this->SLimport->log_module_path;
 
-        $log_folder_files = scandir($log_dir_path);
+        $log_folder_files = array_slice(scandir($log_dir_path), 2);
 
         $files_found = false;
 
         if (!empty($log_folder_files)) {
             foreach ($log_folder_files as $log_folder_file) {
-                if (strpos($log_folder_file, '_saleslayer_') !== false) {//_debbug_log_saleslayer_
-                    $files[] = $log_folder_file;
+                if (in_array($log_folder_file, $ignore_files, false)) {
+                    continue;
                 }
+                $files[] = $log_folder_file;
             }
 
             if (count($files) >= 1) {
-                $table = array('file' => array(), 'lines' => array(), 'warnings' => array(), 'errors' => array());
-
                 foreach ($files as $file) {
                     $errors = 0;
                     $warnings = 0;
@@ -174,8 +175,8 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
             $response[0] = 1;
             $response[1] = $table;
         } else {
-            $response[0] = 0;
-            $response[1] = 'No logs files to show.';
+            $response[0] = 1;
+            $response[1] = $table;
         }
 
         $response['function'] = 'showlogfiles';
@@ -203,9 +204,9 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
             $total_lines = $this->countLines($log_dir_path . $logfile);
 
             $max_lines_conection = 20000;
-            $listed = 0;
-            $warnings = 0;
-            $numerrors = 0;
+            //  $listed = 0;
+            //  $warnings = 0;
+            //  $numerrors = 0;
             $currentLine = 0;
 
 
@@ -252,18 +253,18 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
                 } else {
                     $spacing = '';
                 }
-                $listed++;
-                if (stripos($line, "## Error.") !== false || stripos($line, "error") !== false) {
+                //  $listed++;
+                if (stripos($line, 'error') !== false) {
                     $exportlines['l-' . $currentLine]['stat'] = 'error';
                     $exportlines['l-' . $currentLine]['spacing'] = $spacing;
                     $exportlines['l-' . $currentLine]['content'] = $line;
-                    $numerrors++;
-                } elseif (stripos($line, "warning") !== false) {
+                // $numerrors++;
+                } elseif (stripos($line, 'warning') !== false) {
                     $exportlines['l-' . $currentLine]['stat'] = 'warning';
                     $exportlines['l-' . $currentLine]['spacing'] = $spacing;
                     $exportlines['l-' . $currentLine]['content'] = $line;
-                    $warnings++;
-                } elseif (stripos($line, "## Info.") !== false) {
+                //  $warnings++;
+                } elseif (stripos($line, '## Info.') !== false) {
                     $exportlines['l-' . $currentLine]['stat'] = 'info';
                     $exportlines['l-' . $currentLine]['spacing'] = $spacing;
                     $exportlines['l-' . $currentLine]['content'] = $line;
@@ -272,7 +273,7 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
                     $exportlines['l-' . $currentLine]['spacing'] = $spacing;
                     $exportlines['l-' . $currentLine]['content'] = $line;
                 }
-                if (stripos($line, "Array") !== false) {
+                if (stripos($line, 'Array') !== false) {
                     $spacingarray[] = '&emsp;&emsp;';
                 }
             }
