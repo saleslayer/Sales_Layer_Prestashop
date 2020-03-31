@@ -1722,14 +1722,21 @@ class SlProducts extends SalesLayerPimUpdate
 
                         $productObject->updateLabels();
 
+                        if (version_compare(_PS_VERSION_, '1.7.0', '>=') === true) {
+                            $deleted_string =  ' AND cf.`is_deleted` = "0"  ';
+                        } else {
+                            $deleted_string = ' ';
+                        }
+
+
                         $customization_fields = Db::getInstance()->executeS('SELECT cf.`id_customization_field`,
                                                         cf.`type`, cf.`required`, cfl.`name`, cfl.`id_lang`
                                                         FROM `' . _DB_PREFIX_ . 'customization_field` cf
                                                         NATURAL JOIN `' . _DB_PREFIX_ . 'customization_field_lang` cfl 
                                                         WHERE cf.`id_product` = ' . $productObject->id .
                                                         ' AND cfl.`id_shop` = ' .  $shop_id .
-                                                        ' AND cf.`is_deleted` = "0"  ' .
-                                                        'ORDER BY cf.`id_customization_field`');
+                                                                            $deleted_string .
+                                                        ' ORDER BY cf.`id_customization_field`');
 
                         $this->debbug(
                             'Values of custom fields from BD ->' . print_r($customization_fields, 1),
