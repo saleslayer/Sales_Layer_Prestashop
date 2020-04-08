@@ -429,16 +429,11 @@ class SalesLayerImport extends Module
     public function overwriteOriginDomain($url)
     {
         if (strpos($url, __PS_BASE_URI__) !== 0) {
-            $exploded = explode('/', $url);
-
-            if (Tools::strlen($exploded[3]) > 2) {
-                unset($exploded[3]);
-            }
-            $parse = parse_url(_PS_BASE_URL_);
-            $element_for_delete = array('',$parse['scheme'],$parse['host'],__PS_BASE_URI__);
-
+            $parsed_url = parse_url($url);
+            $exploded = explode('/', $parsed_url['path']);
+            $element_for_delete = array('',__PS_BASE_URI__);
             foreach ($exploded as $key => $element) {
-                if (in_array($element, $element_for_delete) || in_array($key, array(0,1,2))) {
+                if (in_array($element, $element_for_delete, false)) {
                     unset($exploded[$key]);
                 }
             }
@@ -802,7 +797,7 @@ class SalesLayerImport extends Module
                       ($counter != count($task) ? ' AND ' : ' ');
         }
 
-        $query_full = 'SELECT id_cronjob,updated_at,NOW() as timeBD 
+        $query_full = 'SELECT id_cronjob,updated_at,NOW() as timeBD
 FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         return Db::getInstance()->executeS($query_full);
     }
@@ -892,7 +887,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                '`conn_extra` mediumtext ,' .
                                '`updater_version` varchar(10) NOT NULL, ' .
                                'PRIMARY KEY (`cnf_id`)' .
-                               ') ENGINE=' . $this->sl_updater->table_engine . ' 
+                               ') ENGINE=' . $this->sl_updater->table_engine . '
             ROW_FORMAT=' . $this->sl_updater->table_row_format . ' DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ';
 
         Db::getInstance()->execute($schemaSQL_PS_Config);
@@ -900,10 +895,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $schemaSQL_PS_SL_C_P = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ .
                                "slyr_category_product`  (
 								`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-								`ps_id` int(11) NOT NULL 
+								`ps_id` int(11) NOT NULL
 								COMMENT '(prestashop_id| attribute_id if ps_type = product_format_value)',
 								`slyr_id` bigint(20) NOT NULL COMMENT '(sales_layer_id)',
-								`ps_type` varchar(32) NOT NULL 
+								`ps_type` varchar(32) NOT NULL
 								COMMENT '(slCatalogue|product|product_format_field|product_format_value|combination)',
 								`ps_attribute_group_id` int(11) DEFAULT NULL,
 								`date_add` datetime NOT NULL,
@@ -924,7 +919,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         if (!empty($rename)) {
             //change to singular from older versions
-            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_category_products 
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_category_products
               RENAME TO `' .  _DB_PREFIX_  . 'slyr_category_product` ';
             Db::getInstance()->execute(sprintf($query_alter));
         }
@@ -951,7 +946,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         if (!empty($rename)) {
             //change to singular from older versions
-            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_images 
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_images
               RENAME TO `' .  _DB_PREFIX_  . 'slyr_image` ';
             Db::getInstance()->execute(sprintf($query_alter));
         }
@@ -974,7 +969,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $md5_image = Db::getInstance()->executeS($query_read);
 
         if (empty($md5_image)) {
-            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . "slyr_image ADD COLUMN 
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . "slyr_image ADD COLUMN
             `md5_image` varchar(128) NOT NULL COMMENT '(prestashop image md5)'";
             Db::getInstance()->execute(sprintf($query_alter));
         }

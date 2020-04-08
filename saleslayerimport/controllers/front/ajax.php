@@ -117,7 +117,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             /**
              * system health
              */
-              $return['health'] = $SLimport->checkServerUse();
+            $return['health'] = $SLimport->checkServerUse();
 
             die(Tools::jsonEncode($return));
         }

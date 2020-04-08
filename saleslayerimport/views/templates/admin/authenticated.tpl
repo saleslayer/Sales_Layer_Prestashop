@@ -41,7 +41,7 @@
       <div class="col-md-11 mar-top-btt-40"><h1>
           {$COMPANY_NAME|escape:'htmlall':'UTF-8'} - Update Categories &amp; Products</h1>
       </div>
-      <div class="col-md-1 mar-top-btt-40">
+      <div class="col-md-1 mar-top-btt-40" id="health-class">
         <div class="row mar-5"><span title="Cpu usage">Cpu</span><span style="float:right" id="cpuv"></span></div>
         <div class="row mar-5"><span title="Memory usage">Mem</span><span style="float:right" id="memv"></span></div>
         <div class="row mar-5"><span title="Swap memory usage">Swp</span><span style="float:right" id="swpv"></span></div>
@@ -269,13 +269,15 @@
             }
           }
           //health
-          if(data_return['health']!='undefined') {
+          if(data_return['health'] != false ) {
                 document.getElementById('cpuv').classList = getSetColor(data_return['health']['cpu']);
                 document.getElementById('cpuv').innerHTML = data_return['health']['cpu']+' %';
                 document.getElementById('memv').classList = getSetColor(data_return['health']['mem']);
                 document.getElementById('memv').innerHTML = data_return['health']['mem']+' %';
                 document.getElementById('swpv').classList = getSetColor(data_return['health']['swp']);
                 document.getElementById('swpv').innerHTML = data_return['health']['swp']+' %';
+          }else{
+            document.getElementById('health-class').style.display = 'none';
           }
 
         },

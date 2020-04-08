@@ -297,7 +297,7 @@ class AdminDiagtoolsController extends ModuleAdminController
     }
     private function showlogfiles()
     {
-        $ignored_files = array('index.php');
+        $ignored_files = array('index.php','.','..');
         $files = array();
         $log_dir_path = $this->SLimport->log_module_path;
 

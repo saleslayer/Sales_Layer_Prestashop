@@ -112,7 +112,7 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
 
     public function checkFilesLogs()
     {
-        $ignore_files = array('index.php');
+        $ignore_files = array('index.php','.','..');
         $files = array();
         $table = array('file' => array(), 'lines' => array(), 'warnings' => array(), 'errors' => array());
         $response = array();
