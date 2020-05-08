@@ -153,6 +153,7 @@ class SalesLayerImport extends Module
     private $sl_time_ini_auto_sync_process;
     private $sl_time_ini_sync_data_process;
     private $load_cron_time_status;
+    public $shop_loaded_id;
 
     ############################################################
 
@@ -298,11 +299,19 @@ class SalesLayerImport extends Module
         $this->sl_updater->connect(_DB_NAME_, _DB_USER_, _DB_PASSWD_, _DB_SERVER_);
         $this->module_path = $this->_path;
         $this->shop_languages = Language::getLanguages(false);
+        $this->loadActualShopId();
         $this->smarty->assign(
             array(
-                'ajax_link' => $this->overwriteOriginDomain(
-                    $this->context->link->getModuleLink('saleslayerimport', 'ajax')
-                ),
+                'ajax_link' =>
+                    $this->context->link->getModuleLink(
+                        'saleslayerimport',
+                        'ajax',
+                        [],
+                        null,
+                        null,
+                        $this->shop_loaded_id
+                    )
+                ,
                 'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
                 'COMPANY_NAME' => COMPANY_NAME,
                 'COMPANY_TYPE' => COMPANY_TYPE,
@@ -424,28 +433,30 @@ class SalesLayerImport extends Module
 
     /**
      * Fix ajax url in different domains
+     * @deprecated
      */
 
-    public function overwriteOriginDomain($url)
-    {
-        if (strpos($url, __PS_BASE_URI__) !== 0) {
-            $parsed_url = parse_url($url);
-            $exploded = explode('/', $parsed_url['path']);
-            $element_for_delete = array('',__PS_BASE_URI__);
-            foreach ($exploded as $key => $element) {
-                if (in_array($element, $element_for_delete, false)) {
-                    unset($exploded[$key]);
-                }
-            }
-            $urlcorrect = _PS_BASE_URL_ . __PS_BASE_URI__ . implode('/', $exploded);
-        } else {
-            $urlcorrect = $url;
-        }
-        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') {
-            $urlcorrect = str_replace('http://', 'https://', $urlcorrect);
-        }
-        return $urlcorrect;
-    }
+    /* public function overwriteOriginDomain($url)
+     {
+         if (strpos($url, __PS_BASE_URI__) !== 0) {
+             $parsed_url = parse_url($url);
+             $exploded = explode('/', $parsed_url['path']);
+
+             $element_for_delete = array('',__PS_BASE_URI__);
+             foreach ($exploded as $key => $element) {
+                 if (in_array($element, $element_for_delete, false)) {
+                     unset($exploded[$key]);
+                 }
+             }
+             $urlcorrect = _PS_BASE_URL_ . __PS_BASE_URI__ . implode('/', $exploded);
+         } else {
+             $urlcorrect = $url;
+         }
+         if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') {
+             $urlcorrect = str_replace('http://', 'https://', $urlcorrect);
+         }
+         return $urlcorrect;
+     }*/
 
     /**
      * Rewrite sql string convert ? to %s  and execute sprint con all values  to write secure sql
@@ -767,6 +778,49 @@ class SalesLayerImport extends Module
         Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
         return $url;
     }
+    /**
+     * Getactual shop id from loaded domain
+     */
+    public function loadActualShopId()
+    {
+        $idShop = null;
+        if (Configuration::get('PS_MULTISHOP_FEATURE_ACTIVE')) {
+            $host = Tools::getHttpHost();
+            $request_uri = rawurldecode($_SERVER['REQUEST_URI']);
+
+            $sql = 'SELECT s.id_shop, CONCAT(su.physical_uri, su.virtual_uri) AS uri, su.domain, su.main
+                    FROM ' . _DB_PREFIX_ . 'shop_url su
+                    LEFT JOIN ' . _DB_PREFIX_ . 'shop s ON (s.id_shop = su.id_shop)
+                    WHERE (su.domain = \'' . pSQL($host) . '\' OR su.domain_ssl = \'' . pSQL($host) . '\')
+                        AND s.active = 1
+                        AND s.deleted = 0
+                    ORDER BY LENGTH(CONCAT(su.physical_uri, su.virtual_uri)) DESC';
+
+            try {
+                $result = Db::getInstance()->executeS($sql);
+            } catch (PrestaShopDatabaseException $e) {
+                return null;
+            }
+
+            foreach ($result as $row) {
+                // A shop matching current URL was found
+                if (preg_match('#^' . preg_quote($row['uri'], '#') . '#i', $request_uri)) {
+                    $idShop = $row['id_shop'];
+                    break;
+                }
+            }
+
+            if (null !== $idShop) {
+                $shop = new Shop($idShop);
+            } else {
+                $shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+            }
+        } else {
+            $shop = Context::getContext()->shop;
+        }
+        $this->shop_loaded_id = $shop->id;
+    }
+
 
     /**
      * Function that prepares sql to verify if a cron already exists in prestashop database with that url

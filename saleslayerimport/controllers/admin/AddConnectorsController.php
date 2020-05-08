@@ -44,9 +44,23 @@ class AddConnectorsController extends ModuleAdminController
         $conn_secret = Tools::getValue('api_key');
         $this->context->smarty->assign(
             array(
-                'ajax_link' => $this->context->link->getModuleLink('saleslayerimport', 'ajax'),
+                'ajax_link' => $this->context->link->getModuleLink(
+                    'saleslayerimport',
+                    'ajax',
+                    [],
+                    null,
+                    null,
+                    $this->SLimport->shop_loaded_id
+                ),
                 'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
-                'diag_link' => $this->context->link->getModuleLink('saleslayerimport', 'diagtools'),
+                'diag_link' => $this->context->link->getModuleLink(
+                    'saleslayerimport',
+                    'diagtools',
+                    [],
+                    null,
+                    null,
+                    $this->SLimport->shop_loaded_id
+                ),
                 'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                 'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/img/',
                 'link_all_conectors' => $this->context->link->getAdminLink('AllConnectors'),
@@ -90,9 +104,23 @@ class AddConnectorsController extends ModuleAdminController
                         'sly_conex_error' => Tools::ucfirst($error_MESSAGE),
                         'api_client' => $conn_code,
                         'api_key' => $conn_secret,
-                        'ajax_link' => $this->context->link->getModuleLink('saleslayerimport', 'ajax'),
+                        'ajax_link' => $this->context->link->getModuleLink(
+                            'saleslayerimport',
+                            'ajax',
+                            [],
+                            null,
+                            null,
+                            $this->SLimport->shop_loaded_id
+                        ),
                         'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
-                        'diag_link' => $this->context->link->getModuleLink('saleslayerimport', 'diagtools'),
+                        'diag_link' => $this->context->link->getModuleLink(
+                            'saleslayerimport',
+                            'diagtools',
+                            [],
+                            null,
+                            null,
+                            $this->SLimport->shop_loaded_id
+                        ),
                         'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                         'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/logos/',
                         'link_all_conectors' => $this->context->link->getAdminLink('AllConnectors'),
@@ -125,17 +153,29 @@ class AddConnectorsController extends ModuleAdminController
                         'syncdata',
                         true
                     );
+
                     $this->context->smarty->assign(
                         array(
                             'SLY_HAS_ERRORS' => true,
                             'sly_conex_error' => $error_MESSAGE,
                             'api_client' => $conn_code,
                             'api_key' => $conn_secret,
-                            'ajax_link' => $this->context->link->getModuleLink('saleslayerimport', 'ajax'),
+                            'ajax_link' => $this->context->link->getModuleLink(
+                                'saleslayerimport',
+                                'ajax',
+                                [],
+                                null,
+                                null,
+                                $this->SLimport->shop_loaded_id
+                            ),
                             'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
                             'diag_link' => $this->context->link->getModuleLink(
                                 'saleslayerimport',
-                                'diagtools'
+                                'diagtools',
+                                [],
+                                null,
+                                null,
+                                $this->SLimport->shop_loaded_id
                             ),
                             'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                             'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/img/',

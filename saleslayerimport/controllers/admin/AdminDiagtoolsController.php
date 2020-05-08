@@ -76,7 +76,7 @@ class AdminDiagtoolsController extends ModuleAdminController
         $array_toshow = ['max_execution_time',ini_get('max_execution_time')];
         $this->formatTable($array_toshow);
 
-        $array_toshow = ['Server Software',$_SERVER["SERVER_SOFTWARE"]];
+        $array_toshow = ['Server Software',$_SERVER['SERVER_SOFTWARE']];
         $this->formatTable($array_toshow);
 
         $array_toshow = ['intl.error_level',ini_get('intl.error_level')];
@@ -92,13 +92,24 @@ class AdminDiagtoolsController extends ModuleAdminController
         $this->formatTable($array_toshow);
 
         $array_toshow = ['Prestashop getModuleLink',
-            $this->context->link->getModuleLink('saleslayerimport', 'ajax')];
+            $this->context->link->getModuleLink(
+                'saleslayerimport',
+                'ajax',
+                [],
+                null,
+                null,
+                $this->SLimport->shop_loaded_id
+            )];
         $this->formatTable($array_toshow);
 
-        $array_toshow = ['Prestashop overwriteOrigin Url',$this->SLimport->overwriteOriginDomain(
-            $this->context->link->getModuleLink('saleslayerimport', 'ajax')
-        )];
-        $this->formatTable($array_toshow);
+        /* $array_toshow = ['Prestashop overwriteOrigin Url',$this->SLimport->overwriteOriginDomain(
+             $this->context->link->getModuleLink('saleslayerimport', 'ajax',
+                        [],
+                        null,
+                        null,
+                        $this->SLimport->shop_loaded_id
+         )];
+         $this->formatTable($array_toshow);*/
 
         $array_toshow = ['Prestashop getAdminLink',$this->context->link->getAdminLink('AllConnectors')];
         $this->formatTable($array_toshow);
@@ -262,16 +273,36 @@ class AdminDiagtoolsController extends ModuleAdminController
 
         $this->context->smarty->assign(
             array(
-                'ajax_link' => $this->SLimport->overwriteOriginDomain(
-                    $this->context->link->getModuleLink('saleslayerimport', 'ajax')
-                ),
+                'ajax_link' =>
+                    $this->context->link->getModuleLink(
+                        'saleslayerimport',
+                        'ajax',
+                        [],
+                        null,
+                        null,
+                        $this->SLimport->shop_loaded_id
+                    )
+                ,
                 'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
-                'diag_link' => $this->SLimport->overwriteOriginDomain(
-                    $this->context->link->getModuleLink('saleslayerimport', 'diagtools')
-                ),
-                'delete_link' => $this->SLimport->overwriteOriginDomain(
-                    $this->context->link->getModuleLink('saleslayerimport', 'deletelogs')
-                ),
+                'diag_link' =>
+                    $this->context->link->getModuleLink(
+                        'saleslayerimport',
+                        'diagtools',
+                        [],
+                        null,
+                        null,
+                        $this->SLimport->shop_loaded_id
+                    )
+                ,
+                'delete_link' =>
+                    $this->context->link->getModuleLink(
+                        'saleslayerimport',
+                        'deletelogs',
+                        [],
+                        null,
+                        null,
+                        $this->SLimport->shop_loaded_id
+                    ),
                 'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                 'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/img/',
                 'SLY_DEBUGMODE_SELECT' => $option_debug_output,

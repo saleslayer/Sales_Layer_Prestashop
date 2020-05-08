@@ -17,7 +17,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-function upgrade_module_1_4_7()
+function upgrade_module_1_4_16()
 {
     $SLimport = new SalesLayerImport();
 
@@ -30,7 +30,7 @@ function upgrade_module_1_4_7()
             $SLimport->debbug("## Error. Directory was not created -> $integrity_file");
         }
     }
-    // $SLimport->debbug('Updating to version 1.4.7 success', '', true);
+    // $SLimport->debbug('Updating to version 1.4.16 success', '', true);
 
     return true;
 }

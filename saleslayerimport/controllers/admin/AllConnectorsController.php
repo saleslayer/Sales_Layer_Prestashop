@@ -207,9 +207,9 @@ class AllConnectorsController extends ModuleAdminController
                 $table .= '<td class="form-group text-center">';
                 $table .= '<div class="mar-top-btt-10 slyr-form-field-block">';
                 $table .= '<span id="store_data_now_' . $connector['conn_code'] .
-                          '" name="store_data_now" 
+                          '" name="store_data_now"
                           onclick=update_command("' . $connector['conn_code'] . '","store_data_now");
- title="Download and store data now and wait for cron sync." 
+ title="Download and store data now and wait for cron sync."
 class="btn btn-success update_btt">' .
                           '<i class="fa fa-cloud-download text-left" ' .
                           'aria-hidden="true"/> Download data</span>';
@@ -281,16 +281,26 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
 
         $this->context->smarty->assign(
             array(
-                'ajax_link' => $this->SLimport->overwriteOriginDomain(
-                    $this->context->link->getModuleLink('saleslayerimport', 'ajax')
-                ),
-                'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
-                'diag_link' => $this->SLimport->overwriteOriginDomain(
+                'ajax_link' =>
                     $this->context->link->getModuleLink(
                         'saleslayerimport',
-                        'diagtools'
+                        'ajax',
+                        [],
+                        null,
+                        null,
+                        $this->SLimport->shop_loaded_id
+                    ),
+                'token' => Tools::substr(Tools::encrypt('saleslayerimport'), 0, 10),
+                'diag_link' =>
+                    $this->context->link->getModuleLink(
+                        'saleslayerimport',
+                        'diagtools',
+                        [],
+                        null,
+                        null,
+                        $this->SLimport->shop_loaded_id
                     )
-                ),
+                ,
                 'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                 'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/img/',
                 'SLY_TABLE' => $this->generateTable(),
