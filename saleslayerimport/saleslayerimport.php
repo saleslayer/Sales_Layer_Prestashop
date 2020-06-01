@@ -2034,7 +2034,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             $connector['unix_to_update'] = $unix_to_update;
                             $connectors_to_check[] = $connector;
                         } else {
-                            if ($connector['auto_sync_hour'] > 0 && $connector['auto_sync'] > 24) {
+                            if ($connector['auto_sync'] >= 24) {
                                 $unix_to_update_hour = mktime(
                                     $connector['auto_sync_hour'],
                                     0,
@@ -2062,7 +2062,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     uasort($connectors_to_check, array($this, 'sortByUnixToUpdate'));
 
                     foreach ($connectors_to_check as $connector) {
-                        if ($connector['auto_sync_hour'] > 0 && $connector['auto_sync'] > 24) {
+                        if ($connector['auto_sync'] >= 24) {
                             $last_sync_time = mktime(
                                 $connector['auto_sync_hour'],
                                 0,
@@ -3705,14 +3705,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if ($memInfo) {
             $recurses = array();
             $totalMemory     = $memInfo['MemTotal'];
-            $freeMemory      = $memInfo['MemFree'];
+            $cachedMemory    = $memInfo['Cached'];
             $swapTotalMemory = $memInfo['SwapTotal'];
             $swapFreeMemory  = $memInfo['SwapFree'];
+            $realFreeMemory = $totalMemory - $cachedMemory;
             /**
              * mem
              */
             $showtotalMemory = round($totalMemory / 1000);
-            $showFreeMemory  = round($freeMemory / 1000);
+            $showFreeMemory  = round($realFreeMemory / 1000);
             $onePercent      = round($showtotalMemory / 100);
             $percentualyuse  = round(100 - ($showFreeMemory / $onePercent), 2);
             $recurses['mem'] = $percentualyuse;
@@ -3783,33 +3784,35 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $memInfo = $this->getSystemMemInfo();
         if ($memInfo) {
             $totalMemory = $memInfo['MemTotal'];
-            $freeMemory = $memInfo['MemFree'];
+            $cachedMemory = $memInfo['Cached'];
+            $realFreeMemory = $totalMemory - $cachedMemory;
             $swapTotalMemory = $memInfo['SwapTotal'];
             $swapFreeMemory = $memInfo['SwapFree'];
             $showtotalMemory = round($totalMemory / 1000);
-            $showFreeMemory = round($freeMemory / 1000);
+            $showcachedMemory = round($cachedMemory / 1000);
+            $showreal_usedMemory = $showtotalMemory - $showcachedMemory;
             $onePercent = round($showtotalMemory / 100);
-            $percentualyuse =  round($showFreeMemory / $onePercent);
+            $percentualyuse =  round($showcachedMemory / $onePercent);
             $this->debbug(
                 'Total memory of this server->' .
                 print_r($showtotalMemory, 1) . ' Mb ' .
                            'Free Memory for usage->' .
-                print_r($showFreeMemory, 1) . ' Mb ' .
+                print_r($showreal_usedMemory, 1) . ' Mb ' .
                 ' Free memory ->' . print_r($percentualyuse, 1) . '%'
             );
             $max_memory = $this->getConfiguration('MAX_MEMORY_USAGE');
             if ($max_memory) {
-                if ($max_memory > $showFreeMemory) {
+                if ($max_memory > $realFreeMemory) {
                     $this->debbug('## Warning. The previous time has taken up more memory than is available now.' .
                                   ' If much more data is received, it is possible that the server' .
                                   ' does not support this amount of data. Free memory ->' .
-                                  print_r($showFreeMemory, 1) . ' Mb ' .
+                                  print_r($realFreeMemory, 1) . ' Mb ' .
                                   'Last time you needed memory ->' .
                                   print_r($max_memory, 1) . ' Mb ');
                 }
             }
 
-            if (($totalMemory / 100.0) * 30.0 > $freeMemory) {
+            if (($totalMemory / 100.0) * 30.0 > $realFreeMemory) {
                 if (($swapTotalMemory / 100.0) * 50.0 > $swapFreeMemory) {
                     $this->debbug('## Warning. Less than 30% free memory' .
                                   ' and less than 50% free swap space.');
