@@ -718,18 +718,22 @@ class SlProducts extends SalesLayerPimUpdate
                             $friendly_url_index = 'friendly_url';
                         }
 
-                        (isset($product['data'][$friendly_url_index])
-                            && $product['data'][$friendly_url_index] != '') ?
-                            $friendly_url = $product['data'][$friendly_url_index] : $friendly_url = $product_name;
+                        if (isset($product['data'][$friendly_url_index])) {
+                            if ($product['data'][ $friendly_url_index ] != '') {
+                                $friendly_url = $product['data'][ $friendly_url_index ];
+                            } else {
+                                $friendly_url = $product_name;
+                            }
 
-
-                        if ($friendly_url != '') {
-                            $friendly_url = $this->slValidateCatalogName($friendly_url, 'Product');
-                            $productObject->link_rewrite[$lang['id_lang']] = Tools::link_rewrite($friendly_url);
+                            if ($friendly_url != '') {
+                                $friendly_url = $this->slValidateCatalogName(
+                                    $friendly_url,
+                                    'Product'
+                                );
+                                $productObject->link_rewrite[ $lang['id_lang'] ] = Tools::link_rewrite($friendly_url);
+                            }
                         }
                     }
-
-
 
                     /**
                      *
