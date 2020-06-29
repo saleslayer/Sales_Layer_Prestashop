@@ -27,11 +27,10 @@ if (!Module::isInstalled('saleslayerimport')
 ) {
     die('Bad token');
 }
-echo 'cron_sales_layer_pim';
+
 require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
 
 $SLimport = new SalesLayerImport();
-
 $is_internal = Tools::getValue('internal');
 if (!$is_internal == 1) {
     // call from cron

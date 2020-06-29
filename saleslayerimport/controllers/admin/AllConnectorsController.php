@@ -409,7 +409,7 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                 } catch (Exception $e) {
                     $this->SLimport->debbug(
                         '## Error. in luad  ' . $sync_conector . ' : ' .
-                        $e->getMessage() . ' line->' . $$e->getLine(),
+                        $e->getMessage() . ' line->' . $e->getLine(),
                         'error'
                     );
                 }

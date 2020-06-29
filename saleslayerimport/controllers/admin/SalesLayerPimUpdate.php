@@ -194,12 +194,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $last_update_save = $api->getResponseTime('unix');
         $data_schema = $this->getDataSchema($api);
         $table_data = $api->getResponseTableData();
+        $exist_categories = false;
 
         if (isset($table_data['catalogue']['modified'], $data_returned['data_schema_info']['catalogue'])) {
             $catalogue_items = $this->organizarIndicesTablas(
                 $table_data['catalogue']['modified'],
                 $data_returned['data_schema_info']['catalogue']
             );
+            $exist_categories = true;
         } else {
             $catalogue_items = array();
         }
@@ -442,6 +444,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['products'];
                     $sync_params['conn_params']['data_schema'] = $data_schema['products'];
                     $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
+                    $sync_params['conn_params']['sync_categories'] = $exist_categories;
                     $arrayReturn['products_to_sync'] = count($product_items);
                     foreach ($product_items as $product) {
                         $data_insert = array();
@@ -1099,7 +1102,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $wait_for_response = true
     ) {
         //  $time_ini_urlsendcustomjson = microtime(1);
-        $ch = curl_init($this->decodeUrl($url));
+        if (strpos($url, 'cloudfront') !== false) {
+            $url =  $this->decodeUrl($url);
+        }
+        $ch = curl_init($url);
         $agent = 'SALES-LAYER PIM, Connector Prestashop->' . $this->name . ', Sync-Data';
         curl_setopt($ch, CURLOPT_USERAGENT, $agent);
         if ($json !== null) {
@@ -1240,7 +1246,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         if ((is_numeric($value) && $value === 0)
             || (is_string($value)
                 && in_array(
-                    Tools::strtolower($value),
+                    Tools::strtolower((string) $value),
                     array('false', '0', 'no'),
                     false
                 ))
@@ -1251,7 +1257,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         if ((is_numeric($value) && $value === 1)
             || (is_string($value)
                 && in_array(
-                    Tools::strtolower($value),
+                    Tools::strtolower((string) $value),
                     array('true', '1', 'yes', 'si','sí'),
                     false
                 ))

@@ -144,6 +144,7 @@ class SalesLayerImport extends Module
     public $module_path;
     public $debugmode;
     public $cron_frequency;
+    public $sync_categories                 = true;
     private $sql_items_delete               = array();
     private $debug_occurence                = array();
     private $updated_elements               = array();
@@ -421,7 +422,7 @@ class SalesLayerImport extends Module
                 $this->debbug('## Error. SL SQL type: ' . $type . ' - query: ' . $query);
             }
 
-            $this->debbug('## Error. SL SQL error message: ' . $e->getMessage());
+            $this->debbug('## Error. SL SQLin error message: ' . $e->getMessage());
         }
 
         if (!$resultado) {
@@ -588,25 +589,25 @@ class SalesLayerImport extends Module
                 $error_write = false;
                 if ($error_content) {
                     $error_write = true;
-                    $error_file = DEBBUG_PATH_LOG . '_error_debbug_log_saleslayer_' . date('Y-m-d') . '.dat';
+                    $error_file = DEBBUG_PATH_LOG . '_error_debbug_log_' . date('Y-m-d') . '.dat';
                 }
 
 
                 switch ($type_file) {
                     case 'timer':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_timers_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_timers_' . date('Y-m-d') . '.dat';
                         break;
 
                     case 'autosync':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_auto_sync_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_auto_sync_' . date('Y-m-d') . '.dat';
                         break;
 
                     case 'syncdata':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_sync_data_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_sync_data_' . date('Y-m-d') . '.dat';
                         break;
 
                     default:
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_saleslayer_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_' . date('Y-m-d') . '.dat';
                         break;
                 }
 
@@ -2928,7 +2929,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             if ($force) {
                 $this->debbug('Is a force retry call', 'syncdata');
                 $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-                $url = 'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+                $s = '';
+                if (Tools::usingSecureMode()) {
+                    $s = 's';
+                }
+                $url =  'http' . $s . '://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
                        'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
                            Tools::encrypt('saleslayerimport'),
                            0,
@@ -2943,8 +2948,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     ) . 'Call RETRY to ' . $url,
                     'syncdata'
                 );
-
-                $this->urlSendCustomJson('GET', $url, null, false);
+                try {
+                    $this->urlSendCustomJson('GET', $url, null, false);
+                } catch (Exception $e) {
+                    $this->debbug(
+                        'Connection error-> ' . $e->getMessage() .
+                        'Call RETRY to ' . $url,
+                        'syncdata'
+                    );
+                }
 
                 return true;
             } else {
@@ -3391,14 +3403,17 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             $this->debbug(' >> Product synchronization initialized << ', 'syncdata');
 
                             try {
+                                $this->debbug(' sync categories -> '.print_r($this->sync_categories, 1), 'syncdata');
                                 $result_update_array = $this->sl_products->syncOneProduct(
                                     $item_data['sync_data'],
                                     $sync_params['conn_params']['data_schema_info'],
                                     $this->comp_id,
                                     $this->conector_shops_ids,
-                                    $sync_params['conn_params']['avoid_stock_update']
+                                    $sync_params['conn_params']['avoid_stock_update'],
+                                    $sync_params['conn_params']['sync_categories']
                                 );
                                 $result_update = $result_update_array['stat'];
+
 
                                 if (isset($result_update_array['additional_output']['product_accessories']) &&
                                     !empty($result_update_array['additional_output']['product_accessories'])) {

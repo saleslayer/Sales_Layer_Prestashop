@@ -20,7 +20,6 @@ class SlProducts extends SalesLayerPimUpdate
         parent::__construct();
     }
 
-
     public function loadProductImageSchema(
         $products_schema
     ) {
@@ -45,17 +44,16 @@ class SlProducts extends SalesLayerPimUpdate
                 }
             }
         }
-
         $this->debbug(' load: product_images_sizes ' . print_r($this->product_images_sizes, 1), 'syncdata');
     }
-
 
     public function syncOneProduct(
         $product,
         $schema,
         $comp_id,
         $shops,
-        $avoid_stock_update
+        $avoid_stock_update,
+        $sync_categories
     ) {
         $test_after_update = array();
         $mulilanguage = array();
@@ -69,7 +67,7 @@ class SlProducts extends SalesLayerPimUpdate
         } else {
             $occurence = ' ID :' . $product['ID'];
         }
-
+        $this->sync_categories =  $sync_categories;
         $syncCat = true;
         $additional_output = array();
         $is_new_product = false;
@@ -142,15 +140,18 @@ class SlProducts extends SalesLayerPimUpdate
              */
 
             $arrayIdCategories = array();
+            $exist_id_categories = isset($product['ID_catalogue']);
+            if ($exist_id_categories && $this->sync_categories) {
+                $sl_product_parent_ids = $product['ID_catalogue'];
 
-            $sl_product_parent_ids = $product['ID_catalogue'];
-
-            if (!is_array($sl_product_parent_ids)) {
-                $sl_product_parent_ids = array($sl_product_parent_ids);
+                if (!is_array($sl_product_parent_ids)) {
+                    $sl_product_parent_ids = array($sl_product_parent_ids);
+                }
             }
 
 
-            if (!empty($sl_product_parent_ids)) {
+
+            if ($exist_id_categories && $this->sync_categories && !empty($sl_product_parent_ids)) {
                 foreach ($sl_product_parent_ids as $sl_product_parent_id) {
                     $product_category_id = (int)Db::getInstance()->getValue(
                         sprintf(
@@ -1060,7 +1061,7 @@ class SlProducts extends SalesLayerPimUpdate
                         }
                     }
 
-                    if (!$category_default_found) {
+                    if (!$category_default_found && count($arrayIdCategories)) {
                         $newdefault_category = reset($arrayIdCategories);
                         $this->debbug(
                             'Default category selected from last value->' . $newdefault_category,
@@ -1373,83 +1374,89 @@ class SlProducts extends SalesLayerPimUpdate
 
                     $this->first_sync_shop = false;
                 }
-                // $productObject->addToCategories($arrayIdCategories);
-                // $productObject->updateCategories($arrayIdCategories);
-                $this->debbug('Before updating categories ->' . print_r($arrayIdCategories, 1), 'syncdata');
-                try {
-                    $categories = Product::getProductCategories($productObject->id);
-                    $this->debbug(
-                        'before testing old categories -> ' . print_r(
-                            $categories,
-                            1
-                        ) . '  new set Categories ->' . print_r(
-                            $arrayIdCategories,
-                            1
-                        ),
-                        'syncdata'
-                    );
-
-                    $arrayIdCategories = array_unique($arrayIdCategories);
-
-                    if (!empty($categories) && count($categories)) {
+                if ($exist_id_categories || count($arrayIdCategories)) {
+                    // $productObject->addToCategories($arrayIdCategories);
+                    // $productObject->updateCategories($arrayIdCategories);
+                    $this->debbug('Before updating categories ->' . print_r($arrayIdCategories, 1), 'syncdata');
+                    try {
+                        $categories = Product::getProductCategories($productObject->id);
                         $this->debbug(
-                            'Updating categories but product has old category values -> ' . print_r(
+                            'before testing old categories -> ' . print_r(
                                 $categories,
                                 1
-                            ) . ' newest after unique array -> ' . print_r($arrayIdCategories, 1),
+                            ) . '  new set Categories ->' . print_r(
+                                $arrayIdCategories,
+                                1
+                            ),
                             'syncdata'
                         );
-                        $array_diff = $this->slArrayDiff($categories, $arrayIdCategories);
 
-                        if (count($array_diff)) {
+                        $arrayIdCategories = array_unique($arrayIdCategories);
+
+                        if (!empty($categories) && count($categories)) {
                             $this->debbug(
-                                'Differences in categories  $diferences-> ' . print_r(
+                                'Updating categories but product has old category values -> ' . print_r(
                                     $categories,
                                     1
-                                ) . ' deleting old and setting new categories ->' .
-                                print_r($arrayIdCategories, 1) .
-                                ' diff->' . print_r($array_diff, 1),
+                                ) . ' newest after unique array -> ' . print_r($arrayIdCategories, 1),
                                 'syncdata'
                             );
-                            $productObject->deleteCategories();
-                            // $productObject->updateCategories($arrayIdCategories);
-                            $productObject->addToCategories($arrayIdCategories);
+                            $array_diff = $this->slArrayDiff($categories, $arrayIdCategories);
+
+                            if ($exist_id_categories && count($array_diff)) {
+                                $this->debbug(
+                                    'Differences in categories  $diferences-> ' . print_r(
+                                        $categories,
+                                        1
+                                    ) . ' deleting old and setting new categories ->' .
+                                    print_r($arrayIdCategories, 1) .
+                                    ' diff->' . print_r($array_diff, 1),
+                                    'syncdata'
+                                );
+                                if ($this->sync_categories) {
+                                    $productObject->deleteCategories();
+                                }
+                                // $productObject->updateCategories($arrayIdCategories);
+                                $productObject->addToCategories($arrayIdCategories);
+                            } else {
+                                $this->debbug(
+                                    'There is no difference in categories  -> ' . print_r($categories, 1),
+                                    'syncdata'
+                                );
+                            }
                         } else {
                             $this->debbug(
-                                'There is no difference in categories  -> ' . print_r($categories, 1),
+                                'Updating categories but product has no categories. Old categories ->' . print_r(
+                                    $categories,
+                                    1
+                                ) . ' new categories ->' . print_r($arrayIdCategories, 1),
                                 'syncdata'
                             );
+                            if (count($arrayIdCategories)) {
+                                $productObject->addToCategories($arrayIdCategories);
+                            // $productObject->updateCategories($arrayIdCategories);
+                            } else {
+                                if ($this->sync_categories) {
+                                    $productObject->deleteCategories();
+                                }
+                            }
                         }
-                    } else {
+                    } catch (Exception $e) {
                         $this->debbug(
-                            'Updating categories but product has no categories. Old categories ->' . print_r(
-                                $categories,
+                            '## Error. In updating Category tree ' . $occurence . ' ->' . print_r(
+                                $e->getMessage(),
                                 1
-                            ) . ' new categories ->' . print_r($arrayIdCategories, 1),
+                            ) . ' line->' . print_r($e->getLine(), 1),
                             'syncdata'
                         );
-                        if (count($arrayIdCategories)) {
-                            $productObject->addToCategories($arrayIdCategories);
-                        // $productObject->updateCategories($arrayIdCategories);
-                        } else {
-                            $productObject->deleteCategories();
-                        }
                     }
-                } catch (Exception $e) {
-                    $this->debbug(
-                        '## Error. In updating Category tree ' . $occurence . ' ->' . print_r(
-                            $e->getMessage(),
-                            1
-                        ) . ' line->' . print_r($e->getLine(), 1),
-                        'syncdata'
-                    );
                 }
 
                 $active = true;
                 if (isset($product['data']['product_price_tax_incl'])
                     && $product['data']['product_price_tax_incl'] != 0
                     && $product['data']['product_price_tax_incl'] != '') {
-                    $price = $this->priceForamat(
+                    $productObject->price = $this->priceForamat(
                         (float) str_replace(
                             ',',
                             '.',
@@ -1467,7 +1474,7 @@ class SlProducts extends SalesLayerPimUpdate
                 } else {
                     if (isset($product['data']['product_price']) && $product['data']['product_price'] != 0
                         && $product['data']['product_price'] != '') {
-                        $price = $this->priceForamat($product['data']['product_price']);
+                        $productObject->price = $this->priceForamat($product['data']['product_price']);
                         $this->debbug(
                             ' Product_price ->' .
                             print_r(
@@ -1476,18 +1483,6 @@ class SlProducts extends SalesLayerPimUpdate
                             ),
                             'syncdata'
                         );
-                    } else {
-                        $this->debbug(
-                            'Product_price is empty ->' .
-                            print_r(
-                                (isset($product['data']['product_price']) ?
-                                    $product['data']['product_price'] : '!isset'),
-                                1
-                            ),
-                            'syncdata'
-                        );
-                        $price = 0;
-                        $active = false;
                     }
                 }
 
@@ -2096,17 +2091,17 @@ class SlProducts extends SalesLayerPimUpdate
                 }
 
                 $this->debbug(
-                    ' Price before save ->' . print_r($price, 1),
+                    ' Price before save ->' . print_r($productObject->price, 1),
                     'syncdata'
                 );
-                $test_after_update['price'] = $price;
-                $productObject->price = $price;
-                $price = abs($price);
+                $test_after_update['price'] = $productObject->price;
+                // $productObject->price = $price;
+                // $price = abs($price);
 
 
 
 
-                if (isset($product['data']['wholesale_price']) && !empty($product['data']['wholesale_price'])) {
+                if (isset($product['data']['wholesale_price']) && $product['data']['wholesale_price'] != null) {
                     $price = abs($product['data']['wholesale_price']);
                     if (Validate::isPrice($price)) {
                         $productObject->wholesale_price = $price;
@@ -2114,20 +2109,6 @@ class SlProducts extends SalesLayerPimUpdate
                         $this->debbug(
                             '## Warning. ' . $occurence . ' wholesale_price not is a valid price ->' .
                             print_r($price, 1),
-                            'syncdata'
-                        );
-                    }
-                } else {
-                    if (Validate::isPrice($price)) {
-                        $this->debbug(
-                            'Is price valid. Before update wholesale_price ->' . print_r($price, 1),
-                            'syncdata'
-                        );
-                        $test_after_update['wholesale_price'] = $price;
-                        $productObject->wholesale_price = $price;
-                    } else {
-                        $this->debbug(
-                            '## Warning. ' . $occurence . ' price not is a valid price ->' . print_r($price, 1),
                             'syncdata'
                         );
                     }
@@ -2152,28 +2133,28 @@ class SlProducts extends SalesLayerPimUpdate
                     } else {
                         $this->debbug(
                             '## Warning. ' . $occurence . ' unit_price_ratio not is a valid price ->' .
-                            print_r($price, 1),
+                            print_r($unit_price_ratio, 1),
                             'syncdata'
                         );
                     }
                 }
 
-
-
-                $productObject->upc = (isset($product['data']['product_upc'])
-                    && Tools::strlen(
+                if (isset($product['data']['product_upc'])) {
+                    $productObject->upc = (Tools::strlen(
                         $product['data']['product_upc']
-                    ) < 13
-                    && Validate::isUpc(
+                    ) < 13 && Validate::isUpc(
                         $product['data']['product_upc']
                     )) ? $product['data']['product_upc'] : '';
-                $productObject->ean13 = (isset($product['data']['product_ean13'])
-                    && Tools::strlen(
+                }
+
+                if (isset($product['data']['product_ean13'])) {
+                    $productObject->ean13 = (Tools::strlen(
                         $product['data']['product_ean13']
-                    ) < 14
-                    && Validate::isEan13(
+                    ) < 14 && Validate::isEan13(
                         $product['data']['product_ean13']
                     )) ? $product['data']['product_ean13'] : '';
+                }
+
                 isset($product['data']['product_reference']) ? $product_reference = $this->slValidateReference(
                     $product['data']['product_reference']
                 ) : $product_reference = '';
