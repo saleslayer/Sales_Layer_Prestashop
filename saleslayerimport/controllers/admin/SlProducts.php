@@ -5558,19 +5558,38 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 $features_founded[] = $id_feature_value;
 
                                                 try {
-                                                    $feature_value_exist = Db::getInstance()->executeS(
-                                                        sprintf(
-                                                            'SELECT id_feature_value FROM ' .
-                                                            $this->feature_product_table .
-                                                            ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
+                                                    $query = sprintf(
+                                                        'SELECT id_feature_value FROM ' .
+                                                        $this->feature_product_table .
+                                                        ' WHERE id_feature =  "%s"  AND  id_product = "%s" 
                                                             AND id_feature_value = "%s" ',
-                                                            $id_feature,
-                                                            $id_product,
-                                                            $id_feature_value
-                                                        )
+                                                        $id_feature,
+                                                        $id_product,
+                                                        $id_feature_value
                                                     );
 
+                                                    $feature_value_exist = Db::getInstance()->executeS(
+                                                        $query
+                                                    );
+                                                    $this->debbug(
+                                                        'After select if exist this feature value in this product  ' .
+                                                        print_r($feature_value_exist, 1) .
+                                                        ' query used ->' . print_r($query, 1),
+                                                        'syncdata'
+                                                    );
                                                     if (empty($feature_value_exist)) {
+                                                        if (version_compare(_PS_VERSION_, '1.7.0', '<') === true) {
+                                                            //in older version Duplicate entry error for key 'PRIMARY'
+                                                            Db::getInstance()->execute(
+                                                                sprintf(
+                                                                    'DELETE FROM ' . $this->feature_product_table .
+                                                                    ' WHERE id_feature = "%s" AND id_product = "%s" ',
+                                                                    $id_feature,
+                                                                    $id_product
+                                                                )
+                                                            );
+                                                        }
+
                                                         Db::getInstance()->execute(
                                                             sprintf(
                                                                 'INSERT INTO ' . $this->feature_product_table .
