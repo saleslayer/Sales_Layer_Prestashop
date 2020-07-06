@@ -2372,7 +2372,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                 if (isset($product['data']['product_manufacturer'])) {
                     $product_manufacturer = '';
-
+                    $is_manufacturer_id = false;
                     if (is_array(
                         $product['data']['product_manufacturer']
                     )
@@ -2389,10 +2389,15 @@ class SlProducts extends SalesLayerPimUpdate
                         }
                     }
 
+                    if (preg_match('/:ID/', $product_manufacturer)) {
+                        $product_manufacturer = trim(str_replace(':ID', '', $product_manufacturer));
+                        $is_manufacturer_id = true;
+                    }
+
                     if ($product_manufacturer != '') {
                         $id_manufacturer = 0;
 
-                        if (is_numeric($product_manufacturer)) {
+                        if (is_numeric($product_manufacturer) && $is_manufacturer_id) {
                             $this->debbug(
                                 ' is numeric test if name of manufacturer is a id real-> ' .
                                 print_r(
