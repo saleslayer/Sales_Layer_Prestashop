@@ -144,7 +144,17 @@ layer when exporting.</li>
 <li> Direct access to documentation from plugin page.</li>
 </ul>
 
-
+V 1.4.17
+<ul>
+<li> Correction of correct assignment of multilanguage in features.</li>
+<li> Correction of virtual products. </li>
+<li> Products will be created in all stores as invisible and are activated only in stores that are enabled in configuration..</li>
+<li> Correction of Assignment of images in multistore. They are now assigned to all stores every time the product is edited.</li>
+<li> Tighter selection of variant attributes to skip empty values in a given language. </li>
+<li> Solved indexing problem in multistore.</li>
+<li> Connector launcher fix not updating at 00:00.</li>
+<li> Enable fields for editing in product: "visibility,redirect_type,id_type_redirected "</li>
+</ul>
 
 
 

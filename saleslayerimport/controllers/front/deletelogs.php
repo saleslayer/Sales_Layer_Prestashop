@@ -58,7 +58,6 @@ class SaleslayerimportdeletelogsModuleFrontController extends ModuleFrontControl
     public function deleteSLLogFile(
         $files_to_delete
     ) {
-
         $log_dir_path = $this->SLimport->log_module_path;
 
         if (!is_array($files_to_delete)) {
@@ -70,10 +69,15 @@ class SaleslayerimportdeletelogsModuleFrontController extends ModuleFrontControl
         }
 
         foreach ($files_to_delete as $file_to_delete) {
-            $file_path = $log_dir_path . '/' . $file_to_delete;
+            $file_array = explode('/', $file_to_delete);
+            $file_to_delete = end($file_array);
 
-            if (file_exists($file_path)) {
-                unlink($file_path);
+            if (preg_match('/[A-Za-z0-9]*.[A-Za-z0-9]{3}/', $file_to_delete)) {
+                $file_path = $log_dir_path . '/' . $file_to_delete;
+
+                if (file_exists($file_path)) {
+                    unlink($file_path);
+                }
             }
         }
 

@@ -33,7 +33,7 @@
                                                                aria-hidden="true"></i> New connector</a>
       </div>
       <div class="col-md-4 slyr-form-field-block">
-        {$purge_button|escape:"quotes"}{$stop_syncronization|escape:"quotes"}
+        {$purge_button|escape:"quotes":"UTF-8"}{$stop_syncronization|escape:"quotes":"UTF-8"}
       </div>
     </div>
     <div class="row" id="progressbar"></div>
@@ -47,7 +47,7 @@
         <div class="row mar-5"><span title="Swap memory usage">Swp</span><span style="float:right" id="swpv"></span></div>
       </div>
       <div class="row text-center">
-        <span id="messages">{$messages|escape:"quotes"}</span></div>
+        <span id="messages">{$messages|escape:"quotes":"UTF-8"}</span></div>
       {if isset($SLY_HAS_ERRORS)}
         <div class="sy-alert sy-danger">
           <p>Error! Wrong credentials.</p>
@@ -77,11 +77,11 @@
           <th class="text-center"><h4>Overwrite stock status</h4></th>
           <th class="text-center"><h4>Remove connector</h4></th>
           <th class="text-center"><h4>Store data now</h4></th>
-          {$SLY_DEVELOPMENT|escape:"quotes"}
+          {$SLY_DEVELOPMENT|escape:"quotes":"UTF-8"}
         </tr>
         </thead>
         <tbody>
-        {$SLY_TABLE|escape:"quotes"}
+        {$SLY_TABLE|escape:"quotes":"UTF-8"}
         </tbody>
       </table>
       <div class="col-md-12 hide" id="submit_btt">

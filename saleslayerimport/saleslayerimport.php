@@ -281,7 +281,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.16';
+        $this->version = '1.4.17';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -541,12 +541,11 @@ class SalesLayerImport extends Module
                 if (isset($func[1]['file'])) {
                     $filename_array = explode('/', $func[1]['file']);
                     $file_last = end($filename_array);
-                    $line_chars_functions_file = 30;
+                    $linechars = 30;
                     $separator_function_file = '';
-                    $discount_chart_function_file = Tools::strlen('[' . $file_last . ']');
-                    if ($discount_chart_function_file < $line_chars_functions_file) {
-                        for (; $discount_chart_function_file < $line_chars_functions_file;
-                               $discount_chart_function_file++) {
+                    $discount_chart = Tools::strlen('[' . $file_last . ']');
+                    if ($discount_chart < $linechars) {
+                        for (; $discount_chart < $linechars; $discount_chart++) {
                             $separator_function_file .= ' ';
                         }
                     }
@@ -2015,11 +2014,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             require_once 'controllers/admin/SalesLayerPimUpdate.php';
 
             $sync_libs = new SalesLayerPimUpdate();
-
             $all_connectors = $this->getAllConnectors();
-
             $now = time();
-
 
             if (!empty($all_connectors)) {
                 $connectors_to_check = array();
@@ -2029,39 +2025,32 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         $connector_last_sync = $connector['last_sync'];
                         $connector_last_sync_unix = strtotime($connector_last_sync);
 
-                        $unix_to_update = $now - ($connector['auto_sync'] * 3600);
+                        $unix_to_update = $connector_last_sync_unix + ($connector['auto_sync'] * 3600);
 
                         if ($connector_last_sync_unix == '') {
                             $connector['unix_to_update'] = $unix_to_update;
-                            $connectors_to_check[] = $connector;
+                            $connectors_to_check[$unix_to_update] = $connector;
                         } else {
                             if ($connector['auto_sync'] >= 24) {
-                                $unix_to_update_hour = mktime(
-                                    $connector['auto_sync_hour'],
-                                    0,
-                                    0,
-                                    date('m', $unix_to_update),
-                                    date('d', $unix_to_update),
-                                    date('Y', $unix_to_update)
-                                );
-
-                                if ($connector_last_sync_unix < $unix_to_update_hour) {
-                                    $connector['unix_to_update'] = $unix_to_update_hour;
-                                    $connectors_to_check[] = $connector;
+                                if ($connector['auto_sync_hour'] > 0) {
+                                    $unix_to_update += ($connector['auto_sync_hour'] * 3600);
+                                }
+                                if ($now >= $unix_to_update) {
+                                    $connector['unix_to_update'] = $unix_to_update;
+                                    $connectors_to_check[$unix_to_update] = $connector;
                                 }
                             } else {
-                                if ($connector_last_sync_unix < $unix_to_update) {
+                                if ($now >= $unix_to_update) {
                                     $connector['unix_to_update'] = $unix_to_update;
-                                    $connectors_to_check[] = $connector;
+                                    $connectors_to_check[$unix_to_update] = $connector;
                                 }
                             }
                         }
                     }
                 }
 
-                if ($connectors_to_check) {
-                    uasort($connectors_to_check, array($this, 'sortByUnixToUpdate'));
-
+                if (!empty($connectors_to_check)) {
+                    ksort($connectors_to_check, SORT_NATURAL);
                     foreach ($connectors_to_check as $connector) {
                         if ($connector['auto_sync'] >= 24) {
                             $last_sync_time = mktime(
@@ -2079,7 +2068,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                         $connector_id = $connector['conn_code'];
 
-                        $this->debbug("Connector to auto-synchronize: " . $connector_id, 'autosync');
+                        $this->debbug('Connector to auto-synchronize: ' .
+                                       $connector_id, 'autosync');
 
                         $time_ini_cron_sync = microtime(1);
 
@@ -2087,7 +2077,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         sleep($time_random);
                         $this->debbug("#### time_random: " . $time_random . ' seconds.', 'autosync');
 
-                        // $data_return = $this->store_sync_data($connector_id, $last_sync);
                         $data_return = $sync_libs->storeSyncData($connector_id, $last_sync);
 
                         $this->debbug(
@@ -2769,9 +2758,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     {
         //Process to update accessories once all products have been generated.
         if (!empty($this->product_accessories)) {
+            $this->debbug(' Entry to sync accessories->' .
+                          print_r($this->product_accessories, 1), 'syncdata');
             $saleslayerpimupdate = new SalesLayerPimUpdate();
 
-            foreach ($this->product_accessories as $product_accessories) {
+            foreach ($this->product_accessories as $id_product => $product_accessories) {
                 $product_accessories_ids = array();
 
                 if (!empty($product_accessories)) {
@@ -2792,7 +2783,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 }
 
                 if (!empty($product_accessories_ids)) {
-                    $productObject = new Product();
+                    $this->debbug(' Entry to sync accessories->' .
+                                  print_r($product_accessories_ids, 1), 'syncdata');
+                    $productObject = new Product($id_product);
                     $productObject->deleteAccessories();
                     $productObject->changeAccessories($product_accessories_ids);
                 }
@@ -3403,7 +3396,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             $this->debbug(' >> Product synchronization initialized << ', 'syncdata');
 
                             try {
-                                $this->debbug(' sync categories -> '.print_r($this->sync_categories, 1), 'syncdata');
+                                $this->debbug(' sync categories -> ' .
+                                              print_r($this->sync_categories, 1), 'syncdata');
                                 $result_update_array = $this->sl_products->syncOneProduct(
                                     $item_data['sync_data'],
                                     $sync_params['conn_params']['data_schema_info'],

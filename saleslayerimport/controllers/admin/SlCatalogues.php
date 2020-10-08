@@ -134,7 +134,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                     $name_multi_idioma = array();
                     foreach ($this->shop_languages as $lang) {
                         $section_name_index = 'section_name_' . $lang['iso_code'];
-                        if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index])) { // is multilenguage
+                        if (isset($catalog['data'][$section_name_index]) &&
+                            !empty($catalog['data'][$section_name_index])) { // is multilenguage
                             $this->debbug(
                                 'Set name from name ->' .
                                 print_r($section_name_index, 1) . ' value->' .
@@ -314,8 +315,10 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $section_name_index = 'section_name';
                     } else { // is multilenguage
                         $section_name_index = 'section_name_' . $lang['iso_code'];
-                        if (!isset($catalog['data'][$section_name_index]) && empty($catalog['data'][$section_name_index])) { // no hay registro en ese idioma  vamos a saltar la búsqueda en esta idioma
-                            continue;                                                                                        //there is no record in that language we will skip the search in this language
+                        if (!isset($catalog['data'][$section_name_index]) &&
+                            empty($catalog['data'][$section_name_index])) {
+                            // no hay registro en ese idioma vamos a saltar la búsqueda en esta idioma
+                            continue; //there is no record in that language we will skip the search in this language
                         }
                     }
                     $catalog_name = $this->slValidateCatalogName(
@@ -427,7 +430,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                 $cat->link_rewrite        = array();
                 $cat->meta_title          = array();
                 $cat->meta_description    = array();
-                $cat->active              = 1;
+                $cat->active              = 0;
                 $cat->id_parent           = $defaultCategory;
                 $cat->id_category_default = $defaultCategory;
 
@@ -756,7 +759,6 @@ class SlCatalogues extends SalesLayerPimUpdate
                 'syncdata'
             );
 
-            $cat->active = 1;
 
             $catalog_parent_id = (int)Db::getInstance()->getValue(
                 sprintf(
@@ -1037,6 +1039,8 @@ class SlCatalogues extends SalesLayerPimUpdate
 
             if (isset($catalog['data']['active']) && $catalog['data']['active'] != '') {
                 $cat->active = $this->slValidateBoolean($catalog['data']['active']);
+            } else {
+                $cat->active = 1;
             }
 
             // $cat->save();
@@ -1464,16 +1468,17 @@ class SlCatalogues extends SalesLayerPimUpdate
             }
 
 
-            Db::getInstance()->execute(
-                sprintf(
-                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
-                             WHERE slyr_id = "%s"
-                             AND comp_id = "%s"
-                             AND ps_type = "slCatalogue"',
-                    $catalog,
-                    $comp_id
-                )
-            );
+            /*    Db::getInstance()->execute(
+                    sprintf(
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+                                 WHERE slyr_id = "%s"
+                                 AND comp_id = "%s"
+                                 AND ps_type = "slCatalogue"',
+                        $catalog,
+                        $comp_id
+                    )
+                );
+            */
         }
     }
 }

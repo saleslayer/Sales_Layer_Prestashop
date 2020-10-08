@@ -1348,7 +1348,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 foreach ($tablas as $keyTab => $campoTabla) {
                     if (isset($campoTabla['data']) && !empty($campoTabla['data'])) {
                         if (array_key_exists($keyStruct, $campoTabla['data'])) {
-                            if (isset($campoStruct['language_code']) && !empty($campoStruct['language_code'])) {  //es multiidioma
+                            if (isset($campoStruct['language_code']) && !empty($campoStruct['language_code'])) {
                                 $index_name = $campoStruct['basename'] . '_' . $campoStruct['language_code'];
                                 $tablas[$keyTab]['data'][$index_name] = $tablas[$keyTab]['data'][$keyStruct];
                             } else {

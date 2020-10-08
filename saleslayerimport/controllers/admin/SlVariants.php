@@ -356,7 +356,9 @@ class SlVariants extends SalesLayerPimUpdate
                                         ) . ' Tag language ->' . print_r($leng['iso_code'], 1),
                                         'syncdata'
                                     );
-                                    $mulilanguage[$leng['id_lang']] = $product_format['data'][$attribute_index];
+                                    if (!empty($product_format['data'][$attribute_index])) {
+                                        $mulilanguage[$leng['id_lang']] = $product_format['data'][$attribute_index];
+                                    }
                                     $processed_Keys[] = $attribute_index;
                                     unset($product_format['data'][$attribute_index]);
                                 }
@@ -2424,6 +2426,7 @@ class SlVariants extends SalesLayerPimUpdate
         } else {
             $occurence = ' ID :' . $product_id;
         }
+        $all_shops_image = Shop::getShops(true, null, true);
 
         $counter_images = 0;
         $position_image = 1;
@@ -2519,6 +2522,11 @@ class SlVariants extends SalesLayerPimUpdate
             if (count($ps_images) == 0) {
                 $cover = true;
             } else {
+                $this->debbug(
+                    'In images exist one image if is cover->' .
+                    print_r($ps_images, 1),
+                    'syncdata'
+                );
                 $cover = false;
             }
             /**
@@ -2699,6 +2707,9 @@ class SlVariants extends SalesLayerPimUpdate
                                         $need_update = false;
 
                                         $image_cover = new Image($slyr_image['id_image']);
+                                        $this->debbug('After load image status->' .
+                                                      print_r($image_cover, 1), 'syncdata');
+
                                         $old_position = $image_cover->position;
                                         foreach ($this->shop_languages as $shop_language) {
                                             $name_of_product_save = '';
@@ -2748,15 +2759,26 @@ class SlVariants extends SalesLayerPimUpdate
                                                 );
                                             }
                                         }
-                                        if ($cover && !$image_cover->cover
-                                                && count(
+                                        if (!$cover && $image_cover->cover && $old_position == 1) {
+                                            $this->debbug(
+                                                'Image is forced set as cover',
+                                                'syncdata'
+                                            );
+                                            $cover = true;
+                                            $position_image = 1;
+                                        }
+                                        if ($cover
+                                                && (count(
                                                     $ps_images
-                                                ) == 1
+                                                ) == 1 || ($image_cover->cover && $old_position == 1))
                                             ) { //  is first image  set to cover && Image is already like cover
+                                            //&& !$image_cover->cover
                                             try {
-                                                Image::deleteCover(
-                                                    $product_id
-                                                ); // delete cover image from this product
+                                                if (!$image_cover->cover) {
+                                                    Image::deleteCover(
+                                                        $product_id
+                                                    ); // delete cover image from this product
+                                                }
                                             } catch (Exception $e) {
                                                 $this->debbug(
                                                     '## Error. ' . $occurence . ' Delete cover ->' . print_r(
@@ -2766,7 +2788,9 @@ class SlVariants extends SalesLayerPimUpdate
                                                     'syncdata'
                                                 );
                                             }
-                                            $need_update = true;
+                                            if ($image_cover->cover) {
+                                                $need_update = true;
+                                            }
                                             $image_cover->cover = $cover; // set this image as cover
                                             $cover = false;
                                             $this->debbug(
@@ -2783,12 +2807,14 @@ class SlVariants extends SalesLayerPimUpdate
                                         $counter_images++;
 
                                         if ($need_update) {
-                                            $this->debbug('Image needs to update ', 'syncdata');
+                                            $this->debbug('Image needs to update this is object ->' .
+                                                          print_r($image_cover, 1), 'syncdata');
 
                                             try {
                                                 $image_cover->save();
                                                 //recalcula pisotion for all images
                                                 $image_cover->updatePosition($old_position, $image_cover->position);
+                                                $image_cover->associateTo($all_shops_image);
                                             } catch (Exception $e) {
                                                 $this->debbug(
                                                     '## Error. ' . $occurence . ' Updating Image info product->' .
@@ -2961,7 +2987,6 @@ class SlVariants extends SalesLayerPimUpdate
                                     );
                                     $image->delete();
                                 } else {
-                                    $all_shops_image = Shop::getShops(true, null, true);
                                     $image->associateTo($all_shops_image);
                                     $variant_ids = json_encode($variant_ids);
 

@@ -35,7 +35,7 @@
   <div class="row">
     <div class="col-xs-12 pad-10 mar-top-btt-40 text-center">
       <span class="pull-left sy-done" id="sllisted"></span><span class="pull-left" id="slwarnings"></span><span
-        class="sy-error pad-10" id="slerrors">{$message|escape:"quotes"}</span>
+        class="sy-error pad-10" id="slerrors">{$message|escape:"quotes":"UTF-8"}</span>
     </div>
   </div>
   <div class="row mar-top-btt-40">
@@ -99,7 +99,7 @@
       </ol>
       <div class="row text-center mar-top-btt-40">
         <div class="col-md-12">
-          {$validation_table|escape:"quotes"}
+          {$validation_table|escape:"quotes":"UTF-8"}
         </div>
       </div>
     </section>

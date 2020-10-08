@@ -227,7 +227,7 @@ class SlProducts extends SalesLayerPimUpdate
              * Update Product
              */
             $this->first_sync_shop = true;
-
+            $all_shops_image = Shop::getShops(true, null, true);
             foreach ($shops as $shop_id) {
                 Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
 
@@ -248,18 +248,19 @@ class SlProducts extends SalesLayerPimUpdate
                     }
 
                     if (is_string($product_type)) {
-                        if (preg_match('/(simple)/i', $product_type)) {
+                        if (preg_match('/(simple)/', $product_type)) {
                             $product_type = Product::PTYPE_SIMPLE;
+                        } elseif (preg_match('/(pack)/', $product_type)) {
+                            $product_type = Product::PTYPE_PACK;
+                        } elseif (preg_match('/(virtual)/', $product_type)) {
+                            $product_type = Product::PTYPE_VIRTUAL;
                         } else {
-                            if (preg_match('/(pack)/i', $product_type)) {
-                                $product_type = Product::PTYPE_PACK;
-                            } else {
-                                $product_type = '';
-                            }
+                            $product_type = '';
                         }
                     } else {
                         if (is_numeric($product_type)) {
-                            if ($product_type != Product::PTYPE_SIMPLE && $product_type != Product::PTYPE_PACK) {
+                            if ($product_type != Product::PTYPE_SIMPLE &&
+                                $product_type != Product::PTYPE_PACK && $product_type != Product::PTYPE_VIRTUAL) {
                                 $product_type = '';
                             }
                         }
@@ -465,6 +466,37 @@ class SlProducts extends SalesLayerPimUpdate
                             }
                         }
                     }
+                    /*
+                     * Product_virtual
+                     */
+                    if ($product_type != '' && $product_type == Product::PTYPE_VIRTUAL) {
+                        try {
+                            if ($productObject->setWsType('virtual')) {
+                                $this->debbug(
+                                    'product is a virtual type ->' . print_r(
+                                        ($product_type),
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
+                            } else {
+                                $this->debbug(
+                                    '##Error. Product is not valid virtual value ' . print_r(
+                                        $product_type,
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
+                            }
+                        } catch (Exception $e) {
+                            $this->debbug(
+                                '## Error. ' . $occurence . ' product type virtual->' . $e->getMessage() .
+                                'line->' . print_r($e->getLine(), 1) .
+                                'trace->' . print_r($e->getTrace(), 1),
+                                'syncdata'
+                            );
+                        }
+                    }
                 }
                 /**
                  * Update tax rule
@@ -484,7 +516,10 @@ class SlProducts extends SalesLayerPimUpdate
                     $product['data']['product_id_tax_rules_group'] != '') {
                     $is_percentage = false;
                     $id_tax_rules_group_default_from_cloud = array();
-
+                    if (is_array($product['data']['product_id_tax_rules_group'])) {
+                        $product['data']['product_id_tax_rules_group'] =
+                            reset($product['data']['product_id_tax_rules_group']);
+                    }
 
                     if (preg_match('/%/', $product['data']['product_id_tax_rules_group'])) {
                         $is_percentage = true;
@@ -988,24 +1023,22 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset(
                         $product['data'][$product_category_default_index_search],
                         $schema[$product_category_default_index_search]['language_code']
-                    ) &&
-                         !empty($product['data'][$product_category_default_index_search])
+                    )
                         && $schema[$product_category_default_index_search]['language_code'] == $lang['iso_code']) {
                         $product_category_default_index = 'category_sl_default_' . $lang['iso_code'];
                     } elseif (isset($product['data']['category_sl_default'])
-                        && !empty($product['data']['category_sl_default'])
                         && !isset($schema['category_sl_default']['language_code'])) {
                         $product_category_default_index = 'category_sl_default';
                     }
 
                     if ($product_category_default_index != ''
-                        && isset($product['data'][$product_category_default_index])) {
+                        && isset($product['data'][$product_category_default_index]) &&
+                        !empty($product['data'][$product_category_default_index])) {
                         $category_default_value = '';
 
                         if (is_array(
                             $product['data'][$product_category_default_index]
                         )
-                            && !empty($product['data'][$product_category_default_index])
                         ) {
                             $category_default_value = reset($product['data'][$product_category_default_index]);
                         } else {
@@ -1017,6 +1050,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $category_default_value = $product['data'][$product_category_default_index];
                             }
                         }
+                        unset($product['data'][$product_category_default_index]);
 
                         if ($category_default_value != '') {
                             $schema_db = 'SELECT id_category,meta_keywords FROM ' . $this->category_lang_table .
@@ -1063,6 +1097,8 @@ class SlProducts extends SalesLayerPimUpdate
                                 }
                             }
                         }
+                    } else {
+                        unset($product['data'][$product_category_default_index]);
                     }
 
                     if (!$category_default_found && count($arrayIdCategories)) {
@@ -1325,8 +1361,6 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
 
-
-
                 /**
                  * Place your custom non multi-language code here
                  */
@@ -1337,6 +1371,47 @@ class SlProducts extends SalesLayerPimUpdate
 
 
 
+
+
+
+
+
+
+                /**
+                 * Id of  element for redirect  redirect_type (temporal)
+                 */
+                if (isset($product['data']['redirect_type']) &&
+                    !empty($product['data']['redirect_type'])) {
+                    if (is_array($product['data']['redirect_type'])) {
+                        $product['data']['redirect_type'] = reset($product['data']['redirect_type']);
+                    }
+                    $productObject->redirect_type = $product['data']['redirect_type'];
+                    unset($product['data']['redirect_type']);
+                }
+
+                /**
+                 * Id of  element for redirect  id_type_redirected (temporal)
+                 */
+                if (isset($product['data']['id_type_redirected']) &&
+                    !empty($product['data']['id_type_redirected'])) {
+                    if (is_array($product['data']['id_type_redirected'])) {
+                        $product['data']['id_type_redirected'] = reset($product['data']['id_type_redirected']);
+                    }
+                    $productObject->id_type_redirected = $product['data']['id_type_redirected'];
+                    unset($product['data']['id_type_redirected']);
+                }
+
+                /**
+                 * Custom visibility update
+                 */
+                if (isset($product['data']['product_visibility']) &&
+                     !empty($product['data']['product_visibility'])) {
+                    if (is_array($product['data']['product_visibility'])) {
+                        $product['data']['product_visibility'] = reset($product['data']['product_visibility']);
+                    }
+                    $productObject->visibility = $product['data']['product_visibility'];
+                    unset($product['data']['product_visibility']);
+                }
                 /**
                  * Clear all remove leftover fields of alt attribute (languages that do not match those of prestashop)
                  */
@@ -1502,6 +1577,13 @@ class SlProducts extends SalesLayerPimUpdate
                 if (isset($product['data']['product_active']) && $product['data']['product_active'] != '') {
                     $toactivate = $this->slValidateBoolean($product['data']['product_active']);
                     if (Validate::isBool($toactivate)) {
+                        $this->debbug('Set product active ' . $occurence .
+                                      ' to ' .
+                                      print_r(
+                                          $active,
+                                          1
+                                      ) . ' in store id->' .
+                                      print_r($shop_id, 1), 'syncdata');
                         $productObject->active =  $toactivate;
                     } else {
                         $this->debbug('## Warning. ' . $occurence .
@@ -1512,6 +1594,12 @@ class SlProducts extends SalesLayerPimUpdate
                                       ), 'syncdata');
                     }
                 } else {
+                    $this->debbug('Autofill status active in ' . $occurence .
+                                 ' to ' .
+                                  print_r(
+                                      $active,
+                                      1
+                                  ), 'syncdata');
                     $productObject->active = $active;
                 }
 
@@ -2673,6 +2761,12 @@ class SlProducts extends SalesLayerPimUpdate
 
 
                 try {
+                    $this->debbug('status active -> ' . $occurence .
+                                  ' for store ' . $shop_id . ' before save ' .
+                                  print_r(
+                                      $productObject->active,
+                                      1
+                                  ), 'syncdata');
                     $productObject->save();
                     $product_id = $productObject->id;
 
@@ -2746,13 +2840,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             ' result: success', 'syncdata');
                     }
                 }
-                $this->debbug('Before run indexation', 'syncdata');
-                $microtime = microtime(1);
-                Search::indexation(false, $product_id);
-                $this->debbug('After run indexation time->' . print_r(
-                    (microtime(1) - $microtime),
-                    1
-                ), 'syncdata');
+
 
                 unset($productObject);
 
@@ -3131,6 +3219,54 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             } catch (Exception $e) {
                 $this->debbug('## Error. ' . $occurence . ' Sync Features: ' . $e->getMessage(), 'syncdata');
             }
+
+            $this->debbug('Before run indexation index this-id_Product ->' .
+                          print_r($product_id, 1), 'syncdata');
+            /**
+             * Reindex only this product in all stores
+             */
+
+            $microtime = microtime(1);
+            $this->debbug(
+                'Before run indexation index this-id_Product ->' .
+                          print_r($product_id, 1) . ' get context ->' . print_r(Shop::getContext(), 1)
+                          . ' context shop id->' . print_r(Shop::getContextShopID(), 1),
+                'syncdata'
+            );
+            try {
+                foreach ($all_shops_image as $shop_id_in) {
+                    Shop::setContext(shop::CONTEXT_SHOP, $shop_id_in);
+                    $prod_index = new Product($product_id, false, null, $shop_id_in);
+                    $prod_index->indexed = 0;
+                    if ($prod_index->price === null || $prod_index->price === '') {
+                        $prod_index->price = 0;
+                    }
+                    $this->debbug('Status active for stores in indexing-> ' . $occurence .
+                                  ' for store ' . $shop_id_in . ' before save ' .
+                                  print_r(
+                                      $prod_index->active,
+                                      1
+                                  ), 'syncdata');
+                    $prod_index->save();
+                }
+            } catch (Exception $e) {
+                $this->debbug('## Error. ' . $occurence .
+                              ' Set indexer to 0: ' .
+                              $e->getMessage(), 'syncdata');
+            }
+
+            try {
+                Search::indexation(false, $product_id);
+            } catch (Exception $e) {
+                $this->debbug('## Error. ' . $occurence .
+                              ' indexer error: ' .
+                              $e->getMessage(), 'syncdata');
+            }
+
+            $this->debbug('After run indexation time->' . print_r(
+                (microtime(1) - $microtime),
+                1
+            ), 'syncdata');
         }
 
 
@@ -3545,6 +3681,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         } else {
             $occurence = ' ID :' . $product_id;
         }
+
         $image_counter_position = 1;
 
         $this->debbug(
@@ -3570,6 +3707,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
         $contextShopID = Shop::getContextShopID();
         Shop::setContext(Shop::CONTEXT_ALL);
+        $all_shops_image = Shop::getShops(true, null, true);
         $cover = true;
         $catch_images = array();
 
@@ -3651,7 +3789,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $variants = count(json_decode($slyr_image['ps_variant_id'], 1));
                             }
                             if ($slyr_image['md5_image'] !== '' && $slyr_image['id_image'] == $ps_image['id_image'] &&
-                                (array_key_exists($slyr_image['image_reference'], $catch_images) || $variants > 0)) { // Is image from producto or is image from variant
+                                (array_key_exists($slyr_image['image_reference'], $catch_images) || $variants > 0)) {
+                                // Is image from producto or is image from variant
                                 $this->debbug('Protect image->' .
                                               print_r($slyr_image['id_image'], 1), 'syncdata');
                                 $image_found = true;
@@ -3747,6 +3886,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                      */
 
                                     unset($slyr_images[$keySLImg]);
+
                                     if ($slyr_image['md5_image'] !== $md5_image) {
 
                                         /**
@@ -3766,7 +3906,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                          */
 
                                         $image_cover = new Image($slyr_image['id_image']);
-
                                         try {
                                             foreach ($mulilanguage as $id_lang_multi => $name_of_product) {
                                                 if (is_array($name_of_product)) {
@@ -3779,13 +3918,18 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                     }
                                                 }
 
-                                                if ($name_of_product != ''
+                                                if ($name_of_product != '' &&
+                                                    !preg_match(
+                                                        Tools::cleanNonUnicodeSupport('/^[^<>={}]*$/u'),
+                                                        $name_of_product
+                                                    )
                                                     && (!isset($image_cover->legend[$id_lang_multi])
                                                         || trim(
                                                             $image_cover->legend[$id_lang_multi]
                                                         ) != trim($name_of_product))
                                                 ) {
-                                                    $image_cover->legend[$id_lang_multi] = $name_of_product;
+                                                    $image_cover->legend[$id_lang_multi] =
+                                                        Tools::substr($name_of_product, 0, 128);
                                                     $this->debbug(
                                                         'Recording a new image alt attribute, ' .
                                                          'you need to update this image information ->' .
@@ -3802,7 +3946,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                         'The image is the same or empty,' .
                                                         ' the alt attribute of the image ' .
                                                          'is the same. It is not necessary to update the information ' .
-                                                         'of this image ->' .
+                                                         'of this image or exist problem with any character ->' .
                                                         print_r(
                                                             $image_cover->legend[$id_lang_multi],
                                                             1
@@ -3822,9 +3966,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 'syncdata'
                                             );
                                         }
-
-
-                                        if ($cover) { //  is first image  set to cover && Image is already like cover
+                                        if ($cover) {
                                             try {
                                                 Image::deleteCover(
                                                     $product_id
@@ -3839,10 +3981,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 );
                                             }
 
-                                            $image_cover->cover = $cover; // set this image as cover
-
-                                            $cover = false;
+                                            $image_cover->cover = (int) $cover; // set this image as cover
+                                            $this->debbug('Set as cover ->' .
+                                                          print_r($cover, 1), 'syncdata');
+                                            $cover = null;
                                         } else {
+                                            $this->debbug('unset cover to null', 'syncdata');
                                             $image_cover->cover = null;
                                         }
 
@@ -3850,8 +3994,16 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                         $image_counter_position++;
                                         $image_cover->id_product = $product_id;
                                         try {
-                                            $this->debbug('updating image information ', 'syncdata');
+                                            $this->debbug('updating image information ->' .
+                                                          print_r($image_cover, 1), 'syncdata');
                                             $image_cover->save();
+
+
+                                            $this->debbug(
+                                                'Associating image to all stores' . print_r($all_shops_image, 1),
+                                                'syncdata'
+                                            );
+                                            $image_cover->associateTo($all_shops_image);
                                             Db::getInstance()->execute(
                                                 "UPDATE " . _DB_PREFIX_ . "slyr_image SET  origin ='prod'
                                                 WHERE id_image = '" . $slyr_image['id_image'] . "' "
@@ -3882,7 +4034,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                          * Process images that do not exist in the sl cache and have arrived in this connection
                          */
 
-
+                        Shop::setContext(Shop::CONTEXT_ALL);
                         $result_save_image = false;
                         $image = new Image();
                         $image->id_product = (int)$product_id;
@@ -3899,14 +4051,17 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 }
                             }
 
-
-                            if ($name_of_product != ''
+                            if ($name_of_product != '' &&
+                                !preg_match(
+                                    Tools::cleanNonUnicodeSupport('/^[^<>={}]*$/u'),
+                                    $name_of_product
+                                )
                                 && (!isset($image->legend[$id_lang_multi])
                                     || trim(
                                         $image->legend[$id_lang_multi]
                                     ) != trim($name_of_product))
                             ) {
-                                $image->legend[$id_lang_multi] = $name_of_product;
+                                $image->legend[$id_lang_multi] =  Tools::substr($name_of_product, 0, 128);
                                 $this->debbug(
                                     'Setting image alt attribute. You  to update this image info ->' .
                                     print_r(
@@ -3923,7 +4078,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             } else {
                                 $this->debbug(
                                     'Image is the same, image alt attribute not is ' .
-                                    ' needed, update this image info ->' .
+                                    ' needed, update this image info or exist problem with any character ->' .
                                     print_r(
                                         $image->legend[$id_lang_multi],
                                         1
@@ -3947,10 +4102,11 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     'syncdata'
                                 );
                             }
-
-                            $image->cover = $cover;
-                            $cover = false;
+                            $this->debbug('set as cover', 'syncdata');
+                            $image->cover = (int) $cover;
+                            $cover = null;
                         } else {
+                            $this->debbug('unset cover to null', 'syncdata');
                             $image->cover = null;
                         }
 
@@ -3983,6 +4139,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
                         try {
                             $result_save_image = $image->add();
+
+                            $this->debbug(
+                                'Associating image to all stores' . print_r($all_shops_image, 1),
+                                'syncdata'
+                            );
+                            $image->associateTo($all_shops_image);
                         } catch (Exception $e) {
                             $result_save_image = false;
                             $this->debbug(
@@ -4026,6 +4188,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 $cloned_image->position = $image_counter_position;
                                 $cloned_image->id_product = (int) $product_id;
                                 $result_save_image = $cloned_image->add();
+
+                                $this->debbug(
+                                    'Associating image to all stores' . print_r($all_shops_image, 1),
+                                    'syncdata'
+                                );
+                                $cloned_image->associateTo($all_shops_image);
                             } catch (Explode $e) {
                                 $this->debbug('## Error. ' . $occurence . ' Second attempt.', 'syncdata');
                             }
@@ -4064,12 +4232,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 );
                                 $image->delete();
                             } else {
-                                $all_shops_image = Shop::getShops(true, null, true);
-                                $this->debbug(
-                                    'Associating image to all stores' . print_r($all_shops_image, 1),
-                                    'syncdata'
-                                );
-                                $image->associateTo($all_shops_image);
 
 
                                 /**
@@ -4210,16 +4372,15 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             }
 
 
-            Db::getInstance()->execute(
-                sprintf(
-                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
-                    WHERE slyr_id = "%s" 
-                    AND comp_id = "%s" 
-                    AND ps_type = "product"',
-                    $product,
-                    $comp_id
-                )
-            );
+            /* Db::getInstance()->execute(
+                   sprintf(
+                       'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+                       WHERE slyr_id = "%s" AND comp_id = "%s"
+                       AND ps_type = "product"',
+                       $product,
+                       $comp_id
+                   )
+               );*/
         }
     }
 
@@ -4519,7 +4680,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     }
                 }
             }
-            $productObject->active = true;
+            $productObject->active = 0;
             $productObject->date_add = date('Y-m-d H:i:s');
 
             isset($product['data']['product_reference']) ? $product_reference = $this->slValidateReference(
@@ -4942,10 +5103,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             'in feature  $new_name->' . print_r(
                                 $new_name,
                                 1
-                            )/* . ' in $product[data]->' . print_r(
-                                $product['data'],
-                                1
-                            )*/ . ' $feature_index_selected->' . print_r(
+                            ) . ' $feature_index_selected->' . print_r(
                                 $feature_index_selected,
                                 1
                             ),
@@ -5286,7 +5444,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 $id_feature,
                                                 null,
                                                 $values_for_process,
-                                                $create_as_custom
+                                                $this->create_new_features_as_custom
                                             );// $id_product
 
                                             if ($id_feature_value_update != 0) {
@@ -5623,7 +5781,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             'syncdata'
                                         );
                                     }
-                                }
+                                }//lang
                             }
 
                             /**
@@ -5867,7 +6025,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                         $line[$stat] = str_replace(array( ':custom', ':CUSTOM' ), '', $line[$stat]);
                                         $create_as_custom = true;
                                     }
-                                    $filtered[$id_lang] = $line[$stat];
+                                    $filtered[$id_lang] = trim($line[$stat]);
                                 }
 
                                 $id_feature_value = $this->searchFeatureValue(
@@ -5888,6 +6046,41 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                 );
 
                                 if ($id_feature_value != 0) {
+                                    try {
+                                        $feature_value = new FeatureValue($id_feature_value);
+                                        $changed = false;
+                                        foreach ($filtered as $id_language => $value) {
+                                            if (is_array($value) && !empty($value)) {
+                                                $value = trim(reset($value));
+                                            }
+                                            if ($value !== '' && $value !== null &&
+                                                empty($feature_value->value[$id_language])) {
+                                                $this->debbug(
+                                                    'Set Value for lang id ' . $id_language .
+                                                    '->' . print_r($value, 1),
+                                                    'syncdata'
+                                                );
+                                                $changed = true;
+                                                $feature_value->value[$id_language] = trim($value);
+                                            }
+                                        }
+                                        if ($changed) {
+                                            $this->debbug(
+                                                'New translates detected saving changes->' .
+                                                print_r($feature_value->value, 1),
+                                                'syncdata'
+                                            );
+                                            $feature_value->save();
+                                        }
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '##Error. In save changes to feature value ->' .
+                                            print_r($e->getMessage(), 1) . ' values->' .
+                                            print_r($filtered, 1),
+                                            'syncdata'
+                                        );
+                                    }
+
                                     try {
                                         $feature_value_exist = Db::getInstance()->executeS(
                                             sprintf(
@@ -6119,14 +6312,14 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
         $values,
         $create_as_custom = false
     ) {
+        $newValue = false;
         $id_feature_value = null;
-        // $this->debbug('entry to with values $id_feature->' . print_r($id_feature, 1)
-        // . ' $id_product->' . $id_product . ' $value->' . print_r($values, 1),  'syncdata');
+        $this->debbug('entry to with values $id_feature->' . print_r($id_feature, 1)
+         . ' $id_product->' . $id_product . ' $values->' . print_r($values, 1), 'syncdata');
         try {
-            $featureValue = new FeatureValue();
-
             foreach ($values as $id_language => $value) {
-                $feature_values_existing = $featureValue->getFeatureValuesWithLang($id_language, $id_feature, true);
+                $feature_values_existing =
+                    FeatureValue::getFeatureValuesWithLang($id_language, $id_feature, $create_as_custom);
 
                 if (count($feature_values_existing) > 0) {
                     foreach ($feature_values_existing as $feature_value_existing) {
@@ -6140,7 +6333,9 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             );
 
                             //Si encontramos un valor igual cambiamos el id de valor en la asignación existente.
-                            return $feature_value_existing['id_feature_value'];
+                            //return $feature_value_existing['id_feature_value'];
+                            $id_feature_value = $feature_value_existing['id_feature_value'];
+                            break;
                         }
                     }
                 }
@@ -6164,14 +6359,56 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             $value_to_add = trim($values);
         }
 
-        if ($value_to_add !== '' && $value_to_add !== null) {
+        if ($id_feature_value == null && $value_to_add !== '' && $value_to_add !== null) {
             try {
-                $id_feature_value = $featureValue->addFeatureValueImport(
-                    $id_feature,
-                    $value_to_add,
-                    $id_product,
-                    null,
-                    $create_as_custom
+                if (null !== $id_product && $id_product) {
+                    $id_feature_value = Db::getInstance()->getValue('
+					SELECT fp.`id_feature_value`
+					FROM ' . _DB_PREFIX_ . 'feature_product fp
+					INNER JOIN ' . _DB_PREFIX_ . 'feature_value fv USING (`id_feature_value`)
+					WHERE fp.`id_feature` = ' . (int) $id_feature . '
+					AND fv.`custom` = ' . (int) $create_as_custom . '
+					AND fp.`id_product` = ' . (int) $id_product);
+
+                    if ($create_as_custom && $id_feature_value && null !== key($values) && key($values)) {
+                        Db::getInstance()->execute('
+							`UPDATE ' . _DB_PREFIX_ . 'feature_value_lang
+							SET `value` = \'' . pSQL($value_to_add) . '\'
+							WHERE `id_feature_value` = ' . (int) $id_feature_value . '
+							AND `value` != \'' . pSQL($value_to_add) . '\'
+							AND id_lang` = ' . (int) key($values));
+                    }
+                }
+
+                if ($id_feature_value == null) {
+                    // Feature doesn't exist, create it
+                    $feature_value = new FeatureValue();
+                    $feature_value->id_feature = (int) $id_feature;
+                    $feature_value->custom = (bool) $create_as_custom;
+                    foreach ($this->shop_languages as $lang) {
+                        if (isset($values[$lang['id_lang']])) {
+                            if (is_array($values[$lang['id_lang']])) {
+                                $values[$lang['id_lang']] = trim(reset($values[$lang['id_lang']]));
+                            }
+                            if (!empty(trim($values[$lang['id_lang']]))) {
+                                $feature_value->value[$lang['id_lang']] = trim($values[$lang['id_lang']]);
+                            } else {
+                                $feature_value->value[$lang['id_lang']] = ' ';
+                            }
+                        } else {
+                            $feature_value->value[$lang['id_lang']] = ' ';
+                        }
+                    }
+                    $feature_value->add();
+                    $id_feature_value = (int) $feature_value->id;
+                    $newValue = true;
+                }
+                $this->debbug(
+                    'Created feature value  $id_feature_value ->' .
+                    print_r($id_feature_value, 1) .
+                    ' feature Values ->' .
+                    print_r($feature_value->value, 1),
+                    'syncdata'
                 );
             } catch (Exception $e) {
                 $this->debbug(
@@ -6181,26 +6418,50 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             }
         }
 
-        if ($id_feature_value != null) {
-            $feature_value = new FeatureValue($id_feature_value);
-            foreach ($values as $id_language => $value) {
-                if (is_array($value) && !empty($value)) {
-                    $value = trim(reset($value));
-                }
-                if ($value !== '' && $value !== null) {
-                    $feature_value->value[$id_language] = trim($value);
-                }
-            }
-            $feature_value->save();
-        }
-
-        unset($featureValue);
 
         if ($id_feature_value != null) {
             $this->debbug(
-                'Return id of created feature value  $id_feature_value ->' . print_r($id_feature_value, 1),
+                'Return id of feature value  $id_feature_value ->' . print_r($id_feature_value, 1),
                 'syncdata'
             );
+
+            $feature_value = new FeatureValue($id_feature_value);
+            $this->debbug(
+                'Load existing feature value translations ->' . print_r($feature_value->value, 1),
+                'syncdata'
+            );
+            $changes = false;
+            foreach ($this->shop_languages as $lang) {
+                if (isset($values[$lang['id_lang']])) {
+                    if (is_array($values[$lang['id_lang']])) {
+                        $values[$lang['id_lang']] = trim(reset($values[$lang['id_lang']]));
+                    }
+                    if ($newValue) {
+                        $changes = true;
+                        $feature_value->value[$lang['id_lang']] = trim($values[$lang['id_lang']]);
+                    } else {
+                        if (empty(trim($feature_value->value[$lang['id_lang']]))
+                            && $values[$lang['id_lang']] !== ''
+                            && $values[$lang['id_lang']] !== null) {
+                            $changes = true;
+                            $feature_value->value[$lang['id_lang']] = trim($values[$lang['id_lang']]);
+                        }
+                    }
+                } else {
+                    if ($newValue) {
+                        $changes = true;
+                        $feature_value->value[$lang['id_lang']] = ' ';
+                    }
+                }
+            }
+            if ($changes) {
+                $this->debbug(
+                    'Overwrite all translations  for set only correct ->' .
+                    print_r($feature_value->value, 1),
+                    'syncdata'
+                );
+                $feature_value->save();
+            }
 
             return $id_feature_value;
         } else {
@@ -6223,7 +6484,6 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
      * @param $schema
      * @return mixed
      */
-
 
     private function removePredefinedFieldsBeforeFeatures(
         $product,

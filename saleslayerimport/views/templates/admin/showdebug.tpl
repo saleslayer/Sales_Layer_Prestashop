@@ -231,7 +231,7 @@
               <td class="min-hei-40">
                 <div>
                 <select class="min-wid-100" name="debugmode" title="Generate debug log" onchange="ajaxexecuter(this);">
-                  {$SLY_DEBUGMODE_SELECT|escape:"quotes"}
+                  {$SLY_DEBUGMODE_SELECT|escape:"quotes":"UTF-8"}
                 </select>
                 </div>
               </td>
@@ -241,7 +241,7 @@
               <td class="min-hei-40">
                 <div>
                   <select class="min-wid-100" name="performance" title="Set the cpu saturation level of your server. If this limit is doubled, synchronization will begin to be postponed for a few seconds to reduce the load of your cpu." onchange="ajaxexecuter(this);">
-                  {$SLY_PERFORMANCE_SELECT|escape:"quotes"}
+                  {$SLY_PERFORMANCE_SELECT|escape:"quotes":"UTF-8"}
                   </select>
                 </div>
               </td>
@@ -285,7 +285,7 @@
           </tr>
           </thead>
           <tbody id="listoflogs">
-          {$log_files|escape:"quotes"}
+          {$log_files|escape:"quotes":"UTF-8"}
           </tbody>
         </table>
       </div>
@@ -783,7 +783,7 @@
 </script>{/literal}
 <div class="container-fluid">
   <div class="row">
-    <div class="col-lg-12 col-md-12 col-sm-12">{$server_aditionalInfo|escape:"quotes"}</div>
+    <div class="col-lg-12 col-md-12 col-sm-12">{$server_aditionalInfo|escape:"quotes":"UTF-8"}</div>
   </div>
 </div>
 </body>

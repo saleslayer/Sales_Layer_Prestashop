@@ -194,102 +194,112 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
         $lineNumber
     ) {
         $logfile = html_entity_decode($logfile);
-        $response = array();
-        $response[1] = array();
-        $log_dir_path = $this->SLimport->log_module_path;
+        $file_array = explode('/', $logfile);
+        $logfile = end($file_array);
 
-        $exportlines = array();
+        if (preg_match('/[A-Za-z0-9]*.[A-Za-z0-9]{3}/', $logfile)) {
+            $response     = array();
+            $response[1]  = array();
+            $log_dir_path = $this->SLimport->log_module_path;
 
-        if (file_exists($log_dir_path . $logfile)) {
-            $total_lines = $this->countLines($log_dir_path . $logfile);
-
-            $max_lines_conection = 20000;
-            //  $listed = 0;
-            //  $warnings = 0;
-            //  $numerrors = 0;
-            $currentLine = 0;
+            $exportlines = array();
 
 
-            $file = new SplFileObject($log_dir_path . $logfile);
-            if ($total_lines > $lineNumber) {
-                $file->seek($lineNumber);
-                $currentLine = $lineNumber;
-            }
-            if ($total_lines > $lineNumber) {
-                $restant = $total_lines - $lineNumber;
-            } else {
-                $restant = 0;
-            }
+            if (file_exists($log_dir_path . $logfile)) {
+                $total_lines = $this->countLines($log_dir_path . $logfile);
 
-            if ($restant > $max_lines_conection) {
-                $stopLimit = $currentLine + $max_lines_conection;
-            } else {
-                $stopLimit = $currentLine + $restant;
-            }
-
-            if ($stopLimit > $total_lines) {
-                $stopLimit = $total_lines;
-            }
+                $max_lines_conection = 20000;
+                //  $listed = 0;
+                //  $warnings = 0;
+                //  $numerrors = 0;
+                $currentLine = 0;
 
 
-            $spacingarray = array();
-            for (; !$file->eof() && $currentLine < $stopLimit; $currentLine++) {
-                $line = $file->current();
-                $file->next();
-
-
-                if (count($spacingarray) >= 1 && (strpos($line, ")") !== false)) {
-                    array_pop($spacingarray);
+                $file = new SplFileObject($log_dir_path . $logfile);
+                if ($total_lines > $lineNumber) {
+                    $file->seek($lineNumber);
+                    $currentLine = $lineNumber;
+                }
+                if ($total_lines > $lineNumber) {
+                    $restant = $total_lines - $lineNumber;
+                } else {
+                    $restant = 0;
                 }
 
-                if (count($spacingarray) >= 1) {
-                    if (strpos($line, "(") !== false) {
+                if ($restant > $max_lines_conection) {
+                    $stopLimit = $currentLine + $max_lines_conection;
+                } else {
+                    $stopLimit = $currentLine + $restant;
+                }
+
+                if ($stopLimit > $total_lines) {
+                    $stopLimit = $total_lines;
+                }
+
+
+                $spacingarray = array();
+                for (; ! $file->eof() && $currentLine < $stopLimit; $currentLine++) {
+                    $line = $file->current();
+                    $file->next();
+
+
+                    if (count($spacingarray) >= 1 && (strpos($line, ")") !== false)) {
                         array_pop($spacingarray);
-                        $spacing = implode('', $spacingarray);
-                        $spacingarray[] = '&emsp;&emsp;';
-                    } else {
-                        $spacing = implode('', $spacingarray);
                     }
-                } else {
-                    $spacing = '';
+
+                    if (count($spacingarray) >= 1) {
+                        if (strpos($line, "(") !== false) {
+                            array_pop($spacingarray);
+                            $spacing        = implode('', $spacingarray);
+                            $spacingarray[] = '&emsp;&emsp;';
+                        } else {
+                            $spacing = implode('', $spacingarray);
+                        }
+                    } else {
+                        $spacing = '';
+                    }
+                    //  $listed++;
+                    if (stripos($line, 'error') !== false) {
+                        $exportlines[ 'l-' . $currentLine ]['stat']    = 'error';
+                        $exportlines[ 'l-' . $currentLine ]['spacing'] = $spacing;
+                        $exportlines[ 'l-' . $currentLine ]['content'] = $line;
+                    // $numerrors++;
+                    } elseif (stripos($line, 'warning') !== false) {
+                        $exportlines[ 'l-' . $currentLine ]['stat']    = 'warning';
+                        $exportlines[ 'l-' . $currentLine ]['spacing'] = $spacing;
+                        $exportlines[ 'l-' . $currentLine ]['content'] = $line;
+                    //  $warnings++;
+                    } elseif (stripos($line, '## Info.') !== false) {
+                        $exportlines[ 'l-' . $currentLine ]['stat']    = 'info';
+                        $exportlines[ 'l-' . $currentLine ]['spacing'] = $spacing;
+                        $exportlines[ 'l-' . $currentLine ]['content'] = $line;
+                    } else {
+                        $exportlines[ 'l-' . $currentLine ]['stat']    = '';
+                        $exportlines[ 'l-' . $currentLine ]['spacing'] = $spacing;
+                        $exportlines[ 'l-' . $currentLine ]['content'] = $line;
+                    }
+                    if (stripos($line, 'Array') !== false) {
+                        $spacingarray[] = '&emsp;&emsp;';
+                    }
                 }
-                //  $listed++;
-                if (stripos($line, 'error') !== false) {
-                    $exportlines['l-' . $currentLine]['stat'] = 'error';
-                    $exportlines['l-' . $currentLine]['spacing'] = $spacing;
-                    $exportlines['l-' . $currentLine]['content'] = $line;
-                // $numerrors++;
-                } elseif (stripos($line, 'warning') !== false) {
-                    $exportlines['l-' . $currentLine]['stat'] = 'warning';
-                    $exportlines['l-' . $currentLine]['spacing'] = $spacing;
-                    $exportlines['l-' . $currentLine]['content'] = $line;
-                //  $warnings++;
-                } elseif (stripos($line, '## Info.') !== false) {
-                    $exportlines['l-' . $currentLine]['stat'] = 'info';
-                    $exportlines['l-' . $currentLine]['spacing'] = $spacing;
-                    $exportlines['l-' . $currentLine]['content'] = $line;
-                } else {
-                    $exportlines['l-' . $currentLine]['stat'] = '';
-                    $exportlines['l-' . $currentLine]['spacing'] = $spacing;
-                    $exportlines['l-' . $currentLine]['content'] = $line;
-                }
-                if (stripos($line, 'Array') !== false) {
-                    $spacingarray[] = '&emsp;&emsp;';
-                }
+
+                $file = '';
+                unset($file);
+
+
+                $response[0] = 1;
+                $response[1] = $exportlines;
+                unset($exportlines);
+                $response[2]           = $total_lines;
+                $response['stat_line'] = $currentLine;
+            } else {
+                $response[0]          = 1;
+                $response[1]          = array( 'Log file does not exist.' );
+                $response['function'] = '';
             }
-
-            $file = '';
-            unset($file);
-
-
-            $response[0] = 1;
-            $response[1] = $exportlines;
-            unset($exportlines);
-            $response[2] = $total_lines;
-            $response['stat_line'] = $currentLine;
         } else {
-            $response[0] = 1;
-            $response[1] = array('Log file does not exist.');
+            $response[0]          = 1;
+            $response[1]          = array( 'Log file does not accepted.' );
             $response['function'] = '';
         }
 
