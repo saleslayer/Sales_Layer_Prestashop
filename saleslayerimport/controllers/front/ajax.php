@@ -180,6 +180,25 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 $return['message_type'] = 'error';
                 $return['message'] = 'Error in update this connector.';
             } else {
+                $elements_for_unset_conn = Db::getInstance()->executeS(
+                    'SELECT sl.id,sl.ps_id,sl.shops_info FROM ' . _DB_PREFIX_ . 'slyr_category_product sl '
+                );
+                if (count($elements_for_unset_conn)) {
+                    foreach ($elements_for_unset_conn as $row) {
+                        if (!empty($row['shops_info'])) {
+                            $shops_active = json_decode(Tools::stripslashes($row['shops_info']), 1);
+                            if (isset($shops_active[$connector_id])) {
+                                unset($shops_active[$connector_id]);
+                            }
+                            Db::getInstance()->execute(
+                                "UPDATE " . _DB_PREFIX_ . "slyr_category_product sl " .
+                                " SET sl.shops_info ='" .
+                                addslashes(json_encode($shops_active)) . "'  WHERE sl.id = '" . $row['id'] . "' "
+                            );
+                        }
+                    }
+                }
+
                 $return['message_type'] = 'success';
                 $return['message'] = 'Connector removed correctly';
             }

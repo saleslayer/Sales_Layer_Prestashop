@@ -1069,15 +1069,46 @@ class SlCatalogues extends SalesLayerPimUpdate
                 $cat->save();
 
                 if ($cat->id) {
-                    Db::getInstance()->execute(
+                    $catalogue_row = Db::getInstance()->getRow(
                         sprintf(
-                            'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
-                         SET sl.date_upd = CURRENT_TIMESTAMP() 
-                         WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
+                            'SELECT sl.ps_id,sl.shops_info FROM ' . _DB_PREFIX_ .
+                            'slyr_category_product sl ' .
+                            ' WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" ' .
+                            ' AND sl.ps_type = "slCatalogue"  AND sl.ps_id = "%s" ',
                             $catalog['ID'],
-                            $comp_id
+                            $comp_id,
+                            $cat->id
                         )
                     );
+                    if ($catalogue_row && isset($catalogue_row['shops_info'])) {
+                        $shops_info = json_decode(Tools::stripslashes($catalogue_row['shops_info']), 1);
+                        if ($shops_info && !empty($shops_info)) {
+                            $shops_info[$connector_id] = $shops;
+                        } else {
+                            $shops_info = [];
+                            $shops_info[$connector_id] = $shops;
+                        }
+                    } else {
+                        $shops_info = [];
+                        $shops_info[$connector_id] = $shops;
+                    }
+                    $update_query = sprintf(
+                        'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
+                         SET sl.date_upd = CURRENT_TIMESTAMP() , sl.shops_info ="' .
+                            addslashes(json_encode($shops_info)) . '" 
+                         WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
+                        $catalog['ID'],
+                        $comp_id
+                    );
+
+                    if (!Db::getInstance()->execute($update_query)) {
+                        $this->debbug(
+                            '## Error. in save changes to cache ' .
+                            $occurence .
+                            ' query->' . print_r($update_query, 1),
+                            'syncdata'
+                        );
+                    }
                 }
             } catch (Exception $e) {
                 if (isset($section_reference) && !empty($section_reference)) {
@@ -1417,9 +1448,12 @@ class SlCatalogues extends SalesLayerPimUpdate
 
     /**
      * Delete Category
+     *
      * @param $catalog
      * @param $comp_id
      * @param $shops
+     * @param $connector
+     *
      * @throws PrestaShopDatabaseException
      * @throws PrestaShopException
      */
@@ -1428,57 +1462,105 @@ class SlCatalogues extends SalesLayerPimUpdate
     public function deleteCategory(
         $catalog,
         $comp_id,
-        $shops
+        $shops,
+        $connector
     ) {
-        $catalog_ps_id = (int)Db::getInstance()->getValue(
+        $product_ps_arr = Db::getInstance()->executeS(
             sprintf(
-                'SELECT sl.ps_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
+                'SELECT sl.id,sl.ps_id,sl.shops_info FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
                   WHERE sl.slyr_id = "%s" ANd sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
                 $catalog,
                 $comp_id
             )
         );
 
-        if ($catalog_ps_id) {
-            foreach ($shops as $shop) {
-                try {
-                    Shop::setContext(Shop::CONTEXT_SHOP, $shop);
-                    $cat = new Category($catalog_ps_id, null, $shop);
-                    $cat->active = 0;
-                    $cat->cleanGroups();
-                    $cat->cleanAssoProducts();
-                    $children = $cat->getAllChildren();
+        $shops_used_by_other_connector = [];
+        if ($product_ps_arr && count($product_ps_arr) && !empty($product_ps_arr)) {
+            $element_to_delete = reset($product_ps_arr);
+            $catalog_ps_id = (int) $element_to_delete['ps_id'];
+            $shops_active = json_decode(Tools::stripslashes($element_to_delete['shops_info']), 1);
 
-                    foreach ($children as $categories) {
-                        CartRule::cleanProductRuleIntegrity('categories', array($categories->id));
-                        // Category::cleanPositions($categories->id_parent);
-                        /* Delete Categories in GroupReduction */
-                        if (GroupReduction::getGroupsReductionByCategoryId((int)$categories->id)) {
-                            GroupReduction::deleteCategory($categories->id);
+            if (isset($shops_active[$connector])) {
+                foreach ($shops_active[$connector] as $key => $shop_id) {
+                    if (in_array($shop_id, $shops, false)) {
+                        unset($shops_active[$connector][$key]);
+                    }
+                }
+                if (empty($shops_active[$connector])) {
+                    unset($shops_active[$connector]);
+                }
+                if (!empty($shops_active)) {
+                    Db::getInstance()->execute(
+                        'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl SET' .
+                        " sl.shops_info ='" .
+                        addslashes(json_encode($shops_active)) .
+                        "'  WHERE sl.id = '" . $element_to_delete['id'] . "' "
+                    );
+                    foreach ($shops_active as $shops_used) {
+                        foreach ($shops_used as $store_used) {
+                            $shops_used_by_other_connector[$store_used] = $store_used;
                         }
                     }
-
-                    $cat->save();
-                } catch (Exception $e) {
-                    $this->debbug(
-                        '## Error. Deleting Category ID: ' . $catalog . ' error->' . print_r($e->getMessage(), 1),
-                        'syncdata'
+                } else {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+                       WHERE slyr_id = "%s" AND comp_id = "%s"
+                       AND ps_type = "slCatalogue"',
+                            $catalog,
+                            $comp_id
+                        )
                     );
                 }
             }
 
+            foreach ($shops as $shop) {
+                if (empty($shops_used_by_other_connector)) {
+                    //if (!in_array($shop, $shops_used_by_other_connector, false)) {
+                    try {
+                        Shop::setContext(Shop::CONTEXT_SHOP, $shop);
+                        $cat         = new Category($catalog_ps_id, null, $shop);
+                        $cat->active = 0;
+                        $this->debbug(
+                            'Deactivate only category Category ID: ' . $catalog . ' $shop->' .
+                            print_r($shop, 1) .
+                            ' Is posible que is implement globaly for all stores in any versions.',
+                            'syncdata'
+                        );
+                        /*  $cat->cleanGroups();
+                          $cat->cleanAssoProducts();
+                          $children = $cat->getAllChildren();
 
-            /*    Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
-                                 WHERE slyr_id = "%s"
-                                 AND comp_id = "%s"
-                                 AND ps_type = "slCatalogue"',
-                        $catalog,
-                        $comp_id
-                    )
-                );
-            */
+                          foreach ($children as $categories) {
+                              CartRule::cleanProductRuleIntegrity('categories', array( $categories->id ));
+                              // Category::cleanPositions($categories->id_parent);
+                              /* Delete Categories in GroupReduction */
+                        /*
+                            if (GroupReduction::getGroupsReductionByCategoryId((int) $categories->id)) {
+                                GroupReduction::deleteCategory($categories->id);
+                            }
+                        }*/
+
+                        $cat->save();
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '## Error. Deleting Category ID: ' . $catalog . ' error->' . print_r($e->getMessage(), 1),
+                            'syncdata'
+                        );
+                    }
+                } else {
+                    $this->debbug(
+                        ' It is not possible to deactivate Category with id sl_id ' . $catalog .
+                        ' $comp_id ' . $comp_id . ' $shops ->' . print_r(
+                            $shops,
+                            1
+                        ) . ' Category has been uploaded by several routes and there is still' .
+                        ' a connector in which the product has been received as visible: ' .
+                        print_r($shops_active, 1),
+                        'syncdata'
+                    );
+                }
+            }
         }
     }
 }

@@ -277,11 +277,12 @@ class SalesLayerImport extends Module
         require_once 'controllers/admin/SalesLayerPimUpdate.php';
         require_once 'controllers/admin/SlCatalogues.php';
         require_once 'controllers/admin/SlProducts.php';
+        require_once 'controllers/admin/SlProductDelete.php';
         require_once 'controllers/admin/SlVariants.php';
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.17';
+        $this->version = '1.4.18';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -2215,6 +2216,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $processed_delete = array();
         $this->sl_catalogues = new SlCatalogues();
         $this->sl_products = new SlProducts();
+        $this->sl_products_dl = new SlProductDelete();
         $this->sl_variants = new SlVariants();
         $processed = array();
         $this->allocateMemory();
@@ -2359,27 +2361,50 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                             switch ($item_to_delete['item_type']) {
                                 case 'category':
-                                    $result_delete = $this->sl_catalogues->deleteCategory(
-                                        $sl_id,
-                                        $this->comp_id,
-                                        $this->conector_shops_ids
-                                    );
+                                    try {
+                                        $result_delete = $this->sl_catalogues->deleteCategory(
+                                            $sl_id,
+                                            $this->comp_id,
+                                            $this->conector_shops_ids,
+                                            $this->processing_connector_id
+                                        );
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. in delete category : ' . print_r($item_to_delete, 1),
+                                            'syncdata'
+                                        );
+                                    }
                                     break;
 
                                 case 'product':
-                                    $result_delete = $this->sl_products->deleteProduct(
-                                        $sl_id,
-                                        $this->comp_id,
-                                        $this->conector_shops_ids
-                                    );
+                                    try {
+                                        $result_delete = $this->sl_products_dl->deleteProduct(
+                                            $sl_id,
+                                            $this->comp_id,
+                                            $this->conector_shops_ids,
+                                            $this->processing_connector_id
+                                        );
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. In delete product: ' . print_r($item_to_delete, 1),
+                                            'syncdata'
+                                        );
+                                    }
                                     break;
 
                                 case 'product_format':
-                                    $result_delete = $this->sl_variants->deleteVariant(
-                                        $sl_id,
-                                        $this->comp_id,
-                                        $this->conector_shops_ids
-                                    );
+                                    try {
+                                        $result_delete = $this->sl_variants->deleteVariant(
+                                            $sl_id,
+                                            $this->comp_id,
+                                            $this->conector_shops_ids
+                                        );
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. In delete Variant: ' . print_r($item_to_delete, 1),
+                                            'syncdata'
+                                        );
+                                    }
                                     break;
 
                                 default:
@@ -2737,7 +2762,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         "('" . $sync_type . "', '" . $item_type . "', '" . addslashes($item_data_to_insert) . "')";
                     $this->slConnectionQuery('-', $sql_query_to_insert);
                 } else {
-                    $sql_query_to_insert = " UPDATE " . _DB_PREFIX_ . "slyr_syncdata".
+                    $sql_query_to_insert = " UPDATE " . _DB_PREFIX_ . "slyr_syncdata" .
                         " SET item_data =  '" . addslashes(
                             $item_data_to_insert
                         ) . "' WHERE sync_type = '$sync_type' AND item_type = '$item_type' ";
@@ -3404,7 +3429,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     $this->comp_id,
                                     $this->conector_shops_ids,
                                     $sync_params['conn_params']['avoid_stock_update'],
-                                    $sync_params['conn_params']['sync_categories']
+                                    $sync_params['conn_params']['sync_categories'],
+                                    $this->processing_connector_id
                                 );
                                 $result_update = $result_update_array['stat'];
 
@@ -3995,13 +4021,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
     }
 
-
-
     /**
      * Function to sort connectors by unix_to_update or auto_sync values.
      * @param array $conn_a first connector to sort
      * @param array $conn_b second connector to sort
      * @return integer                      comparative of connectors
+     * @deprecated
      */
 
     private function sortByUnixToUpdate(

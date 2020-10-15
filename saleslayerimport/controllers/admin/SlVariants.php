@@ -2958,7 +2958,6 @@ class SlVariants extends SalesLayerPimUpdate
                                 );
                             }
 
-
                             if ($result_save_image != true) {
                                 $this->debbug(
                                     '## Warning. Problem when creating image template for image. ' .

@@ -53,7 +53,8 @@ class SlProducts extends SalesLayerPimUpdate
         $comp_id,
         $shops,
         $avoid_stock_update,
-        $sync_categories
+        $sync_categories,
+        $connector_id
     ) {
         $test_after_update = array();
         $mulilanguage = array();
@@ -118,7 +119,7 @@ class SlProducts extends SalesLayerPimUpdate
         if (!$product_exists) {
             $this->debbug('Synchronize product ID: ' . $product['ID'], 'syncdata');
             try {
-                $product_exists = $this->syncProduct($product, $comp_id, $schema);
+                $product_exists = $this->syncProduct($product, $comp_id, $schema, $shops, $connector_id);
                 $is_new_product = true;
             } catch (Exception $e) {
                 $this->debbug(
@@ -220,19 +221,60 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
             }
-
-
             /**
-             *
-             * Update Product
+             * Create product in selected store if not exist
              */
+
             $this->first_sync_shop = true;
             $all_shops_image = Shop::getShops(true, null, true);
+            try {
+                $exist_id_shops =  Product::getShopsByProduct($product_exists);
+                $exist_in_array = [];
+                if ($exist_id_shops && count($exist_id_shops)) {
+                    foreach ($exist_id_shops as $id_shop) {
+                        $exist_in_array[] = $id_shop['id_shop'];
+                    }
+                }
+
+                foreach ($shops as $shop_id) {
+                    $this->debbug(
+                        'Test if exist ' . $occurence . ' exist in shop->' .
+                        print_r($shop_id, 1) .
+                        ' array of existent ->' . print_r($exist_in_array, 1),
+                        'syncdata'
+                    );
+                    if (!in_array($shop_id, $exist_in_array, false)) {
+                        Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
+                        $productObject = new Product($product_exists, false, null, $shop_id);
+                        if ($productObject->price == null || $productObject->price == '') {
+                            $productObject->price = 0;
+                        }
+                        if (isset($productObject->low_stock_alert) || $productObject->low_stock_alert == null) {
+                            $productObject->low_stock_alert = false;
+                        }
+                        $productObject->save();
+                        $this->debbug(
+                            $occurence . ' Create product in Shop - id->' . print_r($shop_id, 1),
+                            'syncdata'
+                        );
+                    }
+                }
+            } catch (Exception $e) {
+                $this->debbug(
+                    '## Error. ' . $occurence . ' In create product in selected store->' .
+                    print_r($e->getMessage(), 1) .
+                    'line->' . $e->getLine() .
+                    'trace->' . print_r($e->getTrace(), 1),
+                    'syncdata'
+                );
+            }
+
+            /**
+             * Update Product in selected stores
+             */
             foreach ($shops as $shop_id) {
                 Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
-
                 $productObject = new Product($product_exists, false, null, $shop_id);
-
 
 
                 // $update_needed = false;
@@ -1436,7 +1478,8 @@ class SlProducts extends SalesLayerPimUpdate
                                 $product['data']['product_image'],
                                 $lang['id_lang'],
                                 $productObject->id,
-                                $alt_images
+                                $alt_images,
+                                $shops
                             );
                         }
 
@@ -1456,7 +1499,8 @@ class SlProducts extends SalesLayerPimUpdate
                 if ($exist_id_categories || count($arrayIdCategories)) {
                     // $productObject->addToCategories($arrayIdCategories);
                     // $productObject->updateCategories($arrayIdCategories);
-                    $this->debbug('Before updating categories ->' . print_r($arrayIdCategories, 1), 'syncdata');
+                    $this->debbug('Before updating categories ->' .
+                                  print_r($arrayIdCategories, 1), 'syncdata');
                     try {
                         $categories = Product::getProductCategories($productObject->id);
                         $this->debbug(
@@ -3168,16 +3212,73 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         }
                     }
                 }
-
-                Db::getInstance()->execute(
+                $product_row = Db::getInstance()->getRow(
                     sprintf(
-                        'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
-                        SET sl.date_upd = CURRENT_TIMESTAMP()
-                        WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "product"',
+                        'SELECT sl.id,sl.shops_info FROM ' . _DB_PREFIX_ .
+                        'slyr_category_product sl ' .
+                        ' WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" ' .
+                        ' AND sl.ps_type = "product"  AND sl.ps_id = "%s" ',
                         $product['ID'],
-                        $comp_id
+                        $comp_id,
+                        $product_id
                     )
                 );
+                if ($product_row) {
+                    if (isset($product_row['shops_info'])) {
+                        $this->debbug(
+                            'Status in cache -> ' .
+                            $occurence .
+                            ' before concat shop_info->' .
+                            print_r($product_row, 1) .
+                            ' connector->' .
+                            $connector_id .
+                            ' shops->' . print_r($shops, 1),
+                            'syncdata'
+                        );
+                        $shops_info = json_decode(Tools::stripslashes($product_row['shops_info']), 1);
+                        if ($shops_info && !empty($shops_info)) {
+                            $shops_info[$connector_id] = $shops;
+                        } else {
+                            $shops_info = [];
+                            $shops_info[$connector_id] = $shops;
+                        }
+                    } else {
+                        $shops_info = [];
+                        $shops_info[$connector_id] = $shops;
+                    }
+                    try {
+                        $this->debbug(
+                            'Status for save to cache in ' .
+                            $occurence .
+                            ' before concat shop_info->' . print_r($shops_info, 1),
+                            'syncdata'
+                        );
+                        $update_query = sprintf(
+                            'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
+                        SET sl.date_upd = CURRENT_TIMESTAMP(), sl.shops_info ="' .
+                            addslashes(json_encode($shops_info)) . '"' .
+                            ' WHERE sl.id = "%s" ',
+                            $product_row['id']
+                        );
+                        if (!Db::getInstance()->execute($update_query)) {
+                            $this->debbug(
+                                '## Error. in save changes to cache ' .
+                                $occurence .
+                                ' query->' . print_r($update_query, 1),
+                                'syncdata'
+                            );
+                        }
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '## Error. in update register of slyr_category_product ' .
+                            $occurence . ' ->' . print_r(
+                                $e->getMessage(),
+                                1
+                            ) . ' line->' . print_r($e->getLine(), 1),
+                            'syncdata'
+                        );
+                    }
+                }
             }
 
             /**
@@ -3670,7 +3771,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         $images,
         $id_lang,
         $product_id,
-        $mulilanguage
+        $mulilanguage,
+        $shops
     ) {
         if (isset($mulilanguage) && !empty($mulilanguage)) {
             $first_name = reset($mulilanguage);
@@ -3919,11 +4021,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 }
 
                                                 if ($name_of_product != '' &&
-                                                    !preg_match(
-                                                        Tools::cleanNonUnicodeSupport('/^[^<>={}]*$/u'),
-                                                        $name_of_product
-                                                    )
-                                                    && (!isset($image_cover->legend[$id_lang_multi])
+                                                    (!isset($image_cover->legend[$id_lang_multi])
                                                         || trim(
                                                             $image_cover->legend[$id_lang_multi]
                                                         ) != trim($name_of_product))
@@ -3995,15 +4093,28 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                         $image_cover->id_product = $product_id;
                                         try {
                                             $this->debbug('updating image information ->' .
-                                                          print_r($image_cover, 1), 'syncdata');
+                                                           print_r($image_cover, 1), 'syncdata');
+                                            $image_cover->associateTo($shops);
                                             $image_cover->save();
-
+                                            $cover_stat = $image_cover->cover;
 
                                             $this->debbug(
                                                 'Associating image to all stores' . print_r($all_shops_image, 1),
                                                 'syncdata'
                                             );
-                                            $image_cover->associateTo($all_shops_image);
+
+                                            foreach ($shops as $shop_id) {
+                                                Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
+                                                $test = new Image($slyr_image['id_image']);
+                                                $test->cover = $cover_stat;
+                                                $test->save();
+                                                $this->debbug('Copy cover to all stores ->' .
+                                                              print_r($test, 1) .
+                                                              ' stat cover->' .
+                                                              print_r($cover_stat, 1), 'syncdata');
+                                            }
+                                            Shop::setContext(Shop::CONTEXT_ALL);
+
                                             Db::getInstance()->execute(
                                                 "UPDATE " . _DB_PREFIX_ . "slyr_image SET  origin ='prod'
                                                 WHERE id_image = '" . $slyr_image['id_image'] . "' "
@@ -4051,11 +4162,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 }
                             }
 
-                            if ($name_of_product != '' &&
-                                !preg_match(
-                                    Tools::cleanNonUnicodeSupport('/^[^<>={}]*$/u'),
-                                    $name_of_product
-                                )
+                            if ($name_of_product != ''
                                 && (!isset($image->legend[$id_lang_multi])
                                     || trim(
                                         $image->legend[$id_lang_multi]
@@ -4102,7 +4209,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     'syncdata'
                                 );
                             }
-                            $this->debbug('set as cover', 'syncdata');
+                            $this->debbug('set as cover ->' .
+                                          print_r($cover, 1), 'syncdata');
                             $image->cover = (int) $cover;
                             $cover = null;
                         } else {
@@ -4317,76 +4425,15 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
     }
 
-    public function deleteProduct(
-        $product,
-        $comp_id,
-        $shops
-    ) {
-        $this->debbug(
-            'Deleting product with id sl_id ' . $product . ' $comp_id ' . $comp_id . ' $shops ->' . print_r(
-                $shops,
-                1
-            ),
-            'syncdata'
-        );
-        $product_ps_id = (int)Db::getInstance()->getValue(
-            sprintf(
-                'SELECT sl.ps_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
-                WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "product"',
-                $product,
-                $comp_id
-            )
-        );
-
-        if ($product_ps_id) {
-            foreach ($shops as $shop) {
-                try {
-                    Shop::setContext(Shop::CONTEXT_SHOP, $shop);
-                    $prod = new Product($product_ps_id, null, null, $shop);
-
-                    if ($this->deleteProductOnHide) {
-                        $prod->deleteImages();
-                        $prod->delete();
-                    } else {
-                        if ($prod->price == null || $prod->price == '') {
-                            $prod->price = 0;
-                        }
-                        if (isset($prod->low_stock_alert) || $prod->low_stock_alert == null) {
-                            $prod->low_stock_alert = false;
-                        }
-                        $prod->active = 0;
-                        $prod->save();
-                        unset($prod);
-                    }
-                } catch (Exception $e) {
-                    $this->debbug(
-                        '## Error. Problem hiding product ID:' . $product . ' error->' . print_r(
-                            $e->getMessage(),
-                            1
-                        ) . ' it has not been possible to find a product that we must deactivate,' .
-                        'it is possible that it does not exist anymore in prestashop,' .
-                        'and thus it can no longer be eliminated. Try deactivating product manually from prestashop.',
-                        'syncdata'
-                    );
-                }
-            }
-
-
-            /* Db::getInstance()->execute(
-                   sprintf(
-                       'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
-                       WHERE slyr_id = "%s" AND comp_id = "%s"
-                       AND ps_type = "product"',
-                       $product,
-                       $comp_id
-                   )
-               );*/
-        }
-    }
-
     /**
      * Synchronize a product
+     *
      * @param array $product data of product
+     * @param $comp_id
+     * @param $schema
+     * @param $shops
+     * @param $connector_id
+     *
      * @return bool|int|string id of product synchronized
      * @throws PrestaShopDatabaseException
      * @throws PrestaShopException
@@ -4395,7 +4442,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
     protected function syncProduct(
         $product,
         $comp_id,
-        $schema
+        $schema,
+        $shops,
+        $connector_id
     ) {
         $occurrence_found = false;
         if (isset($product['data']['product_reference']) && !empty($product['data']['product_reference'])) {
@@ -4429,7 +4478,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             WHERE reference = '" . $product_reference . "'";
             $regsRef = Db::getInstance()->executeS($schemaRef);
             if (count($regsRef) == 1) {
-                $this->debbug('Selected by product first unique id' .
+                $this->debbug('Selected by product first unique id->' .
                               $regsRef[0]['id_product'], 'syncdata');
                 $product_id = $regsRef[0]['id_product'];
             } else {
@@ -4502,11 +4551,19 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 );
 
                 if ($product_exists) {
+                    $this->debbug('Already have one register ' .
+                                  $occurence, 'syncdata');
                     $product_id = false;
                 } else {
+                    $shops_info = [];
+                    $shops_info[$connector_id] = $shops;
+
                     //Si encontramos el producto insertamos registro en tabla Slyr
-                    Db::getInstance()->execute(
-                        sprintf(
+                    try {
+                        $this->debbug('insert register ' .
+                                      $occurence, 'syncdata');
+
+                        $insert_query = sprintf(
                             'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
                             (ps_id, slyr_id, ps_type, comp_id, date_add)
                             VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
@@ -4514,9 +4571,25 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             $product['ID'],
                             'product',
                             $comp_id
-                        )
-                    );
-
+                        );
+                        $insert_return =  Db::getInstance()->execute($insert_query);
+                        if (!$insert_return) {
+                            $this->debbug('insert register error ' .
+                                          $occurence . ' return-> ' . print_r($insert_return, 1) .
+                                          ' query->' . print_r($insert_query, 1), 'syncdata');
+                        } else {
+                            $this->debbug('insert register to cache ok ' .
+                                          $occurence . ' return-> ' . print_r($insert_return, 1), 'syncdata');
+                        }
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '## Error. ' . $occurence . ' in create register en table slyr_category_product ->' .
+                            print_r($e->getMessage(), 1) .
+                            ' line->' . $e->getLine() .
+                            ' trace->' . print_r($e->getTrace(), 1),
+                            'syncdata'
+                        );
+                    }
                     return $product_id;
                 }
             }
@@ -4559,7 +4632,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         $found = false;
                         //Buscamos producto con nombre idéntico, si no lo encontramos nos quedamos con el primero
                         foreach ($regsName as $keyName => $regName) {
-                            $this->debbug('Check if it has been created from '.
+                            $this->debbug('Check if it has been created from ' .
                              'another sales layer company. ' .
                                           $occurence, 'syncdata');
                             //Verificamos si el producto existe en otra empresa, para no sobreescribir datos.
@@ -4607,18 +4680,30 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             if ($product_exists) {
                                 $product_id = false;
                             } else {
+                                $shops_info = [];
+                                $shops_info[$connector_id] = $shops;
                                 //Si encontramos el producto insertamos registro en tabla Slyr
-                                Db::getInstance()->execute(
-                                    sprintf(
-                                        'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
-                                        (ps_id, slyr_id, ps_type, comp_id, date_add)
-                                        VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
-                                        $product_id,
-                                        $product['ID'],
-                                        'product',
-                                        $comp_id
-                                    )
-                                );
+                                try {
+                                    Db::getInstance()->execute(
+                                        sprintf(
+                                            'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
+	                                        (ps_id, slyr_id, ps_type, comp_id, date_add)
+	                                        VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP(),)',
+                                            $product_id,
+                                            $product['ID'],
+                                            'product',
+                                            $comp_id
+                                        )
+                                    );
+                                } catch (Exception $e) {
+                                    $this->debbug(
+                                        '## Error. ' . $occurence .
+                                        ' in create register en table slyr_category_product ->' .
+                                        print_r($e->getMessage(), 1) .
+                                        ' line->' . $e->getLine() . ' trace->' . print_r($e->getTrace(), 1),
+                                        'syncdata'
+                                    );
+                                }
                                 unset($productObject);
 
                                 return $product_id;
@@ -4716,17 +4801,27 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             }
 
             if ($productObject->id) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
-                        (ps_id, slyr_id, ps_type, comp_id, date_add)
-                        VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
-                        $productObject->id,
-                        $product['ID'],
-                        'product',
-                        $comp_id
-                    )
-                );
+                try {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
+	                        (ps_id, slyr_id, ps_type, comp_id, date_add)
+	                        VALUES("%s", "%s", "%s", "%s",  CURRENT_TIMESTAMP())',
+                            $productObject->id,
+                            $product['ID'],
+                            'product',
+                            $comp_id
+                        )
+                    );
+                } catch (Exception $e) {
+                    $this->debbug(
+                        '## Error. ' . $occurence .
+                        ' in create register en table slyr_category_product ->' .
+                        print_r($e->getMessage(), 1) .
+                        ' line->' . $e->getLine() . ' trace->' . print_r($e->getTrace(), 1),
+                        'syncdata'
+                    );
+                }
             }
 
             $return_id = $productObject->id;
@@ -6500,8 +6595,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
             $delete_partial_field = false;
             foreach ($this->predefined_partial_cut_fields as $partialfield) {
                 $without_separator = str_replace('_', ' ', $Basename);
-                if (preg_match('/'.$partialfield.'/i', $Basename) ||
-                    preg_match('/'.$partialfield.'/i', $without_separator)) {
+                if (preg_match('/' . $partialfield . '/i', $Basename) ||
+                    preg_match('/' . $partialfield . '/i', $without_separator)) {
                     $delete_partial_field = true;
                     break;
                 }

@@ -156,5 +156,10 @@ V 1.4.17
 <li> Enable fields for editing in product: "visibility,redirect_type,id_type_redirected "</li>
 </ul>
 
-
+V 1.4.18
+<ul>
+<li> Correction of alt attributes of product images.</li>
+<li> Correction of cover assignment of a deleted product in multistore. </li>
+<li> A smart deactivation of products and categories. Elements are disabled only if they are received from all connectors that have been created. (It allows to have a separate store in several groups).</li>
+</ul>
 
