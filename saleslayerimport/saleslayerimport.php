@@ -2023,24 +2023,35 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                 foreach ($all_connectors as $connector) {
                     if ($connector['auto_sync'] > 0) {
-                        $connector_last_sync = $connector['last_sync'];
-                        $connector_last_sync_unix = strtotime($connector_last_sync);
-
-                        $unix_to_update = $connector_last_sync_unix + ($connector['auto_sync'] * 3600);
+                        $connector_last_sync_unix = strtotime($connector['last_sync']);
 
                         if ($connector_last_sync_unix == '') {
+                            $unix_to_update = time();
                             $connector['unix_to_update'] = $unix_to_update;
                             $connectors_to_check[$unix_to_update] = $connector;
                         } else {
                             if ($connector['auto_sync'] >= 24) {
+                                if (!$connector_last_sync_unix) {
+                                    $connector_last_sync_unix = 0;
+                                }
+
+                                $unix_to_update = $connector_last_sync_unix + ($connector['auto_sync'] * 3600);
                                 if ($connector['auto_sync_hour'] > 0) {
-                                    $unix_to_update += ($connector['auto_sync_hour'] * 3600);
+                                    $unix_to_update = mktime(
+                                        $connector['auto_sync_hour'],
+                                        0,
+                                        0,
+                                        date('m', $unix_to_update),
+                                        date('d', $unix_to_update),
+                                        date('Y', $unix_to_update)
+                                    );
                                 }
                                 if ($now >= $unix_to_update) {
                                     $connector['unix_to_update'] = $unix_to_update;
                                     $connectors_to_check[$unix_to_update] = $connector;
                                 }
                             } else {
+                                $unix_to_update = $connector_last_sync_unix + ($connector['auto_sync'] * 3600);
                                 if ($now >= $unix_to_update) {
                                     $connector['unix_to_update'] = $unix_to_update;
                                     $connectors_to_check[$unix_to_update] = $connector;
