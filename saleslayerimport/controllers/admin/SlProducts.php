@@ -1448,10 +1448,23 @@ class SlProducts extends SalesLayerPimUpdate
                  */
                 if (isset($product['data']['product_visibility']) &&
                      !empty($product['data']['product_visibility'])) {
+                    $permitted = ['both','catalog','search','none'];
                     if (is_array($product['data']['product_visibility'])) {
                         $product['data']['product_visibility'] = reset($product['data']['product_visibility']);
                     }
-                    $productObject->visibility = $product['data']['product_visibility'];
+                    if (in_array(
+                        trim($product['data']['product_visibility']),
+                        $permitted,
+                        false
+                    )) {
+                        $productObject->visibility = trim($product['data']['product_visibility']);
+                    } else {
+                        $this->debbug(
+                            '## Error. Invalid value for visibility  -> ' .
+                            print_r(implode(' ,', $permitted), 1),
+                            'syncdata'
+                        );
+                    }
                     unset($product['data']['product_visibility']);
                 }
                 /**
