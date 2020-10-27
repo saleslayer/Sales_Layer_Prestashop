@@ -275,6 +275,7 @@ class SlProducts extends SalesLayerPimUpdate
             foreach ($shops as $shop_id) {
                 Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
                 $productObject = new Product($product_exists, false, null, $shop_id);
+                $category_default_found = false;
 
 
                 // $update_needed = false;
@@ -1058,7 +1059,7 @@ class SlProducts extends SalesLayerPimUpdate
                      *
                      * Default category
                      */
-                    $category_default_found = false;
+
 
                     $product_category_default_index = '';
                     $product_category_default_index_search = 'category_sl_default_' . $lang['iso_code'];
@@ -1095,6 +1096,12 @@ class SlProducts extends SalesLayerPimUpdate
                         unset($product['data'][$product_category_default_index]);
 
                         if ($category_default_value != '') {
+                            $this->debbug(
+                                'default category sended->  ' .
+                                print_r($category_default_value, 1) .
+                                ' for lang_id ->' . print_r($lang['id_lang'], 1),
+                                'syncdata'
+                            );
                             $schema_db = 'SELECT id_category,meta_keywords FROM ' . $this->category_lang_table .
                                 " WHERE meta_keywords like '%" . $category_default_value . "%' 
                                 AND id_lang = " . $lang['id_lang']
@@ -1104,7 +1111,12 @@ class SlProducts extends SalesLayerPimUpdate
 
                             if (!empty($schemaCats)) {
                                 $ps_category_default_id = 0;
-
+                                $this->debbug(
+                                    'default category founded->  ' .
+                                    print_r($schemaCats, 1) .
+                                    ' for lang_id ->' . print_r($lang['id_lang'], 1),
+                                    'syncdata'
+                                );
                                 foreach ($schemaCats as $cat) {
                                     $cat_meta_keywords = $cat['meta_keywords'];
 
@@ -1672,7 +1684,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 reset($product['data']['product_creation_date']);
                         }
                         if (is_string($product['data']['product_creation_date'])) {
-                            $creation_date = strtotime($this->fomatDate($product['data']['product_creation_date']));
+                            $creation_date = $this->strtotime($product['data']['product_creation_date']);
                             if (!$creation_date) {
                                 $product['data']['product_creation_date'] = $creation_date;
                             }
@@ -1698,22 +1710,38 @@ class SlProducts extends SalesLayerPimUpdate
                             $product['data']['product_available_date'] =
                                 reset($product['data']['product_available_date']);
                         }
+                        $available_date = $product['data']['product_available_date'];
+                        $this->debbug(' before -> ' .
+                                        print_r(
+                                            $product['data']['product_available_date'],
+                                            1
+                                        ), 'syncdata');
                         if (is_string($product['data']['product_available_date'])) {
                             $date_result =
-                                strtotime($this->fomatDate($product['data']['product_available_date']));
-                            if (!$date_result) {
+                                $this->strtotime($product['data']['product_available_date']);
+                            if ($date_result != '') {
                                 $product['data']['product_available_date'] = $date_result;
                             }
                         }
+                        $this->debbug(' Available date after convert -> ' .
+                                      print_r(
+                                          $product['data']['product_available_date'],
+                                          1
+                                      ), 'syncdata');
                         if (is_numeric($product['data']['product_available_date']) &&
                            (int) $product['data']['product_available_date'] ==
                            $product['data']['product_available_date']) {
                             $available_date = date('Y-m-d', $product['data']['product_available_date']);
-                        } else {
-                            $available_date = '0000-00-00';
                         }
-                        if (Validate::isDate($available_date)) {
+                        if (Validate::isDateFormat($available_date)) {
                             $productObject->available_date = $available_date;
+                        } else {
+                            $this->debbug('## Warning. ' . $occurence .
+                                          ' Available date is not a valid date -> ' .
+                                          print_r(
+                                              $available_date,
+                                              1
+                                          ), 'syncdata');
                         }
                     }
                 }
@@ -2818,6 +2846,13 @@ class SlProducts extends SalesLayerPimUpdate
 
 
                 try {
+                    $this->debbug('Status default category before save -> ' . $occurence .
+                                  ' cat->'. print_r(
+                                      $productObject->id_category_default,
+                                      1
+                                  ), 'syncdata');
+
+
                     $this->debbug('status active -> ' . $occurence .
                                   ' for store ' . $shop_id . ' before save ' .
                                   print_r(
@@ -3018,7 +3053,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     $product['data']['product_discount_1_from'] =
                                         reset($product['data']['product_discount_1_from']);
                                 }
-                                $fromtime = strtotime($this->fomatDate($product['data']['product_discount_1_from']));
+                                $fromtime = $this->strtotime($product['data']['product_discount_1_from']);
                                 if ($fromtime) {
                                     $product_discount_1_data['from_time'] = date('Y-m-d H:i:s', $fromtime);
                                 } else {
@@ -3038,7 +3073,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     $product['data']['product_discount_1_to'] =
                                         reset($product['data']['product_discount_1_to']);
                                 }
-                                $totime = strtotime($this->fomatDate($product['data']['product_discount_1_to']));
+                                $totime = $this->strtotime($product['data']['product_discount_1_to']);
                                 if ($totime) {
                                     $product_discount_1_data['to_time'] = date('Y-m-d H:i:s', $totime);
                                 } else {
@@ -3151,7 +3186,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     $product['data']['product_discount_2_from'] =
                                         reset($product['data']['product_discount_2_from']);
                                 }
-                                $fromtime = strtotime($this->fomatDate($product['data']['product_discount_2_from']));
+                                $fromtime = $this->strtotime($product['data']['product_discount_2_from']);
                                 if ($fromtime) {
                                     $product_discount_2_data['from_time'] = date('Y-m-d H:i:s', $fromtime);
                                 } else {
@@ -3177,7 +3212,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     $product['data']['product_discount_2_to'] =
                                         reset($product['data']['product_discount_2_to']);
                                 }
-                                $totime = strtotime($this->fomatDate($product['data']['product_discount_2_to']));
+                                $totime = $this->strtotime($product['data']['product_discount_2_to']);
                                 if ($totime) {
                                     $product_discount_2_data['to_time'] = date('Y-m-d H:i:s', $totime);
                                 } else {
@@ -3355,6 +3390,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     if ($prod_index->price === null || $prod_index->price === '') {
                         $prod_index->price = 0;
                     }
+
                     $this->debbug('Status active for stores in indexing-> ' . $occurence .
                                   ' for store ' . $shop_id_in . ' before save ' .
                                   print_r(
@@ -3370,6 +3406,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             }
 
             try {
+                Shop::setContext(shop::CONTEXT_ALL);
                 Search::indexation(false, $product_id);
             } catch (Exception $e) {
                 $this->debbug('## Error. ' . $occurence .

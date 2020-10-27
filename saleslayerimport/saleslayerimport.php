@@ -282,7 +282,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.18';
+        $this->version = '1.4.19';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -2604,7 +2604,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function fomatDate($date)
     {
-        $date = str_replace('/', '-', $date);
+        $date = str_ireplace(['/','\\'], ['-','-'], $date);
         return $date;
     }
 
@@ -4059,5 +4059,111 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
 
         return ($unix_a < $unix_b) ? -1 : 1;
+    }
+    public function strtotime($string)
+    {
+        $valuetm =  $this->fomatDate($string);
+        $date_val =  strtotime(trim($valuetm));
+        if ($date_val != '') {
+            $this->debbug('value converted to timestamp if generic function ->' .
+                          print_r($valuetm, 1) .
+                          ' and return value ->' . print_r($date_val, 1), 'syncdata');
+            return $date_val;
+        } else {
+            $valuetm = trim($valuetm);
+            if ($valuetm == 'ahora' || $valuetm == 'now') {
+                return time();
+            }
+            if ($valuetm == 'mañana' || $valuetm == 'tomorrow') {
+                $suma = 86400;
+                return mktime(
+                    0,
+                    0,
+                    0,
+                    date('m', time() + $suma),
+                    date('d', time() + $suma),
+                    date('Y', time() + $suma)
+                );
+            }
+            
+            $parse_content = explode(' ', $valuetm);
+            $hour    = 0;
+            $minutes = 0;
+            $seconds = 0;
+            $year    = date('Y');
+            $already_year  = false;
+            $month   = date('m');
+            $already_month = false;
+            $day     = date('d');
+            $already_day   = false;
+
+
+            foreach ($parse_content as $date_content) {
+                if (preg_match('/:/', $date_content)) {
+                    $parse_hour = explode(':', $date_content);
+                    if (count($parse_hour) == 3) {
+                        $hour    = (int) trim($parse_hour[0]);
+                        $minutes = (int) trim($parse_hour[1]);
+                        $seconds = (int) trim($parse_hour[2]);
+                    } elseif (count($parse_hour) == 2) {
+                        $hour    = (int) trim($parse_hour[0]);
+                        $minutes = (int) trim($parse_hour[1]);
+                    }
+                } elseif (preg_match('/-/', $date_content)) {
+                    $parse_date = explode('-', $date_content);
+                    if (Tools::strlen($parse_date[0]) == 4) { //yyyy-mm-dd
+                        if ((int) $parse_date[0] > 0 && (int) $parse_date[0] < 2080) {
+                            $year = (int) $parse_date[0];
+                            $already_year = true;
+                        }
+                        if (Tools::strlen($parse_date[1]) == 2 && (int) $parse_date[1] >= 1 && $parse_date[1] <= 12) {
+                            $month   = (int)$parse_date[1];
+                            $already_month = true;
+                        }
+                        if (Tools::strlen($parse_date[2]) == 2 && (int) $parse_date[2] >= 1 && $parse_date[2] <= 31) {
+                            $day   = (int)$parse_date[2];
+                            $already_day = true;
+                        }
+                    } elseif (Tools::strlen($parse_date[2]) == 4) { //dd-mm-yyyy
+                        if ((int) $parse_date[2] > 0 && (int) $parse_date[2] < 2080) {
+                            $year = (int) $parse_date[0];
+                            $already_year = true;
+                        }
+                        if (Tools::strlen($parse_date[1]) == 2 && (int) $parse_date[1] >= 1 && $parse_date[1] <= 12) {
+                            $month   = (int)$parse_date[1];
+                            $already_month = true;
+                        }
+                        if (Tools::strlen($parse_date[0]) == 2 && (int) $parse_date[0] >= 1 && $parse_date[0] <= 31) {
+                            $day   = (int)$parse_date[2];
+                            $already_day = true;
+                        }
+                    } elseif (count($parse_date) == 2) { //dd-mm
+                        if (Tools::strlen($parse_date[1]) == 2 && (int) $parse_date[1] >= 1 && $parse_date[1] <= 12) {
+                            $month   = (int)$parse_date[1];
+                            $already_month = true;
+                        }
+                        if (Tools::strlen($parse_date[0]) == 2 && (int) $parse_date[0] >= 1 && $parse_date[0] <= 31) {
+                            $day   = (int)$parse_date[2];
+                            $already_day = true;
+                        }
+                    }
+                }
+            }
+
+            if (($already_month && $already_day && $already_year) ||
+                ($already_month && $already_day && !$already_year)) {
+                $timestamp = mktime($hour, $minutes, $seconds, $month, $day, $year);
+                if (!$timestamp) {
+                    return (int) $timestamp;
+                }
+            }
+
+            $this->debbug('Problem! ' .
+                          'In available_date convert this time to timestamp.' .
+                          ' Please try another format of date used by strtotime().' .
+                          ' Set the original time  ->' .
+                          print_r($valuetm, 1), 'syncdata');
+        }
+        return false;
     }
 }

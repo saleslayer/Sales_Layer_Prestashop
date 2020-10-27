@@ -163,3 +163,9 @@ V 1.4.18
 <li> A smart deactivation of products and categories. Elements are disabled only if they are received from all connectors that have been created. (It allows to have a separate store in several groups).</li>
 </ul>
 
+V 1.4.19
+<ul>
+<li> Solved indexing problem in multistore.</li>
+<li> Improved date recognition when php strtostring() function fails. </li>
+<li> Product default category correction. </li>
+</ul>

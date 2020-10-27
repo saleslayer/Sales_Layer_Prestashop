@@ -798,7 +798,7 @@ class SlVariants extends SalesLayerPimUpdate
                             ),
                             'syncdata'
                         );
-                        if (array_diff($attributes, $combination_attributes_values)) {
+                        if ($this->slArrayDiff($attributes, $combination_attributes_values)) {
                             $this->debbug('Combination change, Sending refresh', 'syncdata');
                             $combination_changed = true;
                             $existing_combination->delete();
@@ -1125,20 +1125,29 @@ class SlVariants extends SalesLayerPimUpdate
                                 }
                                 break;
                             case 'available_date':
+                                if (is_array($value)) {
+                                    $value = reset($value);
+                                }
                                 if ($value != null && $value != '') {
-                                    if (is_array($value)) {
-                                        $value = reset($value);
-                                    }
+                                    $available_date = $value;
                                     if (is_string($value)) {
-                                        $date_val =  strtotime($this->fomatDate($value));
+                                        $date_val =  $this->strtotime($value);
                                         if (!$date_val) {
-                                            $value = $date_val;
+                                            $this->debbug('value converted to timestamp  ->' .
+                                                          print_r($value, 1), 'syncdata');
+                                            $valuetm = $date_val;
+                                        } else {
+                                            $this->debbug('Problem! ' .
+                                                          'In available_date convert this time to timestamp.' .
+                                                          ' Please try another format of date used by strtotime().' .
+                                                          ' Set the original time  ->' .
+                                                          print_r($value, 1), 'syncdata');
                                         }
-                                    }
-                                    if (is_numeric($value) && (int)$value == $value) {
-                                        $available_date = date('Y-m-d', $value);
                                     } else {
-                                        $available_date = '0000-00-00';
+                                        $valuetm = $value;
+                                    }
+                                    if (is_numeric($valuetm) && (int) $valuetm == $valuetm) {
+                                        $available_date = date('Y-m-d', $valuetm);
                                     }
                                     $comb->available_date = $available_date;
                                 }
@@ -1496,6 +1505,36 @@ class SlVariants extends SalesLayerPimUpdate
              */
             $this->debbug('Before run indexation', 'syncdata');
             $microtime = microtime(1);
+            $all_shops_image = Shop::getShops(true, null, true);
+            $this->debbug(
+                'Before run indexation index this-id_Product ->' .
+                print_r($product_id, 1) . ' get context ->' . print_r(Shop::getContext(), 1)
+                . ' context shop id->' . print_r(Shop::getContextShopID(), 1),
+                'syncdata'
+            );
+            try {
+                foreach ($all_shops_image as $shop_id_in) {
+                    Shop::setContext(shop::CONTEXT_SHOP, $shop_id_in);
+                    $prod_index = new Product($product_id, false, null, $shop_id_in);
+                    $prod_index->indexed = 0;
+                    if ($prod_index->price === null || $prod_index->price === '') {
+                        $prod_index->price = 0;
+                    }
+
+                    $this->debbug('Status active for stores in indexing from variant-> ' . $occurrence .
+                                  ' for store ' . $shop_id_in . ' before save ' .
+                                  print_r(
+                                      $prod_index->active,
+                                      1
+                                  ), 'syncdata');
+                    $prod_index->save();
+                }
+            } catch (Exception $e) {
+                $this->debbug('## Error. ' . $occurrence .
+                              ' Set indexer to 0: ' .
+                              $e->getMessage(), 'syncdata');
+            }
+            Shop::setContext(shop::CONTEXT_ALL);
             Search::indexation(false, $product_id);
             $this->debbug('After run indexation time->' . print_r(
                 (microtime(1) - $microtime),
