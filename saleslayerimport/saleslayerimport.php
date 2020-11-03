@@ -322,7 +322,6 @@ class SalesLayerImport extends Module
         $this->loadDebugMode();
         $this->loadPerformanceLimit();
         $this->integrityPathDirectory = $this->plugin_dir . '/integrity/';
-        $this->checkDB();
     }
 
     /**
