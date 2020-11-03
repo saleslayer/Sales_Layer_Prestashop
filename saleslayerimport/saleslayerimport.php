@@ -119,7 +119,7 @@ class SalesLayerImport extends Module
     public $sql_to_insert                    = array();
     public $default_category_id              = '';
     public $sl_data_schema                   = array();
-    public $product_accessories              = array();
+    public $product_accessories              = false;
     public $listAttrGroupCased               = array();
     public $format_value_arrays              = array();
     public $format_value_fields              = array();
@@ -282,7 +282,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.19';
+        $this->version = '1.4.20';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -300,7 +300,7 @@ class SalesLayerImport extends Module
         $this->sl_updater->setTablePrefix(_DB_PREFIX_ . 'slyr_');
         $this->sl_updater->connect(_DB_NAME_, _DB_USER_, _DB_PASSWD_, _DB_SERVER_);
         $this->module_path = $this->_path;
-        $this->shop_languages = Language::getLanguages(false);
+        $this->loadLanguages();
         $this->loadActualShopId();
         $this->smarty->assign(
             array(
@@ -321,8 +321,8 @@ class SalesLayerImport extends Module
         );
         $this->loadDebugMode();
         $this->loadPerformanceLimit();
-        $this->defaultLanguage        = (int)Configuration::get('PS_LANG_DEFAULT');
         $this->integrityPathDirectory = $this->plugin_dir . '/integrity/';
+        $this->checkDB();
     }
 
     /**
@@ -431,6 +431,24 @@ class SalesLayerImport extends Module
         }
 
         return $resultado;
+    }
+    public function loadLanguages()
+    {
+        $all_languages           = Language::getLanguages(false);
+        $this->defaultLanguage   = (int)Configuration::get('PS_LANG_DEFAULT');
+        $new_order = [];
+        foreach ($all_languages as $lang_key => $language) {
+            if ($language['id_lang'] == $this->defaultLanguage) {
+                $new_order[] = $language;
+                unset($all_languages[$lang_key]);
+            }
+        }
+        if (count($all_languages)) {
+            foreach ($all_languages as $language) {
+                $new_order[] = $language;
+            }
+        }
+        $this->shop_languages = $new_order;
     }
 
     /**
@@ -1186,6 +1204,25 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 								PRIMARY KEY (`file_reference`)
 								) ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
         Db::getInstance()->execute($schemaSQL_PS_SL_C_I);
+
+        /* From version 1.4.20 */
+
+        $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_indexer (
+                                    `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                    `id_product` BIGINT NOT NULL,
+                                    PRIMARY KEY (`id`),                                    
+                                    INDEX `id_product` (`id_product` ASC))
+                                    COMMENT = 'Sales Layer poducts ids for reindex' ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+
+        $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_accessories (
+                                    `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                    `id_product` BIGINT NOT NULL,
+                                    `accessories` varchar(20000) NOT NULL,
+                                    PRIMARY KEY (`id`),                                    
+                                    INDEX `id_product` (`id_product` ASC))
+                                    COMMENT = 'Sales Layer table for accessories' ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
     }
 
     /**
@@ -1639,7 +1676,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
 
         // Removes attribute values which group no longer exists
-        $schemaAttributesGroup = 'SELECT at.id_attribute FROM ' . $this->attribute_table.' AS at ' .
+        $schemaAttributesGroup = 'SELECT at.id_attribute FROM ' . $this->attribute_table . ' AS at ' .
             ' LEFT JOIN ' . $this->attribute_group_table . ' AS pa
             ON (pa.id_attribute_group = at.id_attribute_group ) WHERE pa.id_attribute_group is null ';
 
@@ -2496,7 +2533,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                      * After Product acesories synchronization
                      */
                     $product_format_clear = false;
-                    unset($this->product_accessories);
                 }
 
                 $sql_check_try = 0;
@@ -2505,7 +2541,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $sqlpre = ' SET @id = null,@sync_type = null,@item_type = null,' .
                         '@sync_tries = null,@item_data = null,@sync_params = null ';
                     $sqlpre2 =  'UPDATE ' . _DB_PREFIX_ .
-                                'slyr_syncdata dest, (SELECT  A.id,A.sync_tries,@id := A.id,' .
+                                'slyr_syncdata dest, (SELECT MIN(A.id) ,A.id,A.sync_tries,@id := A.id,' .
                         '@sync_type := A.sync_type,@item_type := A.item_type,@sync_tries := A.sync_tries , ' .
                         '@item_data := A.item_data,@sync_params := A.sync_params FROM ' . _DB_PREFIX_ .
                                 'slyr_syncdata A ' .
@@ -2647,15 +2683,20 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     /**
      * Check if there are elements to be processed
+     *
      * @param bool $return_num return as number actutual stat of table
+     * @param string $table
+     *
      * @return bool|mixed
      */
 
 
     public function checkRegistersForProccess(
-        $return_num = false
+        $return_num = false,
+        $table = 'syncdata'
     ) {
-        $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " . _DB_PREFIX_ . "slyr_syncdata";
+        $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " .
+                          _DB_PREFIX_ . "slyr_" . $table;
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
 
         if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
@@ -2731,60 +2772,166 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     }
 
     /**
-     * Load array of accessories to sync after already stored all product
-     *
+     * Save product for async index
      */
 
-
-    public function loadConnectorAccesories()
+    public function saveProductIdForIndex($product_id)
     {
-        $item_type = 'accessories';
-        $sync_type = 'update';
-        $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
-        WHERE sync_type = '$sync_type' AND item_type = '$item_type' LIMIT 1  ";
-        $res = $this->slConnectionQuery('read', $sql_sel);
-
+        $this->debbug(
+            'before test to save ? id_product->' .
+            print_r($product_id, 1),
+            'syncdata'
+        );
+        $sql_query = "SELECT * FROM  " . _DB_PREFIX_ .
+                     "slyr_indexer WHERE id_product = '$product_id'  LIMIT 1";
+        $res = $this->slConnectionQuery('read', $sql_query);
+        $this->debbug(
+            'Exist in bd?->' . print_r($res, 1),
+            'syncdata'
+        );
         if (!$res) {
-            $this->product_accessories = json_decode($res[0]['item_data'], 1);
+            $this->debbug(
+                'Saving id_product for indexing after sync',
+                'syncdata'
+            );
+            $sl_query_flag_to_insert = " INSERT INTO " . _DB_PREFIX_ . "slyr_indexer " .
+                                       " (id_product) VALUES " .
+                                       "('" . $product_id . "')";
+            $this->slConnectionQuery('-', $sl_query_flag_to_insert);
+        }
+    }
+
+    /**
+     * Save product for async index
+     *
+     * @param $product_id
+     * @param $accessories
+     */
+    public function saveProductAccessories($product_id, $accessories)
+    {
+        try {
+            $this->debbug(
+                'entry to function ' .
+                'product_id-> ' . $product_id . ' accessories ->' . print_r(
+                    $accessories,
+                    1
+                ),
+                'syncdata'
+            );
+            $sql_query = "SELECT * FROM  " . _DB_PREFIX_ .
+                     "slyr_accessories WHERE id_product = '$product_id' ";
+            $res = $this->slConnectionQuery('read', $sql_query);
+
+            if (!$res) {
+                $sl_query_flag_to_insert = " INSERT INTO " . _DB_PREFIX_ . "slyr_accessories " .
+                                       " (id_product, accessories) VALUES " .
+                                       "('" . $product_id . "','" . addslashes(json_encode($accessories)) . "')";
+                $this->slConnectionQuery('-', $sl_query_flag_to_insert);
+                $this->debbug(
+                    'Saving new accessory register ' .
+                    'product_id-> ' . $product_id . ' accessories ->' . print_r(
+                        $accessories,
+                        1
+                    ) . ' query->' . print_r($sl_query_flag_to_insert, 1),
+                    'syncdata'
+                );
+            } else {
+                $this->debbug(
+                    'updating existing accessory register ' .
+                    'product_id-> ' . $product_id . ' accessories ->' . print_r(
+                        $accessories,
+                        1
+                    ) . ' bd response ->' . print_r($res, 1),
+                    'syncdata'
+                );
+                $old_json = reset($res);
+                $decode_json = json_decode(Tools::stripslashes($old_json), 1);
+                if ($decode_json) {
+                    foreach ($decode_json as $sku) {
+                        if (in_array($sku, $accessories)) {
+                            $accessories[] = $sku;
+                        }
+                    }
+                }
+                $sl_query_flag_to_insert = " UPDATE " . _DB_PREFIX_ . "slyr_accessories " .
+                                       " SET accessories = '" . addslashes(
+                                           json_encode($accessories)
+                                       ) . "' WHERE id ='" . $decode_json['id'] . "' ";
+                $this->slConnectionQuery('-', $sl_query_flag_to_insert);
+            }
+
+            if (!$this->product_accessories) {
+                //set process to process in end
+                $item_type = 'accessories';
+                $sync_type = 'update';
+                $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
+            WHERE sync_type = '$sync_type' AND item_type = '$item_type' Limit 1  ";
+                $result = $this->slConnectionQuery('read', $sql_sel);
+
+                if (!$result) {
+                    $this->product_accessories = true;
+                    $sql_query_to_insert = "INSERT INTO " . _DB_PREFIX_ . "slyr_syncdata" .
+                                       " ( sync_type, item_type, item_data ) VALUES " .
+                                       "('" . $sync_type . "', '" . $item_type .
+                                           "', '" . json_encode(['virtual work for sync accessories']) . "')";
+                    $this->slConnectionQuery('-', $sql_query_to_insert);
+                } else {
+                    $this->product_accessories = true;
+                }
+            }
+        } catch (Exception $e) {
+            $this->debbug(
+                '##Error. Saving new accessory register ' .
+                'product_id-> ' . $product_id . ' accessories ->' . print_r(
+                    $accessories,
+                    1
+                ) . ' message->' . $e->getMessage() . ' track->' .
+                print_r($e->getTrace(), 1),
+                'syncdata'
+            );
         }
     }
 
     /**
      * Synchronize Acessories 'related_ithems'->accesories skus
+     *
+     * @param $item_type
+     * @param $array_name
      */
 
+    /*  public function saveStatAccessories($item_type, $array_name)
+      {
+          if (isset($this->{$array_name}) && is_array($this->{$array_name}) &&
+               count($this->{$array_name})) {
+              // $item_type = 'accessories';
+              $sync_type = 'update';
+              try {
+                  $item_data_to_insert = html_entity_decode(json_encode($this->{$array_name}));
 
-    public function saveStatAccessories()
-    {
-        if (isset($this->product_accessories) && is_array($this->product_accessories) &&
-            count($this->product_accessories)) {
-            $item_type = 'accessories';
-            $sync_type = 'update';
-            try {
-                $item_data_to_insert = html_entity_decode(json_encode($this->product_accessories));
+                  $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
+              WHERE sync_type = '$sync_type' AND item_type = '$item_type' Limit 1  ";
+                  $res = $this->slConnectionQuery('read', $sql_sel);
 
-                $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
-            WHERE sync_type = '$sync_type' AND item_type = '$item_type' Limit 1  ";
-                $res = $this->slConnectionQuery('read', $sql_sel);
+                  if (!$res) {
+                      $sql_query_to_insert = "INSERT INTO " . _DB_PREFIX_ . "slyr_syncdata" .
+                          " ( sync_type, item_type, item_data ) VALUES " .
+                          "('" . $sync_type . "', '" . $item_type . "', '" . addslashes($item_data_to_insert) . "')";
+                      $this->slConnectionQuery('-', $sql_query_to_insert);
+                  } else {
+                      $sql_query_to_insert = " UPDATE " . _DB_PREFIX_ . "slyr_syncdata" .
+                          " SET item_data =  '" . addslashes(
+                              $item_data_to_insert
+                          ) . "' WHERE sync_type = '$sync_type' AND item_type = '$item_type' ";
+                      $this->slConnectionQuery('-', $sql_query_to_insert);
+                  }
+              } catch (Exception $e) {
+                  $this->debbug('## Error. An error has occurred keeping changes of ' .
+                                $item_type . ' of a product.->' .
+                      $e->getMessage() . ' line->' . $e->getLine(), 'syncdata');
+              }
+          }
+      }*/
 
-                if (!$res) {
-                    $sql_query_to_insert = "INSERT INTO " . _DB_PREFIX_ . "slyr_syncdata" .
-                        " ( sync_type, item_type, item_data ) VALUES " .
-                        "('" . $sync_type . "', '" . $item_type . "', '" . addslashes($item_data_to_insert) . "')";
-                    $this->slConnectionQuery('-', $sql_query_to_insert);
-                } else {
-                    $sql_query_to_insert = " UPDATE " . _DB_PREFIX_ . "slyr_syncdata" .
-                        " SET item_data =  '" . addslashes(
-                            $item_data_to_insert
-                        ) . "' WHERE sync_type = '$sync_type' AND item_type = '$item_type' ";
-                    $this->slConnectionQuery('-', $sql_query_to_insert);
-                }
-            } catch (Exception $e) {
-                $this->debbug('## Error. An error has occurred keeping changes of accessories of a product.->' .
-                    $e->getMessage() . ' line->' . $e->getLine(), 'syncdata');
-            }
-        }
-    }
 
     /**
      * Ejecutar despues de la synchronización de productos
@@ -2792,42 +2939,109 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function syncAccesories()
     {
-        //Process to update accessories once all products have been generated.
-        if (!empty($this->product_accessories)) {
-            $this->debbug(' Entry to sync accessories->' .
-                          print_r($this->product_accessories, 1), 'syncdata');
-            $saleslayerpimupdate = new SalesLayerPimUpdate();
+        $this->debbug(' Entry to sync accessories', 'syncdata');
+        ;
+        ini_set('max_execution_time', 144000);
+        do {
+            //Process to update accessories once all products have been generated.
+            $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_accessories
+	              Limit 250  ";
+            $res = $this->slConnectionQuery('read', $sql_sel);
 
-            foreach ($this->product_accessories as $id_product => $product_accessories) {
-                $product_accessories_ids = array();
+            if (count($res)) {
+                $ids_for_delete = [];
+                $this->debbug(' Entry to sync accessories->' .
+                              print_r($res, 1), 'syncdata');
+                $saleslayerpimupdate = new SalesLayerPimUpdate();
 
-                if (!empty($product_accessories)) {
-                    foreach ($product_accessories as $product_accessory_reference) {
-                        //Eliminamos carácteres especiales de la referencia
-                        $product_accessory_reference =
-                            $saleslayerpimupdate->slValidateReference($product_accessory_reference);
+                foreach ($res as $register) {
+                    $ids_for_delete[] = $register['id'];
+                    $id_product       = $register['id_product'];
+                    $product_accessories = json_decode(Tools::stripslashes($register['accessories']), 1);
+                    $product_accessories_ids = array();
 
-                        //find product with the same reference
-                        $schemaRef = "SELECT id_product FROM " . $this->product_table .
-                            " WHERE reference = '" . $product_accessory_reference . "'";
-                        $regsRef = Db::getInstance()->executeS($schemaRef);
+                    if (!empty($product_accessories)) {
+                        foreach ($product_accessories as $product_accessory_reference) {
+                            //Eliminamos carácteres especiales de la referencia
+                            $product_accessory_reference =
+                                $saleslayerpimupdate->slValidateReference($product_accessory_reference);
 
-                        if (count($regsRef) > 0) {
-                            $product_accessories_ids[] = $regsRef[0]['id_product'];
+                            //find product with the same reference
+                            $schemaRef = "SELECT id_product FROM " . $this->product_table .
+                                " WHERE reference = '" . $product_accessory_reference . "' LIMIT 1 ";
+                            $regsRef = Db::getInstance()->executeS($schemaRef);
+
+                            if (count($regsRef) > 0) {
+                                $product_accessories_ids[] = $regsRef[0]['id_product'];
+                            }
                         }
                     }
-                }
 
-                if (!empty($product_accessories_ids)) {
-                    $this->debbug(' Entry to sync accessories->' .
-                                  print_r($product_accessories_ids, 1), 'syncdata');
-                    $productObject = new Product($id_product);
-                    $productObject->deleteAccessories();
-                    $productObject->changeAccessories($product_accessories_ids);
+                    if (!empty($product_accessories_ids)) {
+                        $this->debbug(' Entry to sync accessories->' .
+                                      print_r($product_accessories_ids, 1), 'syncdata');
+                        $productObject = new Product($id_product);
+                        $productObject->deleteAccessories();
+                        $productObject->changeAccessories($product_accessories_ids);
+                    }
+                }
+                if ($ids_for_delete && count($ids_for_delete)) {
+                    $delete_query = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_accessories' .
+                                    ' WHERE id IN(' . implode(',', $ids_for_delete) . ')';
+                    Db::getInstance()->execute($delete_query);
+                    $this->debbug(' ids for delete form accessories ->' .
+                                  print_r($ids_for_delete, 1) .
+                                  ' query->' . print_r($delete_query, 1), 'syncdata');
                 }
             }
-        }
+        } while (count($res) > 1);
     }
+    /**
+     * Ejecutar despues de la synchronización de productos
+     */
+
+    /* public function syncIndexes()
+     {
+         //Process to update accessories once all products have been generated.
+         if (!empty($this->for_index)) {
+             $this->debbug(' Entry to sync Indexes->' .
+                           print_r($this->for_index, 1), 'syncdata');
+             $all_shops_image = Shop::getShops(true, null, true);
+             foreach ($this->for_index as $id_product => $product_id_val) {
+                 try {
+                     foreach ($all_shops_image as $shop_id_in) {
+                         Shop::setContext(shop::CONTEXT_SHOP, $shop_id_in);
+                         $prod_index = new Product($product_id_val, false, null, $shop_id_in);
+                         $prod_index->indexed = 0;
+                         if ($prod_index->price === null || $prod_index->price === '') {
+                             $prod_index->price = 0;
+                         }
+                         $this->debbug('Status active for stores in indexing-> ps_ product_id' .
+                                       $product_id_val  .
+                                       ' for store ' . $shop_id_in . ' before save ' .
+                                       print_r(
+                                           $prod_index->active,
+                                           1
+                                       ), 'syncdata');
+                         $prod_index->save();
+                     }
+                 } catch (Exception $e) {
+                     $this->debbug('## Error. ' . $product_id_val .
+                                   ' Set indexer to 0: ' .
+                                   $e->getMessage(), 'syncdata');
+                 }
+                 try {
+                     Shop::setContext(shop::CONTEXT_ALL);
+                     Search::indexation(false, $product_id_val);
+                     unset($this->for_index[$id_product]);
+                 } catch (Exception $e) {
+                     $this->debbug('## Error. ' . $product_id_val .
+                                   ' indexer error: ' .
+                                   $e->getMessage(), 'syncdata');
+                 }
+             }
+         }
+     }*/
 
     /**
      * Function that will verify if there is need to call the synchronization again in case the frequency of cron
@@ -3013,7 +3227,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $configuration_name
     ) {
         $sql_sel = 'DELETE FROM ' . $this->saleslayer_aditional_config .
-            " WHERE configname = '$configuration_name'  Limit 1  ";
+            " WHERE configname = '" . $configuration_name . "'  Limit 1  ";
         $res = $this->slConnectionQuery('-', $sql_sel);
         if ($res) {
             return true;
@@ -3115,6 +3329,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . $this->saleslayer_aditional_config);
         /*from version 1.4.7*/
         Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_attachment');
+        /*from version 1.4.20*/
+        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_indexer');
+        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_accessories');
     }
 
     /**
@@ -3425,8 +3642,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         case 'product':
                             $this->debbug(' >> Product start << ', 'syncdata');
                             $this->sl_products->loadProductImageSchema($sync_params['conn_params']['data_schema']);
-                            $this->loadConnectorAccesories();
-
+                           /* $this->loadConnectorAccesories('accessories', 'product_accessories');
+                            $this->loadConnectorAccesories('index', 'for_index');*/
 
                             $time_ini_sync_stored_product = microtime(1);
                             $this->debbug(' >> Product synchronization initialized << ', 'syncdata');
@@ -3446,14 +3663,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 $result_update = $result_update_array['stat'];
 
 
-                                if (isset($result_update_array['additional_output']['product_accessories']) &&
-                                    !empty($result_update_array['additional_output']['product_accessories'])) {
-                                    $this->product_accessories[$result_update_array['additional_output']
-                                    ['product_psid']] =
-                                        $result_update_array['additional_output']['product_accessories'];
-                                }
 
-                                $this->saveStatAccessories();
+
+                                /* $this->saveStatAccessories('accessories', 'product_accessories');
+                                 $this->saveStatAccessories('index', 'for_index');*/
                             } catch (Exception $e) {
                                 $result_update = 'item_not_updated';
                                 $this->debbug(
@@ -3484,7 +3697,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                         case 'product_format':
                             $this->sl_variants->loadVariantImageSchema($sync_params['conn_params']['data_schema']);
-
+                           // $this->loadConnectorAccesories('index', 'for_index');
                             $time_ini_sync_stored_product_format = microtime(1);
                             $this->debbug(' >> Format synchronization initialized << ', 'syncdata');
                             try {
@@ -3497,6 +3710,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     $sync_params['conn_params']['currentLanguage'],
                                     $sync_params['conn_params']['avoid_stock_update']
                                 );
+
+                                $result_update = $result_update['stat'];
+                                //  $this->saveStatAccessories('index', 'for_index');
                             } catch (Exception $e) {
                                 $result_update = 'item_not_updated';
                                 $this->debbug(
@@ -3525,9 +3741,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             break;
 
                         case 'accessories':
-                            $time_ini_sync_stored_product_accesories = microtime(1);
+                            $time_ini_sync_stored_product_accessories = microtime(1);
                             $this->debbug(' >> Product accessories << ');
-                            $this->loadConnectorAccesories();
+                          //  $this->loadConnectorAccesories('accessories', 'product_accessories');
                             try {
                                 $this->syncAccesories();
                                 $result_update = 'item_updated';
@@ -3547,47 +3763,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 (
                                     microtime(
                                         1
-                                    ) - $time_ini_sync_stored_product_accesories
+                                    ) - $time_ini_sync_stored_product_accessories
                                 ) .
                                 ' seconds.',
                                 'timer'
                             );
                             break;
-                        /*
-                                               case 'product__images':
-
-                                                   $result_update = 'item_updated';
-
-                                                   if (!isset($item_data['product_id']) &&
-                                                             !isset($item_data['format_id'])){
-
-                                                       $this->debbug('## Error. Updating item images - Unknown index: '
-                                                        .print_r($item_data,1)
-                                                     , 'syncdata');
-
-                                                   }else{
-
-                                                       $item_index = 'product';
-
-                                                       if (isset($item_data['format_id'])){
-
-                                                           $item_index = 'format';
-
-                                                       }
-
-                                                       $time_ini_sync_stored_product_images = microtime(1);
-                                                       $this->debbug(' >> '.Tools::ucfirst($item_index).
-                                                        ' images synchronization initialized << ');
-                                                       $this->sync_stored_product_images($item_data, $item_index);
-                                                       $this->debbug(' >> '.Tools::ucfirst($item_index).
-                                                        ' images synchronization finished << ');
-                                                       $this->debbug('#### time_sync_stored_product_images: ' .
-                                                        (microtime(1) - $time_ini_sync_stored_product_images).
-                                                        ' seconds.', 'timer');
-                                                   }
-
-                                                   break;
-                                                   */
                         default:
                             $this->debbug('## Error. Incorrect item: : ' .
                                 print_r($item_to_update, 1), 'syncdata');
@@ -3671,24 +3852,51 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         /*
           Deprecated! now indexes immediately with synchronization
         */
-        /*
+
         // This is code for reindex all.
         // But it makes too much use for the cpu in verision 1.7.6.0 version is deprecated.
-             $admin_folder = $this->getConfiguration('ADMIN_DIR');
-             $contextShopID = Shop::getContextShopID();
-             Shop::setContext(Shop::CONTEXT_ALL);
-             $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-             $adminurl = 'http://' . $default_shop->domain . $default_shop->getBaseURI() .
-                             $admin_folder . '/searchcron.php?full=1&token=' .
-                     Tools::substr(
-                         _COOKIE_KEY_,
-                         34,
-                         8
-                     );
-             Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
-             $this->debbug('Calling indexer to start reindex all ', 'syncdata');
-             $this->urlSendCustomJson('GET', $adminurl, null, false);
-       */
+        /*  $admin_folder = $this->getConfiguration('ADMIN_DIR');
+          $contextShopID = Shop::getContextShopID();
+          Shop::setContext(Shop::CONTEXT_ALL);
+          $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+          $adminurl = 'http://' . $default_shop->domain . $default_shop->getBaseURI() .
+                          $admin_folder . '/searchcron.php?full=1&token=' .
+                  Tools::substr(
+                      _COOKIE_KEY_,
+                      34,
+                      8
+                  );
+          Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
+          $this->debbug('Calling indexer to start reindex all ', 'syncdata');
+          $this->urlSendCustomJson('GET', $adminurl, null, false);*/
+        $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+        $s = '';
+        if (Tools::usingSecureMode()) {
+            $s = 's';
+        }
+        $url =  'http' . $s . '://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+                'saleslayerimport/saleslayerimport-indexer.php?token=' .
+                Tools::substr(
+                    Tools::encrypt('saleslayerimport'),
+                    0,
+                    10
+                );
+        $this->debbug(
+            'Calling execution of indexer and time limit-> '
+            . 'Call sales layer indexer to ' . $url,
+            'syncdata'
+        );
+        try {
+            $this->urlSendCustomJson('GET', $url, null, false);
+        } catch (Exception $e) {
+            $this->debbug(
+                'Connection error-> ' . $e->getMessage() .
+                'Call RETRY to ' . $url,
+                'syncdata'
+            );
+        }
+
+
         /**
          * If you need to execute something after synchronization add the url here and uncomment the script
          */
@@ -4063,6 +4271,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function strtotime($string)
     {
         $valuetm =  $this->fomatDate($string);
+
+
+
         $date_val =  strtotime(trim($valuetm));
         if ($date_val != '') {
             $this->debbug('value converted to timestamp if generic function ->' .

@@ -768,7 +768,7 @@ class SlVariants extends SalesLayerPimUpdate
                 Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
 
 
-                $combination_changed = false;
+               // $combination_changed = false;
                 if ($check_sl_product_format_id != 0) {
                     $existing_combination = new CombinationCore($check_sl_product_format_id, null, $shop_id);
                     try {
@@ -800,7 +800,7 @@ class SlVariants extends SalesLayerPimUpdate
                         );
                         if ($this->slArrayDiff($attributes, $combination_attributes_values)) {
                             $this->debbug('Combination change, Sending refresh', 'syncdata');
-                            $combination_changed = true;
+                          //  $combination_changed = true;
                             $existing_combination->delete();
 
                         /* if ($sl_product_format_id == '') {
@@ -962,24 +962,25 @@ class SlVariants extends SalesLayerPimUpdate
                     }
                 }
 
-                if (!empty($attributes) && (!$sl_product_format_id || $combination_changed) && $processedShop == 0) {
-                    /**
-                     * Overwrite combinations info if is changed
-                     */
+                //if (!empty($attributes) && (!$sl_product_format_id || $combination_changed) && $processedShop == 0) {
+                /**
+                 * Overwrite combinations info if is changed
+                 */
+                $this->debbug(
+                    'Synchronize attributes before setting attributes array ->' .
+                        print_r($attributes, 1),
+                    'syncdata'
+                );
+                try {
+                    $comb->setAttributes($attributes);
+                } catch (Exception $e) {
+                    $syncCat = true;
                     $this->debbug(
-                        'Synchronize attributes before setting attributes array ->' . print_r($attributes, 1),
+                        '## Error. ' . $occurrence . ' In setAttributes->' . print_r($e->getMessage(), 1),
                         'syncdata'
                     );
-                    try {
-                        $comb->setAttributes($attributes);
-                    } catch (Exception $e) {
-                        $syncCat = true;
-                        $this->debbug(
-                            '## Error. ' . $occurrence . ' In setAttributes->' . print_r($e->getMessage(), 1),
-                            'syncdata'
-                        );
-                    }
                 }
+                //}
 
                 $format_img_ids = array();
                 $update_mostrar = $mostrar = false;
@@ -1128,7 +1129,8 @@ class SlVariants extends SalesLayerPimUpdate
                                 if (is_array($value)) {
                                     $value = reset($value);
                                 }
-                                if ($value != null && $value != '') {
+                                if ($value != null && $value != '' &&
+                                    $value != '0000-00-00 00:00:00') {
                                     $available_date = $value;
                                     if (is_string($value)) {
                                         $date_val =  $this->strtotime($value);
@@ -1503,45 +1505,46 @@ class SlVariants extends SalesLayerPimUpdate
             /**
              * Run indexer
              */
-            $this->debbug('Before run indexation', 'syncdata');
-            $microtime = microtime(1);
-            $all_shops_image = Shop::getShops(true, null, true);
-            $this->debbug(
-                'Before run indexation index this-id_Product ->' .
-                print_r($product_id, 1) . ' get context ->' . print_r(Shop::getContext(), 1)
-                . ' context shop id->' . print_r(Shop::getContextShopID(), 1),
-                'syncdata'
-            );
-            try {
-                foreach ($all_shops_image as $shop_id_in) {
-                    Shop::setContext(shop::CONTEXT_SHOP, $shop_id_in);
-                    $prod_index = new Product($product_id, false, null, $shop_id_in);
-                    $prod_index->indexed = 0;
-                    if ($prod_index->price === null || $prod_index->price === '') {
-                        $prod_index->price = 0;
-                    }
+            /* $this->debbug('Before run indexation', 'syncdata');
+             $microtime = microtime(1);
+             $all_shops_image = Shop::getShops(true, null, true);
+             $this->debbug(
+                 'Before run indexation index this-id_Product ->' .
+                 print_r($product_id, 1) . ' get context ->' . print_r(Shop::getContext(), 1)
+                 . ' context shop id->' . print_r(Shop::getContextShopID(), 1),
+                 'syncdata'
+             );
+             try {
+                 foreach ($all_shops_image as $shop_id_in) {
+                     Shop::setContext(shop::CONTEXT_SHOP, $shop_id_in);
+                     $prod_index = new Product($product_id, false, null, $shop_id_in);
+                     $prod_index->indexed = 0;
+                     if ($prod_index->price === null || $prod_index->price === '') {
+                         $prod_index->price = 0;
+                     }
 
-                    $this->debbug('Status active for stores in indexing from variant-> ' . $occurrence .
-                                  ' for store ' . $shop_id_in . ' before save ' .
-                                  print_r(
-                                      $prod_index->active,
-                                      1
-                                  ), 'syncdata');
-                    $prod_index->save();
-                }
-            } catch (Exception $e) {
-                $this->debbug('## Error. ' . $occurrence .
-                              ' Set indexer to 0: ' .
-                              $e->getMessage(), 'syncdata');
-            }
-            Shop::setContext(shop::CONTEXT_ALL);
-            Search::indexation(false, $product_id);
-            $this->debbug('After run indexation time->' . print_r(
-                (microtime(1) - $microtime),
-                1
-            ), 'syncdata');
-
-            return 'item_updated';
+                     $this->debbug('Status active for stores in indexing from variant-> ' . $occurrence .
+                                   ' for store ' . $shop_id_in . ' before save ' .
+                                   print_r(
+                                       $prod_index->active,
+                                       1
+                                   ), 'syncdata');
+                     $prod_index->save();
+                 }
+             } catch (Exception $e) {
+                 $this->debbug('## Error. ' . $occurrence .
+                               ' Set indexer to 0: ' .
+                               $e->getMessage(), 'syncdata');
+             }
+             Shop::setContext(shop::CONTEXT_ALL);
+             Search::indexation(false, $product_id);
+             $this->debbug('After run indexation time->' . print_r(
+                 (microtime(1) - $microtime),
+                 1
+             ), 'syncdata');
+*/
+            $this->saveProductIdForIndex($product_id);
+            return array('stat' => 'item_updated');
         } else {
             return 'item_not_updated';
         }

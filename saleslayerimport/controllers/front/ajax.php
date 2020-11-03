@@ -45,13 +45,16 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['server_time'] = 'Server time: ' . date('H:i');
             $SLimport = new SalesLayerImport();
 
-            $sql_processing = 'SELECT count(*) as sl_cuenta_registros,sync_type,item_type FROM '
-                              . _DB_PREFIX_ . 'slyr_syncdata';
+            $sql_processing = 'SELECT ( SELECT count(*) as sl_cuenta_registros  FROM '
+                              . _DB_PREFIX_ . 'slyr_syncdata ) as sl_cuenta_registros' .
+                              ' ,sync_type,item_type  FROM ' . _DB_PREFIX_ . 'slyr_syncdata WHERE ' .
+                              'id = (SELECT MIN(id) as id FROM ' . _DB_PREFIX_ . 'slyr_syncdata  LIMIT 1) LIMIT 1';
             $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
 
             if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
                 $return['status'] = 'processing';
                 $return['actual_stat'] = $items_processing['sl_cuenta_registros'];
+                $return['total_stat']  = null;
                 //work_stat
 
                 $current_flag = $SLimport->slConnectionQuery(
@@ -77,6 +80,8 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                     $Work_in_message .= 'variants';
                 } elseif ($items_processing['item_type'] == 'accessories') {
                     $Work_in_message .= 'accessories';
+                } elseif ($items_processing['item_type'] == 'index') {
+                    $Work_in_message = 'Indexing';
                 }
                 if (!count($current_flag) ||
                     (isset($current_flag[0]['syncdata_pid']) && $current_flag[0]['syncdata_pid'] == 0)) {

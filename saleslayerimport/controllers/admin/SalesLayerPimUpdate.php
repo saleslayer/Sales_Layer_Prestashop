@@ -28,18 +28,18 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->prestashop_all_shops = Shop::getShops();
     }
 
-    public function testDownloadingBlock()
+    public function testDownloadingBlock($set_name)
     {
-        $Downloading_block = $this->getConfiguration('DOWNLOADING');
+        $Downloading_block = $this->getConfiguration($set_name);
         if ($Downloading_block == false) {
-            $this->createDownloadingBlock();
+            $this->createDownloadingBlock($set_name);
             return true;
         } else {//exist downloading in course
             $downloading_in_course = time() - $Downloading_block;
             if ($downloading_in_course > 900) { // descarga ya está en curso  más que 15 minutos
                 // eliminar el registro antiguo y poner una nueva y continuar si se pasaron ya 900s
-                $this->removeDownloadingBlock();
-                $this->createDownloadingBlock();
+                $this->removeDownloadingBlock($set_name);
+                $this->createDownloadingBlock($set_name);
                 return true;
             } else {
                 return false;
@@ -47,14 +47,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
     }
 
-    public function createDownloadingBlock()
+    public function createDownloadingBlock($set_name)
     {
-        $this->saveConfiguration(['DOWNLOADING' => time()]);
+        return $this->saveConfiguration([$set_name => time()]);
     }
 
-    public function removeDownloadingBlock()
+    public function removeDownloadingBlock($set_name)
     {
-        $this->deleteConfiguration('DOWNLOADING');
+        return $this->deleteConfiguration($set_name);
     }
 
     /**
@@ -87,7 +87,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 . " items processing, wait until they have finished and synchronize again.";
         }
 
-        if (!$this->testDownloadingBlock()) {
+        if (!$this->testDownloadingBlock('DOWNLOADING')) {
             $this->debbug(
                 "A download is already in progress. Try to run after 15 minutes."
             );
@@ -144,7 +144,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         if ($api->hasResponseError()) {
             $this->debbug('## Error. : ' . $api->getResponseError() . ' Msg: ' . $api->getResponseErrorMessage());
-            $this->removeDownloadingBlock();
+            $this->removeDownloadingBlock('DOWNLOADING');
             return false;
         }
 
@@ -440,7 +440,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $this->debbug('Synced products data to store: ' . print_r($product_items, 1));
                     }
 
-                    $this->product_accessories = array();
+
                     $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['products'];
                     $sync_params['conn_params']['data_schema'] = $data_schema['products'];
                     $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
@@ -510,7 +510,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 unset($this->sl_catalogues, $this->sl_products, $this->sl_variants);
             }
         }
-        $this->removeDownloadingBlock();
+        $this->removeDownloadingBlock('DOWNLOADING');
         if (!$api->hasResponseError()) {
             $this->debbug('Actualizando last update ->' . $last_update_save . ' ');
             $this->sl_updater->setConnectorLastUpdate($connector_id, $last_update_save);

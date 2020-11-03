@@ -169,3 +169,13 @@ V 1.4.19
 <li> Improved date recognition when php strtostring() function fails. </li>
 <li> Product default category correction. </li>
 </ul>
+
+V 1.4.20
+<ul>
+<li> Product url fix for default language.</li>
+<li> Variant renaming every time sync runs. </li>
+<li> Progress bar display correctly when working on accessories. </li>
+<li> Improved the way to link accessories. </li>
+<li> Developed a more efficient indexer. </li>
+<li> Improve sync speed. </li>
+</ul>

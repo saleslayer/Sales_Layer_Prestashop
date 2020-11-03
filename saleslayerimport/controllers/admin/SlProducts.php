@@ -226,7 +226,7 @@ class SlProducts extends SalesLayerPimUpdate
              */
 
             $this->first_sync_shop = true;
-            $all_shops_image = Shop::getShops(true, null, true);
+           // $all_shops_image = Shop::getShops(true, null, true);
             try {
                 $exist_id_shops =  Product::getShopsByProduct($product_exists);
                 $exist_in_array = [];
@@ -807,6 +807,13 @@ class SlProducts extends SalesLayerPimUpdate
                                 $friendly_url = $this->slValidateCatalogName(
                                     $friendly_url,
                                     'Product'
+                                );
+                                $this->debbug(
+                                    ' Frendly_url for update product-> ' . $occurence .
+                                    ' ->' .
+                                    print_r($product_name, 1) .
+                                    ' in lang_id->' . $lang['id_lang'],
+                                    'syncdata'
                                 );
                                 $productObject->link_rewrite[ $lang['id_lang'] ] = Tools::link_rewrite($friendly_url);
                             }
@@ -1400,6 +1407,13 @@ class SlProducts extends SalesLayerPimUpdate
                             (!isset($productObject->link_rewrite[$defaultLenguage])
                                 || ($productObject->link_rewrite[$defaultLenguage] == null
                                     || $productObject->link_rewrite[$defaultLenguage] == ''))) {
+                            $this->debbug(
+                                ' Frendly_url overwrite for update product default-> ' . $occurence .
+                                '  ->' .
+                                print_r($product_name, 1) .
+                                ' in lang_id->' . $lang['id_lang'],
+                                'syncdata'
+                            );
                             $productObject->link_rewrite[$defaultLenguage] = Tools::link_rewrite($friendly_url);
                         }
                         if ($available_now != '' && (!isset($productObject->available_now[$defaultLenguage])
@@ -1678,7 +1692,8 @@ class SlProducts extends SalesLayerPimUpdate
                     )
                 ) {
                     if ($product['data']['product_creation_date'] != null &&
-                        $product['data']['product_creation_date'] != '') {
+                        $product['data']['product_creation_date'] != '' &&
+                        $product['data']['product_creation_date'] != '0000-00-00 00:00:00') {
                         if (is_array($product['data']['product_creation_date'])) {
                             $product['data']['product_creation_date'] =
                                 reset($product['data']['product_creation_date']);
@@ -1705,7 +1720,8 @@ class SlProducts extends SalesLayerPimUpdate
                 if (isset($product['data']['product_available_date'])
                 ) {
                     if ($product['data']['product_available_date'] != null &&
-                       $product['data']['product_available_date'] != '') {
+                        $product['data']['product_available_date'] != '' &&
+                        $product['data']['product_available_date'] != '0000-00-00 00:00:00') {
                         if (is_array($product['data']['product_available_date'])) {
                             $product['data']['product_available_date'] =
                                 reset($product['data']['product_available_date']);
@@ -2469,8 +2485,7 @@ class SlProducts extends SalesLayerPimUpdate
                     )
                         && !empty($product['data']['product_accessories'])
                     ) {
-                        $additional_output['product_psid'] = $productObject->id;
-                        $additional_output['product_accessories'] = $product['data']['product_accessories'];
+                        $this->saveProductAccessories($productObject->id, $product['data']['product_accessories']);
                         $this->debbug(
                             'is accessories as array->' .
                             print_r($product['data']['product_accessories'], 1),
@@ -2483,11 +2498,10 @@ class SlProducts extends SalesLayerPimUpdate
                         )
                             && $product['data']['product_accessories'] != ''
                         ) {
-                            $additional_output['product_psid'] = $productObject->id;
-                            $additional_output['product_accessories'] = explode(
+                            $this->saveProductAccessories($productObject->id, explode(
                                 ',',
                                 $product['data']['product_accessories']
-                            );
+                            ));
                             $this->debbug(
                                 'is accessories as string ->' .
                                 print_r($product['data']['product_accessories'], 1),
@@ -3374,7 +3388,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             /**
              * Reindex only this product in all stores
              */
-
+/*
             $microtime = microtime(1);
             $this->debbug(
                 'Before run indexation index this-id_Product ->' .
@@ -3417,7 +3431,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             $this->debbug('After run indexation time->' . print_r(
                 (microtime(1) - $microtime),
                 1
-            ), 'syncdata');
+            ), 'syncdata');*/
         }
 
 
@@ -3428,7 +3442,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         );
 
         if ($syncCat) {
-            return array('stat' => 'item_updated', 'additional_output' => $additional_output);
+            $this->saveProductIdForIndex($product_id);
+            return array('stat' => 'item_updated',
+                         'additional_output' => $additional_output);
         } else {
             $this->debbug(
                 $occurence . '## Error. This product could not be synchronized for any reason  ',
@@ -4142,8 +4158,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                         $image_counter_position++;
                                         $image_cover->id_product = $product_id;
                                         try {
-                                            $this->debbug('updating image information ->' .
-                                                           print_r($image_cover, 1), 'syncdata');
+                                          /*  $this->debbug('updating image information ->' .
+                                                           print_r($image_cover, 1), 'syncdata');*/
                                             $image_cover->associateTo($shops);
                                             $image_cover->save();
                                             $cover_stat = $image_cover->cover;
@@ -4158,10 +4174,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 $test = new Image($slyr_image['id_image']);
                                                 $test->cover = $cover_stat;
                                                 $test->save();
-                                                $this->debbug('Copy cover to all stores ->' .
+                                              /*  $this->debbug('Copy cover to all stores ->' .
                                                               print_r($test, 1) .
                                                               ' stat cover->' .
-                                                              print_r($cover_stat, 1), 'syncdata');
+                                                              print_r($cover_stat, 1), 'syncdata');*/
                                             }
                                             Shop::setContext(Shop::CONTEXT_ALL);
 
@@ -4798,12 +4814,35 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     );
                     $productObject->name[$lang['id_lang']] = $product_name;
 
-                    (isset($product['data']['friendly_url'])
-                        && $product['data']['friendly_url'] != '') ?
-                        $friendly_url = $product['data']['friendly_url'] : $friendly_url = $product_name;
+                    $friendly_url_index = '';
+                    $friendly_url_index_search = 'friendly_url_' . $lang['iso_code'];
+                    if (isset(
+                        $product['data'][$friendly_url_index_search],
+                        $schema[$friendly_url_index_search]['language_code']
+                    ) &&
+                        !empty($product['data'][$friendly_url_index_search])
+                        && $schema[$friendly_url_index_search]['language_code'] == $lang['iso_code']) {
+                        $friendly_url_index = 'friendly_url_' . $lang['iso_code'];
+                    } elseif (isset($product['data']['friendly_url'])
+                              && !empty($product['data']['friendly_url'])
+                              && !isset($schema['friendly_url']['language_code'])) {
+                        $friendly_url_index = 'friendly_url';
+                    }
+
+                    if ($product['data'][ $friendly_url_index ] != '') {
+                        $friendly_url = $product['data'][ $friendly_url_index ];
+                    } else {
+                        $friendly_url = $product_name;
+                    }
 
                     $productObject->link_rewrite[$lang['id_lang']] = Tools::link_rewrite($friendly_url);
-
+                    $this->debbug(
+                        ' Frendly_url for new product-> ' . $occurence .
+                        ' generate url for new product ->' .
+                        print_r($product_name, 1) .
+                        ' in lang_id->' . $lang['id_lang'],
+                        'syncdata'
+                    );
                     if ($lang['id_lang'] != $this->defaultLanguage) {
                         if (!isset($productObject->name[$this->defaultLanguage]) ||
                             (isset($productObject->name[$this->defaultLanguage])
@@ -4811,10 +4850,23 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                     || $productObject->name[$this->defaultLanguage] == ''))) {
                             $productObject->name[$this->defaultLanguage] = $product_name;
                         }
-                        $productObject->link_rewrite[$this->defaultLanguage] = Tools::link_rewrite($friendly_url);
+                        if (!isset($productObject->link_rewrite[$this->defaultLanguage]) ||
+                           (isset($productObject->link_rewrite[$this->defaultLanguage])
+                            && ($productObject->link_rewrite[$this->defaultLanguage] == null
+                                || $productObject->link_rewrite[$this->defaultLanguage] == ''))) {
+                            $productObject->link_rewrite[$this->defaultLanguage] = Tools::link_rewrite($friendly_url);
+                        }
                     }
+                } else {
+                    $productObject->link_rewrite[$lang['id_lang']] = '';
                 }
             }
+            $this->debbug(
+                'link rewrite for all languages ' . $occurence .
+                ' ->' .
+                print_r($productObject->link_rewrite, 1),
+                'syncdata'
+            );
             $productObject->active = 0;
             $productObject->date_add = date('Y-m-d H:i:s');
 
