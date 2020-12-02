@@ -226,7 +226,7 @@ class SlProducts extends SalesLayerPimUpdate
              */
 
             $this->first_sync_shop = true;
-           // $all_shops_image = Shop::getShops(true, null, true);
+            // $all_shops_image = Shop::getShops(true, null, true);
             try {
                 $exist_id_shops =  Product::getShopsByProduct($product_exists);
                 $exist_in_array = [];
@@ -1657,17 +1657,19 @@ class SlProducts extends SalesLayerPimUpdate
                 }
 
 
-                if (isset($product['data']['product_active']) && $product['data']['product_active'] != '') {
+                if (isset($product['data']['product_active']) && $product['data']['product_active'] !== ''
+                 && $product['data']['product_active'] !== null) {
                     $toactivate = $this->slValidateBoolean($product['data']['product_active']);
                     if (Validate::isBool($toactivate)) {
                         $this->debbug('Set product active ' . $occurence .
                                       ' to ' .
                                       print_r(
-                                          $active,
+                                          (int)
+                                          $toactivate,
                                           1
                                       ) . ' in store id->' .
                                       print_r($shop_id, 1), 'syncdata');
-                        $productObject->active =  $toactivate;
+                        $productObject->active = (int) $toactivate;
                     } else {
                         $this->debbug('## Warning. ' . $occurence .
                                       ' Field Active. Value is not a boolean -> ' .
@@ -4158,8 +4160,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                         $image_counter_position++;
                                         $image_cover->id_product = $product_id;
                                         try {
-                                          /*  $this->debbug('updating image information ->' .
-                                                           print_r($image_cover, 1), 'syncdata');*/
+                                            /*  $this->debbug('updating image information ->' .
+                                                             print_r($image_cover, 1), 'syncdata');*/
                                             $image_cover->associateTo($shops);
                                             $image_cover->save();
                                             $cover_stat = $image_cover->cover;
@@ -4174,10 +4176,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                                 $test = new Image($slyr_image['id_image']);
                                                 $test->cover = $cover_stat;
                                                 $test->save();
-                                              /*  $this->debbug('Copy cover to all stores ->' .
-                                                              print_r($test, 1) .
-                                                              ' stat cover->' .
-                                                              print_r($cover_stat, 1), 'syncdata');*/
+                                                /*  $this->debbug('Copy cover to all stores ->' .
+                                                                print_r($test, 1) .
+                                                                ' stat cover->' .
+                                                                print_r($cover_stat, 1), 'syncdata');*/
                                             }
                                             Shop::setContext(Shop::CONTEXT_ALL);
 

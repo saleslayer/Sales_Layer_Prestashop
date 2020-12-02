@@ -58,7 +58,7 @@ class AdminDiagtoolsController extends ModuleAdminController
         $return .= '<h4>Server Info</h4>';
         $return .= '<table class="table">';
         $this->showtable = $return;
-
+        $this->SLimport->checkDB();
         if ($this->SLimport->i_am_a_developer) {
             /**
              * Refresh integrity of plugin
@@ -145,7 +145,7 @@ class AdminDiagtoolsController extends ModuleAdminController
         $array_toshow = ['Latest Cron Execution','<span title="Server time">' .
                                                  date(
                                                      'd-m-Y H:i:s',
-                                                     $this->SLimport->getConfiguration('LATEST_CRON_EXECUTION')
+                                                     (int) $this->SLimport->getConfiguration('LATEST_CRON_EXECUTION')
                                                  ) . '</span>'];
         $this->formatTable($array_toshow);
 

@@ -386,7 +386,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                             // table and we create a link with this category
                             Db::getInstance()->execute(
                                 sprintf(
-                                    'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
+                                    'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
                                     (ps_id, slyr_id, ps_type, comp_id, date_add)
                                      VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
                                     $category_id,
@@ -712,7 +712,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                 if ($cat->id) {
                     Db::getInstance()->execute(
                         sprintf(
-                            'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
+                            'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
                             (ps_id, slyr_id, ps_type, comp_id, date_add)
                              VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
                             $cat->id,
@@ -1095,7 +1095,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                     $update_query = sprintf(
                         'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
                          SET sl.date_upd = CURRENT_TIMESTAMP() , sl.shops_info ="' .
-                            addslashes(json_encode($shops_info)) . '" 
+                            addslashes(json_encode($shops_info)) . '"
                          WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
                         $catalog['ID'],
                         $comp_id
@@ -1230,7 +1230,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
 
                 $this->debbug(
-                    '## Error. Invalid slyr registration when updating stores for 
+                    '## Error. Invalid slyr registration when updating stores for
                     the category with ' . $occurence . ' prestashop id :' . $cat->id,
                     'syncdata'
                 );
@@ -1321,7 +1321,7 @@ class SlCatalogues extends SalesLayerPimUpdate
             $sl_category_info_conns[$connector_id] = $shops;
             $shopsInfo = json_encode($sl_category_info_conns);
 
-            $schemaUpdateShops = " UPDATE " . _DB_PREFIX_ . "slyr_category_product 
+            $schemaUpdateShops = " UPDATE " . _DB_PREFIX_ . "slyr_category_product
             SET shops_info = '" . $shopsInfo . "' WHERE id = " . $category_shops_info[0]['id'];
             Db::getInstance()->execute($schemaUpdateShops);
         }
@@ -1336,14 +1336,19 @@ class SlCatalogues extends SalesLayerPimUpdate
 
     /**
      * Function to rorganize categories path and parents.
-     * @param string $sl_id product id to delete
+     *
+     * @param $shop_ids
+     *
      * @return string               product deleted or not
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
      */
 
-    public function reorganizeCategories()
+    public function reorganizeCategories($shop_ids)
     {
         // $microtime = microtime(1);
-        $this->debbug('Entry to reorganize ', 'syncdata');
+        $this->debbug('Entry to reorganize for shops ->' .
+                      print_r($shop_ids, 1), 'syncdata');
         $contextShopID = Shop::getContextShopID();
         Shop::setContext(Shop::CONTEXT_ALL);
         //Process to reorganize the category tree avoiding.
@@ -1375,7 +1380,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                 }
 
                 try {
-                    foreach (Shop::getShops() as $shop) {
+                    foreach ($shop_ids as $shop) {
                         $cat = new Category($category_id, null, $shop['id_shop']);
                         if ($cat->id_parent != $new_parent_id && !empty($new_parent_id)) {
                             if ($new_parent_id == 1) {
@@ -1398,23 +1403,35 @@ class SlCatalogues extends SalesLayerPimUpdate
                                 ),
                                 'syncdata'
                             );
-                            $cat->save();
+                            try {
+                                $cat->save();
+                            } catch (Exception $e) {
+                                $this->debbug('## Error. Reorganizing category tree: ' . $e->getMessage() .
+                                              ' line ->' . print_r($e->getLine(), 1) .
+                                              ' $cat->' . print_r($cat, 1));
+                            }
 
                             $this->categories_collection[$category_id]['parent_id'] = $new_parent_id;
                         }
                     }
                 } catch (Exception $e) {
-                    $this->debbug('## Error. Reorganizing category tree: ' . $e->getMessage());
+                    $this->debbug('## Error. Reorganizing category tree: ' . $e->getMessage() .
+                                  ' line ->' . print_r($e->getLine(), 1) .
+                                  ' trace->' . print_r($e->getTrace(), 1));
                 }
             }
         }
 
         try {
-            $category_regenerate = new Category(1, 1);
+            $category_regenerate = new Category(
+                (int)Configuration::get('PS_HOME_CATEGORY'),
+                (int)Configuration::get('PS_LANG_DEFAULT')
+            );
             $category_regenerate->regenerateEntireNtree();
-            $category_regenerate->save();
+            //$category_regenerate->save();
         } catch (Exception $e) {
-            $this->debbug('## Error. Reorganizing category tree: ' . $e->getMessage());
+            $this->debbug('## Error. Reorganizing category tree regenerateEntireNtree: ' . $e->getMessage() .
+                          ' print->' . print_r($category_regenerate, 1));
         }
 
         Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);

@@ -101,7 +101,7 @@ class SalesLayerImport extends Module
     public $integrityFile                       = 'integrity.json';
     public $integrityPathDirectory              = '';
     public $cpu_max_limit_for_retry_call        = 4.00;
-    public $timeout_for_run_process_connections = 1000;
+    public $timeout_for_run_process_connections = 5000;
     private $max_execution_time                 = 290;
     private $memory_min_limit                   = 300;
     private $sql_insert_limit                   = 5;
@@ -114,7 +114,7 @@ class SalesLayerImport extends Module
 
     ##############################################################
 
-    public $conector_shops_ids;
+    public $conector_shops_ids               = [];
     public $connector_type                   = '';
     public $sql_to_insert                    = array();
     public $default_category_id              = '';
@@ -282,7 +282,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.20';
+        $this->version = '1.4.21';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -606,25 +606,25 @@ class SalesLayerImport extends Module
                 $error_write = false;
                 if ($error_content) {
                     $error_write = true;
-                    $error_file = DEBBUG_PATH_LOG . '_error_debbug_log_' . date('Y-m-d') . '.dat';
+                    $error_file = DEBBUG_PATH_LOG . '_error_debbug_log_' . date('Y-m-d') . '.txt';
                 }
 
 
                 switch ($type_file) {
                     case 'timer':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_timers_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_timers_' . date('Y-m-d') . '.txt';
                         break;
 
                     case 'autosync':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_auto_sync_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_auto_sync_' . date('Y-m-d') . '.txt';
                         break;
 
                     case 'syncdata':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_sync_data_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_sync_data_' . date('Y-m-d') . '.txt';
                         break;
 
                     default:
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_' . date('Y-m-d') . '.dat';
+                        $file = DEBBUG_PATH_LOG . '_debbug_log_' . date('Y-m-d') . '.txt';
                         break;
                 }
 
@@ -1209,7 +1209,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_indexer (
                                     `id` BIGINT NOT NULL AUTO_INCREMENT,
                                     `id_product` BIGINT NOT NULL,
-                                    PRIMARY KEY (`id`),                                    
+                                    PRIMARY KEY (`id`),
                                     INDEX `id_product` (`id_product` ASC))
                                     COMMENT = 'Sales Layer poducts ids for reindex' ";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
@@ -1218,7 +1218,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     `id` BIGINT NOT NULL AUTO_INCREMENT,
                                     `id_product` BIGINT NOT NULL,
                                     `accessories` varchar(20000) NOT NULL,
-                                    PRIMARY KEY (`id`),                                    
+                                    PRIMARY KEY (`id`),
                                     INDEX `id_product` (`id_product` ASC))
                                     COMMENT = 'Sales Layer table for accessories' ";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
@@ -2398,8 +2398,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 1
                             );
                             $this->processing_connector_id = $sync_params['conn_params']['connector_id'];
-                            $this->comp_id = $sync_params['conn_params']['comp_id'];
-                            $this->conector_shops_ids = $sync_params['conn_params']['shops'];
+                            $this->comp_id                 = $sync_params['conn_params']['comp_id'];
+                            $this->conector_shops_ids      = $sync_params['conn_params']['shops'];
 
                             //   $this->store_view_ids = $sync_params['conn_params']['store_view_ids'];
 
@@ -2489,7 +2489,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     }
                     $this->debbug('Run regenerateEntireNtree after delete', 'syncdata');
 
-                    $this->sl_catalogues->reorganizeCategories();
+                    $this->sl_catalogues->reorganizeCategories($this->conector_shops_ids);
                 }
             } catch (Exception $e) {
                 $this->debbug('## Error. Deleting syncdata process: ' .
@@ -2511,7 +2511,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                     $categories_clear = false;
                     try {
-                        $this->sl_catalogues->reorganizeCategories();
+                        $this->sl_catalogues->reorganizeCategories($this->conector_shops_ids);
                     } catch (Exception $e) {
                         $this->debbug(
                             '## Error. In reorganizing Categories after Update ' .
@@ -3789,7 +3789,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                         if ($sync_tries > 2) {
                             if ($item_to_update['item_type'] == 'category') {
-                                $this->sl_catalogues->reorganizeCategories();
+                                $this->sl_catalogues->reorganizeCategories($this->conector_shops_ids);
                             }
 
                             $this->sql_items_delete[] = $item_to_update['id'];
@@ -4295,7 +4295,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     date('Y', time() + $suma)
                 );
             }
-            
+
             $parse_content = explode(' ', $valuetm);
             $hour    = 0;
             $minutes = 0;

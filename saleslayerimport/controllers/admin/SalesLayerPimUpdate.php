@@ -482,9 +482,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_returned['data_schema_info']['product_formats'];
                     $sync_params['conn_params']['data_schema'] = $data_schema['product_formats'];
                     $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
-                    $product_formats_items = $this->reorganizeProductFormats(
-                        $product_formats_items
-                    );
+                    /*   $product_formats_items = $this->reorganizeProductFormats(
+                           $product_formats_items
+                       );*/
                     $arrayReturn['product_formats_to_sync'] = count($product_formats_items);
 
 
@@ -1239,29 +1239,48 @@ class SalesLayerPimUpdate extends SalesLayerImport
     public function slValidateBoolean(
         $value
     ) {
+        if (is_array($value)) {
+            $value = reset($value);
+        }
         if (is_bool($value)) {
+            $this->debbug('Value recognized as boolean ' .
+                          print_r(
+                              $value,
+                              1
+                          ), 'syncdata');
             return $value;
         }
 
         if ((is_numeric($value) && $value === 0)
             || (is_string($value)
                 && in_array(
-                    Tools::strtolower((string) $value),
-                    array('false', '0', 'no'),
+                    Tools::strtolower((string) trim($value)),
+                    array('false','0','no','nie','nein','nicht','deny','n','non','нет','nej','ne','denied','i','d','x'),
                     false
                 ))
         ) {
-            return false;
+            $this->debbug('Value recognized as false ' .
+                          print_r(
+                              $value,
+                              1
+                          ), 'syncdata');
+            return  false;
         }
 
         if ((is_numeric($value) && $value === 1)
             || (is_string($value)
                 && in_array(
-                    Tools::strtolower((string) $value),
-                    array('true', '1', 'yes', 'si','sí'),
+                    Tools::strtolower((string) trim($value)),
+                    array('true','1','yes','si','sí','y','s','ja','já','ok','bai','oui',
+                        'sì','Да','если','是的','はい','ano','áno','accept','taip','allow','v'),
                     false
                 ))
         ) {
+            $this->debbug('Value recognized as true ' .
+                          print_r(
+                              $value,
+                              1
+                          ), 'syncdata');
             return true;
         }
 
@@ -1417,8 +1436,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
             $format_exists = (int)Db::getInstance()->getValue(
                 sprintf(
-                    'SELECT gl.id_attribute_group 
-                            FROM `' . _DB_PREFIX_ . 'attribute_group_lang` gl 
+                    'SELECT gl.id_attribute_group
+                            FROM `' . _DB_PREFIX_ . 'attribute_group_lang` gl
                             JOIN `' . _DB_PREFIX_ . 'slyr_category_product` sl
                             ON ( gl.id_attribute_group = sl.ps_id and sl.ps_type = "product_format_field" )
                             WHERE sl.comp_id = "%s" AND  gl.name LIKE "%s" GROUP BY gl.id_attribute_group ',
@@ -1434,8 +1453,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                 Db::getInstance()->execute(
                     sprintf(
-                        'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl 
-                        SET sl.date_upd = CURRENT_TIMESTAMP() WHERE sl.ps_id = "%s" AND sl.comp_id = "%s" 
+                        'UPDATE ' . _DB_PREFIX_ . 'slyr_category_product sl
+                        SET sl.date_upd = CURRENT_TIMESTAMP() WHERE sl.ps_id = "%s" AND sl.comp_id = "%s"
                         AND sl.ps_type = "product_format_field"',
                         $format_exists,
                         $comp_id
@@ -1615,8 +1634,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     //Format found by name or public name, we insert the register.
                     Db::getInstance()->execute(
                         sprintf(
-                            'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product 
-                            (ps_id, slyr_id, ps_type, comp_id, date_add) 
+                            'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
+                            (ps_id, slyr_id, ps_type, comp_id, date_add)
                             VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
                             $format_exists,
                             $lastFormatId,
@@ -1768,7 +1787,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 //Actualizamos tiendas
                 //Revisar en otros comp_id
                 $schemaFormsExtra = " SELECT sl.id, sl.shops_info FROM " . _DB_PREFIX_ . "slyr_category_product sl" .
-                    " WHERE sl.ps_id = " . $format_id . " 
+                    " WHERE sl.ps_id = " . $format_id . "
                     AND sl.comp_id = " . $comp_id . " AND sl.ps_type = 'product_format_field'";
 
 
@@ -2275,10 +2294,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
     ) {
         $format_exists = (int)Db::getInstance()->getValue(
             sprintf(
-                'SELECT gl.id_attribute_group 
+                'SELECT gl.id_attribute_group
                         FROM `' . _DB_PREFIX_ . 'attribute_group_lang` gl
                         JOIN `' . _DB_PREFIX_ . 'slyr_category_product` sl
-                        ON ( gl.id_attribute_group = sl.ps_id and sl.ps_type = "product_format_field") 
+                        ON ( gl.id_attribute_group = sl.ps_id and sl.ps_type = "product_format_field")
                         WHERE  sl.comp_id = "%s" AND gl.name LIKE "%s" GROUP BY gl.id_attribute_group ',
                 $comp_id,
                 $fieldName

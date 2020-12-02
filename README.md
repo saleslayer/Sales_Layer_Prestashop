@@ -179,3 +179,10 @@ V 1.4.20
 <li> Developed a more efficient indexer. </li>
 <li> Improve sync speed. </li>
 </ul>
+
+V 1.4.21
+<ul>
+<li> Added function that repairs plugin' tables in diagnostic mode.</li>
+<li> Fixed unnamed variant issue. </li>
+<li> Added the 'enabled' field for variants, that eliminates the variant if it is false. </li>
+</ul>
