@@ -1331,7 +1331,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
     ) {
         $campo = str_replace(',', '.', $campo);
 
-        return round((float)$campo, 6);
+        return $this->truncateExtraDecimals((float) $campo, 6);
     }
 
     public function discauntFormat(
@@ -1339,13 +1339,20 @@ class SalesLayerPimUpdate extends SalesLayerImport
     ) {
         $campo = str_replace(array('%', ','), array('', '.'), $campo);
 
-        return round((float)$campo, 6);
+        return $this->truncateExtraDecimals((float) $campo, 6);
     }
 
     public function clearForMetaData($newtitle)
     {
         $remove = array('(',')','>','<','{','}','/','\\','#','=');
         return    str_replace($remove, ' ', strip_tags(html_entity_decode($newtitle)));
+    }
+
+    public function truncateExtraDecimals($val, $precision)
+    {
+        $pow = pow(10, $precision);
+        $precise = (int)($val * $pow);
+        return (float)($precise / $pow);
     }
 
 

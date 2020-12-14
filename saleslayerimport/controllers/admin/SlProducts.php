@@ -5017,7 +5017,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             if ($id_specific_price_1 == 0) {
                 //We generate a new discount with generic values.
                 $specificPrice->id_product = $product_id;
-                $specificPrice->reduction = $product_discount_1_data['reduction'];
+                $specificPrice->reduction =
+                    $this->truncateExtraDecimals($product_discount_1_data['reduction'], 6);
                 $specificPrice->reduction_type = $product_discount_1_data['type_reduction'];
                 foreach ($keysGen as $keyGen) {
                     $specificPrice->{"$keyGen"} = 0;
@@ -5036,7 +5037,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             } else {
                 //We update the data from the first existing discount.
                 $specificPriceProduct = new SpecificPrice($id_specific_price_1);
-                $specificPriceProduct->reduction = $product_discount_1_data['reduction'];
+                $specificPriceProduct->reduction =
+                    $this->truncateExtraDecimals($product_discount_1_data['reduction'], 6);
                 $specificPriceProduct->reduction_type = $product_discount_1_data['type_reduction'];
                 $specificPriceProduct->from_quantity = $product_discount_1_data['from_quantity'];
                 $specificPriceProduct->from    = $product_discount_1_data['from_time'];
