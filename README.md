@@ -129,6 +129,17 @@ This button will help you to eliminate in bulk all the categories, products and 
    and change the value to <b>true</b>.</p>
 </div>
 
+
+<div>
+<h2>Important notes</h2>
+<p>Please check the important notes for the installation available at <a target="_blank" title="documentation" href="https://support.saleslayer.com/prestashop/important-notes-about-connector">https://support.saleslayer.com/prestashop/important-notes-about-connector</a>
+ (In some cases, a Sales Layer accont might be needed to access the documentation).</p>
+</div>
+
+<div>
+
+<h2>Changelog</h2>
+
 V 1.4.16
 <ul>
 <li> New features for rules for taxes (tax). From this version it is possible to use, aside
@@ -186,3 +197,4 @@ V 1.4.21
 <li> Fixed unnamed variant issue. </li>
 <li> Added the 'enabled' field for variants, that eliminates the variant if it is false. </li>
 </ul>
+</div>
