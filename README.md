@@ -133,7 +133,7 @@ This button will help you to eliminate in bulk all the categories, products and 
 <div>
 <h2>Important notes</h2>
 <p>Please check the important notes for the installation available at <a target="_blank" title="documentation" href="https://support.saleslayer.com/prestashop/important-notes-about-connector">https://support.saleslayer.com/prestashop/important-notes-about-connector</a>
- (In some cases, a Sales Layer accont might be needed to access the documentation).</p>
+ (In some cases, a Sales Layer account might be needed to access the documentation).</p>
 </div>
 
 <div>
