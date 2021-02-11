@@ -1441,9 +1441,39 @@ class SlProducts extends SalesLayerPimUpdate
 
 
 
-
-
-
+                /**
+                 * Condition
+                 */
+                if (isset($product['data']['product_condition']) &&
+                    !empty($product['data']['product_condition'])) {
+                    if (is_array($product['data']['product_condition'])) {
+                        $product['data']['product_condition'] = reset($product['data']['product_condition']);
+                    }
+                    if (in_array(
+                        Tools::strtolower($product['data']['product_condition']),
+                        ['new','used','refurbished'],
+                        false
+                    )) {
+                        $productObject->condition = Tools::strtolower($product['data']['product_condition']);
+                        $this->debbug(
+                            'set condition in ' . $occurence .
+                            ' value->' .
+                            print_r($productObject->condition, 1) .
+                            ' for shop->' . $shop_id,
+                            'syncdata'
+                        );
+                        $test_after_update['condition'] = $productObject->condition;
+                    } else {
+                        $this->debbug(
+                            '##Error. Condition value is invalid in ' . $occurence .
+                            '  value->' .
+                            print_r($product['data']['product_condition'], 1) .
+                            ' valid values->' .
+                            print_r(['new','used','refurbished'], 1),
+                            'syncdata'
+                        );
+                    }
+                }
 
                 /**
                  * Id of  element for redirect  redirect_type (temporal)
@@ -3343,7 +3373,10 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         );
                     }
                 }
-            }
+            }// end shops
+            unset($product['data']['product_condition']);
+
+
 
             /**
              * Attachment Files upload

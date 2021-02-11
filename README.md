@@ -197,4 +197,9 @@ V 1.4.21
 <li> Fixed unnamed variant issue. </li>
 <li> Added the 'enabled' field for variants, that eliminates the variant if it is false. </li>
 </ul>
+
+V 1.4.22
+<ul>
+<li> Fix of field condition.</li>
+</ul>
 </div>
