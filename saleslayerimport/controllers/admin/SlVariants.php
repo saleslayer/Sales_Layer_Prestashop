@@ -198,7 +198,7 @@ class SlVariants extends SalesLayerPimUpdate
                 $show_number = '';
                 for ($counter = 0; $counter < $number_of_images; $counter++) {
                     if ($counter != 0) {
-                        $show_number = ' (' . $show_number . ')';
+                        $show_number = ' (' . $counter . ')';
                     }
                     if (empty($alt_attribute_for_image[$leng['id_lang']][$counter])) {
                         $alt_attribute_for_image[$leng['id_lang']][$counter] = 'variant ' . $product_format['ID'] .
@@ -3313,6 +3313,25 @@ class SlVariants extends SalesLayerPimUpdate
                             . "' WHERE id_image = '" . $slyr_image['id_image'] . "' "
                     );
                 }
+            }
+        }
+        /**
+         * Delete unknown images from this variant
+         */
+        $query_select = 'SELECT im.id_image FROM ' . _DB_PREFIX_ . "image im
+	             INNER JOIN " . _DB_PREFIX_ . "product_attribute_image pai ON (im.id_image = pai.id_image)
+	             LEFT JOIN " . _DB_PREFIX_ . "slyr_image si ON (im.id_image = si.id_image )
+                WHERE  im.id_product = '" . $product_id . "'                
+                AND pai.id_product_attribute = '" . $variant_id . "' ";
+        $ps_variant_images = Db::getInstance()->executeS($query_select);
+
+        $this->debbug('Delete unknown images query->' . print_r($query_select, 1) .
+                      ' result ->' . print_r($ps_variant_images, 1), 'syncdata');
+
+        if (!empty($ps_variant_images)) {
+            foreach ($ps_variant_images as $image_variant) {
+                $image_delete = new Image($image_variant['id_image']);
+                $image_delete->delete();
             }
         }
 

@@ -202,4 +202,12 @@ V 1.4.22
 <ul>
 <li> Fix of field condition.</li>
 </ul>
+
+V 1.4.23
+<ul>
+<li> Fix of the field condition for custom values, reading from the class of Product.</li>
+<li> Fix of the field Visibility for custom values, reading from class of Product.</li>
+<li> Fix of the renaming the values of features.</li>
+<li> Strict deleting product images if is unknown for plugin.</li>
+</ul>
 </div>
