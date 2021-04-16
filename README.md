@@ -210,4 +210,12 @@ V 1.4.23
 <li> Fix of the renaming the values of features.</li>
 <li> Strict deleting product images if is unknown for plugin.</li>
 </ul>
+
+V 1.4.24
+<ul>
+<li> fix of the compression on feature values..</li>
+<li> Fix of the minimum quantity field.</li>
+<li> Fix of quantity field, permission to set to 0.</li>
+</ul>
+
 </div>

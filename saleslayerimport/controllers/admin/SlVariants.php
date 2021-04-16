@@ -1118,9 +1118,8 @@ class SlVariants extends SalesLayerPimUpdate
                     foreach ($fieldsBase as $key => $value) {
                         switch ($key) {
                             case 'quantity':
-                                if ($value != 0) {
                                     $stock = $value;
-                                }
+
                                 break;
 
                             case (preg_match('/format_supplier_\+?\d+$/', $key) ? true : false):

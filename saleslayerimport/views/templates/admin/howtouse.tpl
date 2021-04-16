@@ -130,10 +130,10 @@
                 <li>Command:</li>
                 <li class="mar-top-btt-10">
                   <ol>
-                    <li><strong>wget -O /dev/null {$culr_link|escape:'htmlall':'UTF-8'} > /dev/null
+                    <li><strong>wget -O /dev/null {$culr_link|escape:'htmlall':'UTF-8'} > /dev/null&nbsp;
                         2>&1</strong></li>
                     <p>or</p>
-                    <li><strong>curl "{$culr_link|escape:'htmlall':'UTF-8'}" > /dev/null
+                    <li><strong>curl "{$culr_link|escape:'htmlall':'UTF-8'}" > /dev/null&nbsp;
                         2>&1 </strong></li>
                   </ol>
                 </li>

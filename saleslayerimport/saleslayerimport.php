@@ -15,20 +15,20 @@
 
 defined('_PS_VERSION_') or exit;
 
-require dirname(__FILE__).DIRECTORY_SEPARATOR.'config'
-    .DIRECTORY_SEPARATOR.'config.php';
-require dirname(__FILE__).DIRECTORY_SEPARATOR.'controllers'
-    .DIRECTORY_SEPARATOR.'admin'.DIRECTORY_SEPARATOR.'SalesLayer-Conn.php';
-require dirname(__FILE__).DIRECTORY_SEPARATOR.'controllers'
-    .DIRECTORY_SEPARATOR.'admin'.DIRECTORY_SEPARATOR.'SalesLayer-Updater.php';
+require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'config'
+    . DIRECTORY_SEPARATOR . 'config.php';
+require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
+    . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'SalesLayer-Conn.php';
+require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
+    . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'SalesLayer-Updater.php';
 if (extension_loaded('PDO')) {
     if (!class_exists('slyrSQL')) {
-        include_once dirname(__FILE__).DIRECTORY_SEPARATOR.'controllers'
-            .DIRECTORY_SEPARATOR.'admin'.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR.'class.DBPDO.php';
+        include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
+            . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'class.DBPDO.php';
     }
 } elseif (!class_exists('slyrSQL')) {
-    include_once dirname(__FILE__).DIRECTORY_SEPARATOR.'controllers'
-        .DIRECTORY_SEPARATOR.'admin'.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR.'class.MySQL.php';
+    include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
+        . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'class.MySQL.php';
 }
 
 class SalesLayerImport extends Module
@@ -261,7 +261,8 @@ class SalesLayerImport extends Module
             'pack_format_',
             'pack_quantity_',
             'product_supplier_',
-            'product_supplier_reference_'
+            'product_supplier_reference_',
+            'category_sl_default_'
         );
 
 
@@ -282,7 +283,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.23';
+        $this->version = '1.4.24';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -1582,14 +1583,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
             $id_shop = $default_shop->id;
             $id_shop_group = $default_shop->id_shop_group;
+            $result = false;
 
             $query = 'INSERT INTO ' . $this->prestashop_cron_table .
-                '(`description`, `task`, `hour`, `day`, `month`, `day_of_week`,
-                 `updated_at`, `active`, `id_shop`, `id_shop_group`)' .
-                'VALUES (\'' . $description . '\', \'' . $task . '\', \'' . $hour . '\', \''
-                     . $day . '\', \'' . $month . '\',
-                \'' . $day_of_week . '\', NULL, TRUE, ' . $id_shop . ', ' . $id_shop_group . ')';
+                    '(`description`, `task`, `hour`, `day`, `month`, `day_of_week`,
+	                 `updated_at`, `active`, `id_shop`, `id_shop_group`)' .
+                    'VALUES (\'' . $description . '\', \'' . $task . '\', \'' . $hour . '\', \''
+                         . $day . '\', \'' . $month . '\',
+	                \'' . $day_of_week . '\', NULL, TRUE, ' . $id_shop . ', ' . $id_shop_group . ')';
 
+            $this->debbug('Query to insert register en Sl cronjob ->' . print_r($query, 1) . '  ');
             try {
                 $result = Db::getInstance()->execute($query);
             } catch (Exception $e) {
@@ -1597,7 +1600,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
 
             if (!$result) {
-                $this->debbug('## Error. Could not create record to create cron jobs');
+                $this->debbug('## Error. Could not create record to create cron jobs ->' .
+                                  print_r($query, 1) . '. Please check if your default store is active.');
             }
         }
 
@@ -1617,7 +1621,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             'Reasync deleted content and remove all from sl table if not exist in prestashop',
             'syncdata'
         );
-
 
         $categoriesDelete = Db::getInstance()->executeS(
             "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_category_product`  sl
@@ -1678,12 +1681,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $schemaAttributesGroup = 'SELECT at.id_attribute FROM ' . $this->attribute_table . ' AS at ' .
             ' LEFT JOIN ' . $this->attribute_group_table . ' AS pa
             ON (pa.id_attribute_group = at.id_attribute_group ) WHERE pa.id_attribute_group is null ';
-
         $deleteAttributeGroup = Db::getInstance()->executeS($schemaAttributesGroup);
 
         if (!empty($deleteAttributeGroup)) {
             $this->debbug(
-                '## Warning. Attribute values are sent to delete because their group no longer exists ->'.print_r(
+                '## Warning. Attribute values are sent to delete because their group no longer exists ->' .
+                print_r(
                     $deleteAttributeGroup,
                     1
                 )
@@ -1694,8 +1697,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
 
-
-        $schemaAttrVals = 'SELECT id FROM '._DB_PREFIX_.'slyr_category_product  AS sl ' .
+        $schemaAttrVals = 'SELECT id FROM ' . _DB_PREFIX_ . 'slyr_category_product  AS sl ' .
             ' LEFT JOIN ' . $this->attribute_table . ' AS a ON (a.id_attribute = sl.ps_id ) ' .
             " WHERE  sl.ps_type = 'product_format_value' AND a.id_attribute is null ";
         $attributeValuesDelete = Db::getInstance()->executeS($schemaAttrVals);
@@ -4270,9 +4272,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function strtotime($string)
     {
         $valuetm =  $this->fomatDate($string);
-
-
-
         $date_val =  strtotime(trim($valuetm));
         if ($date_val != '') {
             $this->debbug('value converted to timestamp if generic function ->' .

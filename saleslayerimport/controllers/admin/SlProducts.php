@@ -277,277 +277,280 @@ class SlProducts extends SalesLayerPimUpdate
                 $productObject = new Product($product_exists, false, null, $shop_id);
                 $category_default_found = false;
 
-
-                // $update_needed = false;
-                if (isset($product['data']['product_type'])) {
-                    $product_type = '';
-
-                    if (is_array($product['data']['product_type']) && !empty($product['data']['product_type'])) {
-                        $product_type = reset($product['data']['product_type']);
-                    } else {
-                        if (!is_array($product['data']['product_type']) && $product['data']['product_type'] != '') {
-                            $product_type = $product['data']['product_type'];
-                        }
+                $product_type = '';
+                if (is_array($product['data']['product_type']) && !empty($product['data']['product_type'])) {
+                    $product_type = reset($product['data']['product_type']);
+                } else {
+                    if (!is_array($product['data']['product_type']) && $product['data']['product_type'] != '') {
+                        $product_type = $product['data']['product_type'];
                     }
+                }
 
-                    if (is_string($product_type)) {
-                        if (preg_match('/(simple)/', $product_type)) {
-                            $product_type = Product::PTYPE_SIMPLE;
-                        } elseif (preg_match('/(pack)/', $product_type)) {
-                            $product_type = Product::PTYPE_PACK;
-                        } elseif (preg_match('/(virtual)/', $product_type)) {
-                            $product_type = Product::PTYPE_VIRTUAL;
-                        } else {
+                if (is_string($product_type)) {
+                    if (preg_match('/(simple)/', $product_type)) {
+                        $product_type = Product::PTYPE_SIMPLE;
+                    } elseif (preg_match('/(pack)/', $product_type)) {
+                        $product_type = Product::PTYPE_PACK;
+                    } elseif (preg_match('/(virtual)/', $product_type)) {
+                        $product_type = Product::PTYPE_VIRTUAL;
+                    } else {
+                        $product_type = '';
+                    }
+                } else {
+                    if (is_numeric($product_type)) {
+                        if ($product_type != Product::PTYPE_SIMPLE &&
+                                $product_type != Product::PTYPE_PACK && $product_type != Product::PTYPE_VIRTUAL) {
                             $product_type = '';
                         }
-                    } else {
-                        if (is_numeric($product_type)) {
-                            if ($product_type != Product::PTYPE_SIMPLE &&
-                                $product_type != Product::PTYPE_PACK && $product_type != Product::PTYPE_VIRTUAL) {
-                                $product_type = '';
-                            }
-                        }
                     }
+                }
+                $array_format_pack  = preg_grep('/pack_format_\+?\d+$/i', array_keys($product['data']));
+                $array_product_pack = preg_grep('/pack_product_\+?\d+$/i', array_keys($product['data']));
 
-                    if ($product_type == Product::PTYPE_SIMPLE || $product_type == Product::PTYPE_PACK) {
-                        $current_product_type = $productObject->getType();
+                if ($product_type == '' && (count($array_format_pack) || count($array_product_pack))) {
+                    $product_type = Product::PTYPE_PACK;
+                } else {
+                    if ($product_type == '') {
+                        $product_type = Product::PTYPE_SIMPLE;
+                    }
+                }
 
-                        /**
-                         *
-                         * PRODUC TYPE SIMPLE
-                         */
+                if ($product_type == Product::PTYPE_SIMPLE || $product_type == Product::PTYPE_PACK) {
+                    $current_product_type = $productObject->getType();
 
-
-                        if ($product_type == Product::PTYPE_SIMPLE) {
-                            if ($current_product_type != Product::PTYPE_SIMPLE) {
-                                try {
-                                    $productObject->setWsType('simple');
-                                } catch (Exception $e) {
-                                    $this->debbug(
-                                        '## Error. ' . $occurence . ' In changing type of product->' .
+                    /**
+                     *
+                     * PRODUC TYPE SIMPLE
+                     */
+                    if ($product_type == Product::PTYPE_SIMPLE) {
+                        if ($current_product_type != Product::PTYPE_SIMPLE) {
+                            try {
+                                $productObject->setWsType('simple');
+                            } catch (Exception $e) {
+                                $this->debbug(
+                                    '## Error. ' . $occurence . ' In changing type of product->' .
                                         print_r($e->getMessage(), 1) .
                                         'line->' . $e->getLine() .
                                         'trace->' . print_r($e->getTrace(), 1),
-                                        'syncdata'
-                                    );
-                                }
+                                    'syncdata'
+                                );
                             }
                         }
+                    }
 
-                        /**
-                         *
-                         * PRODUCT TYPE PACK
-                         */
+                    /**
+                     *
+                     * PRODUCT TYPE PACK
+                     */
 
-                        if ($product_type == Product::PTYPE_PACK) {
-                            $product_packs_data = $processed_pack_ids = array();
 
-                            $array_format_pack = preg_grep('/pack_format_\+?\d+$/i', array_keys($product['data']));
 
-                            foreach ($array_format_pack as $pack_format) {
-                                $pack_id = str_replace('pack_format_', '', $pack_format);
-                                $pack_product_id = $pack_quantity = 0;
-                                $pack_format_ref = '';
+                    if ($product_type == Product::PTYPE_PACK) {
+                        $product_packs_data = $processed_pack_ids = array();
 
-                                if (isset($product['data'][$pack_format]) &&
+                        foreach ($array_format_pack as $pack_format) {
+                            $pack_id = str_replace('pack_format_', '', $pack_format);
+                            $pack_product_id = $pack_quantity = 0;
+                            $pack_format_ref = '';
+
+                            if (isset($product['data'][$pack_format]) &&
                                     is_array(
                                         $product['data'][$pack_format]
                                     )
                                     && !empty($product['data'][$pack_format])
                                 ) {
-                                    $pack_format_ref = reset($product['data'][$pack_format]);
-                                } else {
-                                    if (!is_array(
-                                        $product['data'][$pack_format]
-                                    )
+                                $pack_format_ref = reset($product['data'][$pack_format]);
+                            } else {
+                                if (!is_array(
+                                    $product['data'][$pack_format]
+                                )
                                         && $product['data'][$pack_format] != ''
                                     ) {
-                                        if (strpos($product['data'][$pack_format], ',')) {
-                                            $pack_format_field_data = explode(',', $product['data'][$pack_format]);
-                                            $pack_format_ref = reset($pack_format_field_data);
-                                        } else {
-                                            $pack_format_ref = $product['data'][$pack_format];
-                                        }
+                                    if (strpos($product['data'][$pack_format], ',')) {
+                                        $pack_format_field_data = explode(',', $product['data'][$pack_format]);
+                                        $pack_format_ref = reset($pack_format_field_data);
+                                    } else {
+                                        $pack_format_ref = $product['data'][$pack_format];
                                     }
                                 }
+                            }
 
-                                if ($pack_format_ref == '') {
-                                    continue;
-                                }
+                            if ($pack_format_ref == '') {
+                                continue;
+                            }
 
-                                // $pack_format_ref = trim(preg_replace('/[^A-Za-z0-9\-]/', ' ', $pack_format_ref));
-                                $pack_format_ref = $this->slValidateReference($pack_format_ref);
+                            // $pack_format_ref = trim(preg_replace('/[^A-Za-z0-9\-]/', ' ', $pack_format_ref));
+                            $pack_format_ref = $this->slValidateReference($pack_format_ref);
 
-
-                                $schemaRef = 'SELECT id_product_attribute,id_product FROM ' .
+                            $schemaRef = 'SELECT id_product_attribute,id_product FROM ' .
                                     $this->product_attribute_table . "
                                              WHERE reference = '" . $pack_format_ref . "'";
-                                $regsRef = Db::getInstance()->executeS($schemaRef);
+                            $regsRef = Db::getInstance()->executeS($schemaRef);
 
+                            if (count($regsRef) > 0) {
+                                $pack_format_id = $regsRef[0]['id_product_attribute'];
+                                $pack_product_id = $regsRef[0]['id_product'];
+                                $processed_pack_ids[$pack_id] = 0;
+                                $pack_quantity_pack_id_index = 'pack_quantity_' . $pack_id;
 
-
-                                if (count($regsRef) > 0) {
-                                    $pack_format_id = $regsRef[0]['id_product_attribute'];
-                                    $pack_product_id = $regsRef[0]['id_product'];
-                                    $processed_pack_ids[$pack_id] = 0;
-                                    $pack_quantity_pack_id_index = 'pack_quantity_' . $pack_id;
-
-
-                                    if (isset($product['data'][$pack_quantity_pack_id_index])
+                                if (isset($product['data'][$pack_quantity_pack_id_index])
                                         && is_numeric(
                                             $product['data'][$pack_quantity_pack_id_index]
                                         )
                                         && $product['data'][$pack_quantity_pack_id_index] > 0
                                     ) {
-                                        $pack_quantity = $product['data'][$pack_quantity_pack_id_index];
-                                    } else {
-                                        $pack_quantity = 1;
-                                    }
-
-                                    $product_packs_data[] = array(
-                                        'pack_product_id' => $pack_product_id,
-                                        'pack_format_id' => $pack_format_id,
-                                        'pack_quantity' => $pack_quantity,
-                                    );
-                                }
-                            }
-
-                            $array_product_pack = preg_grep('/pack_product_\+?\d+$/i', array_keys($product['data']));
-
-                            foreach ($array_product_pack as $pack_product) {
-                                $pack_id = str_replace('pack_product_', '', $pack_product);
-                                $pack_format_id = $pack_product_id = $pack_quantity = 0;
-                                $pack_product_ref = '';
-
-                                if (isset($product['data'][$pack_product]) && is_array(
-                                    $product['data'][$pack_product]
-                                )
-                                    && !empty($product['data'][$pack_product])
-                                ) {
-                                    $pack_product_ref = reset($product['data'][$pack_product]);
+                                    $pack_quantity = $product['data'][$pack_quantity_pack_id_index];
                                 } else {
-                                    if (!is_array(
-                                        $product['data'][$pack_product]
-                                    )
-                                        && $product['data'][$pack_product] != ''
-                                    ) {
-                                        if (strpos($product['data'][$pack_product], ',')) {
-                                            $pack_format_field_data = explode(',', $product['data'][$pack_product]);
-                                            $pack_product_ref = reset($pack_format_field_data);
-                                        } else {
-                                            $pack_product_ref = $product['data'][$pack_product];
-                                        }
-                                    }
+                                    $pack_quantity = 1;
                                 }
 
-                                if ($pack_product_ref == '' || isset($processed_pack_ids[$pack_id])) {
-                                    continue;
-                                }
-
-
-                                $pack_product_ref = $this->slValidateReference($pack_product_ref);
-
-                                $schemaRef = 'SELECT id_product FROM ' . $this->product_table . "
-                                WHERE reference = '" . $pack_product_ref . "'";
-                                $regsRef = Db::getInstance()->executeS($schemaRef);
-
-                                if (count($regsRef) > 0) {
-                                    $pack_product_id = $regsRef[0]['id_product'];
-                                    $pack_quantity_pack_id_index = 'pack_quantity_' . $pack_id;
-                                    if (isset($product['data'][$pack_quantity_pack_id_index])
-                                        && is_numeric(
-                                            $product['data'][$pack_quantity_pack_id_index]
-                                        )
-                                        && $product['data'][$pack_quantity_pack_id_index] > 0
-                                    ) {
-                                        $pack_quantity = $product['data'][$pack_quantity_pack_id_index];
-                                    } else {
-                                        $pack_quantity = 1;
-                                    }
-
-                                    $product_packs_data[] = array(
+                                $product_packs_data[] = array(
                                         'pack_product_id' => $pack_product_id,
                                         'pack_format_id' => $pack_format_id,
                                         'pack_quantity' => $pack_quantity,
-                                    );
-                                }
-                            }
-
-                            if (!empty($product_packs_data)) {
-                                try {
-                                    if ($current_product_type != Product::PTYPE_PACK) {
-                                        $productObject->setWsType('pack');
-                                    }
-
-                                    Pack::deleteItems($productObject->id);
-
-                                    foreach ($product_packs_data as $product_pack_data) {
-                                        if ($product_pack_data['pack_format_id'] != 0) {
-                                            Pack::addItem(
-                                                $productObject->id,
-                                                $product_pack_data['pack_product_id'],
-                                                $product_pack_data['pack_quantity'],
-                                                $product_pack_data['pack_format_id']
-                                            );
-                                        } else {
-                                            Pack::addItem(
-                                                $productObject->id,
-                                                $product_pack_data['pack_product_id'],
-                                                $product_pack_data['pack_quantity'],
-                                                0
-                                            );
-                                        }
-                                    }
-                                } catch (Exception $e) {
-                                    $this->debbug(
-                                        '## Error. ' . $occurence . ' product type pack->' . $e->getMessage() .
-                                        'line->' . print_r($e->getLine(), 1) .
-                                        'trace->' . print_r($e->getTrace(), 1),
-                                        'syncdata'
-                                    );
-                                }
+                                );
                             }
                         }
-                    }
-                    /*
-                     * Product_virtual
-                     */
-                    if ($product_type != '' && $product_type == Product::PTYPE_VIRTUAL) {
-                        try {
-                            if ($productObject->setWsType('virtual')) {
-                                $this->debbug(
-                                    'product is a virtual type ->' . print_r(
-                                        ($product_type),
-                                        1
-                                    ),
-                                    'syncdata'
-                                );
+
+                        foreach ($array_product_pack as $pack_product) {
+                            $pack_id = str_replace('pack_product_', '', $pack_product);
+                            $pack_format_id = $pack_product_id = $pack_quantity = 0;
+                            $pack_product_ref = '';
+
+                            if (isset($product['data'][$pack_product]) && is_array(
+                                $product['data'][$pack_product]
+                            )
+                                    && !empty($product['data'][$pack_product])
+                                ) {
+                                $pack_product_ref = reset($product['data'][$pack_product]);
                             } else {
+                                if (!is_array(
+                                    $product['data'][$pack_product]
+                                )
+                                        && $product['data'][$pack_product] != ''
+                                    ) {
+                                    if (strpos($product['data'][$pack_product], ',')) {
+                                        $pack_format_field_data = explode(',', $product['data'][$pack_product]);
+                                        $pack_product_ref = reset($pack_format_field_data);
+                                    } else {
+                                        $pack_product_ref = $product['data'][$pack_product];
+                                    }
+                                }
+                            }
+
+                            if ($pack_product_ref == '' || isset($processed_pack_ids[$pack_id])) {
+                                continue;
+                            }
+
+                            $pack_product_ref = $this->slValidateReference($pack_product_ref);
+
+                            $schemaRef = 'SELECT id_product FROM ' . $this->product_table . "
+                                WHERE reference = '" . $pack_product_ref . "'";
+                            $regsRef = Db::getInstance()->executeS($schemaRef);
+
+                            if (count($regsRef) > 0) {
+                                $pack_product_id = $regsRef[0]['id_product'];
+                                $pack_quantity_pack_id_index = 'pack_quantity_' . $pack_id;
+                                if (isset($product['data'][$pack_quantity_pack_id_index])
+                                        && is_numeric(
+                                            $product['data'][$pack_quantity_pack_id_index]
+                                        )
+                                        && $product['data'][$pack_quantity_pack_id_index] > 0
+                                    ) {
+                                    $pack_quantity = $product['data'][$pack_quantity_pack_id_index];
+                                } else {
+                                    $pack_quantity = 1;
+                                }
+                                $product_packs_data[] = array(
+                                        'pack_product_id' => $pack_product_id,
+                                        'pack_format_id' => $pack_format_id,
+                                        'pack_quantity' => $pack_quantity,
+                                    );
+                            }
+                        }
+
+                        if (!empty($product_packs_data)) {
+                            try {
+                                if ($current_product_type != Product::PTYPE_PACK) {
+                                    $productObject->setWsType('pack');
+                                }
+                                Pack::deleteItems($productObject->id);
+                                $productObject->setDefaultAttribute(0);
+                                foreach ($product_packs_data as $product_pack_data) {
+                                    try {
+                                        if (Pack::isPack((int) $product_pack_data['pack_product_id'])) {
+                                            $this->debbug(
+                                                '## Error. ' . $occurence . ' product type pack->' .
+                                                print_r('You can\'t add product packs into a pack', 1),
+                                                'syncdata'
+                                            );
+                                            continue;
+                                        }
+                                        Pack::addItem(
+                                            (int) $productObject->id,
+                                            (int) $product_pack_data['pack_product_id'],
+                                            (int) $product_pack_data['pack_quantity'],
+                                            (int) $product_pack_data['pack_format_id']
+                                        );
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. ' . $occurence . ' product type pack->' . $e->getMessage() .
+                                            'line->' . print_r($e->getLine(), 1) .
+                                            'trace->' . print_r($e->getTrace(), 1),
+                                            'syncdata'
+                                        );
+                                    }
+                                }
+                            } catch (Exception $e) {
                                 $this->debbug(
-                                    '##Error. Product is not valid virtual value ' . print_r(
-                                        $product_type,
-                                        1
-                                    ),
+                                    '## Error. ' . $occurence . ' product type pack->' . $e->getMessage() .
+                                    'line->' . print_r($e->getLine(), 1) .
+                                    'trace->' . print_r($e->getTrace(), 1),
                                     'syncdata'
                                 );
                             }
-                        } catch (Exception $e) {
-                            $this->debbug(
-                                '## Error. ' . $occurence . ' product type virtual->' . $e->getMessage() .
-                                'line->' . print_r($e->getLine(), 1) .
-                                'trace->' . print_r($e->getTrace(), 1),
-                                'syncdata'
-                            );
                         }
                     }
                 }
+                /*
+                 * Product_virtual
+                 */
+                if ($product_type != '' && $product_type == Product::PTYPE_VIRTUAL) {
+                    try {
+                        if ($productObject->setWsType('virtual')) {
+                            $this->debbug(
+                                'product is a virtual type ->' . print_r(
+                                    ($product_type),
+                                    1
+                                ),
+                                'syncdata'
+                            );
+                        } else {
+                            $this->debbug(
+                                '##Error. Product is not valid virtual value ' . print_r(
+                                    $product_type,
+                                    1
+                                ),
+                                'syncdata'
+                            );
+                        }
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '## Error. ' . $occurence . ' product type virtual->' . $e->getMessage() .
+                                'line->' . print_r($e->getLine(), 1) .
+                                'trace->' . print_r($e->getTrace(), 1),
+                            'syncdata'
+                        );
+                    }
+                }
+                //}
                 /**
                  * Update tax rule
                  */
                 $this->debbug(
                     'before tax rules updating ->' . print_r(
                         (isset($product['data']['product_id_tax_rules_group']) ?
-                            $product['data']['product_id_tax_rules_group']:'empty'),
+                            $product['data']['product_id_tax_rules_group']: 'empty'),
                         1
                     ),
                     'syncdata'
@@ -1112,7 +1115,6 @@ class SlProducts extends SalesLayerPimUpdate
                                 $category_default_value = $product['data'][$product_category_default_index];
                             }
                         }
-                        unset($product['data'][$product_category_default_index]);
 
                         if ($category_default_value != '') {
                             $this->debbug(
@@ -1170,8 +1172,6 @@ class SlProducts extends SalesLayerPimUpdate
                                 }
                             }
                         }
-                    } else {
-                        unset($product['data'][$product_category_default_index]);
                     }
 
                     if (!$category_default_found && count($arrayIdCategories)) {
@@ -1495,8 +1495,14 @@ class SlProducts extends SalesLayerPimUpdate
                     if (is_array($product['data']['redirect_type'])) {
                         $product['data']['redirect_type'] = reset($product['data']['redirect_type']);
                     }
-                    $productObject->redirect_type = $product['data']['redirect_type'];
-                    unset($product['data']['redirect_type']);
+                    $productObject->redirect_type = (string) trim($product['data']['redirect_type']);
+                    $this->debbug(
+                        'set redirect_type in ' . $occurence .
+                        ' value->' .
+                        print_r($productObject->redirect_type, 1) .
+                        ' for shop->' . $shop_id,
+                        'syncdata'
+                    );
                 }
 
                 /**
@@ -1507,8 +1513,14 @@ class SlProducts extends SalesLayerPimUpdate
                     if (is_array($product['data']['id_type_redirected'])) {
                         $product['data']['id_type_redirected'] = reset($product['data']['id_type_redirected']);
                     }
-                    $productObject->id_type_redirected = $product['data']['id_type_redirected'];
-                    unset($product['data']['id_type_redirected']);
+                    $productObject->id_type_redirected = (int) trim($product['data']['id_type_redirected']);
+                    $this->debbug(
+                        'set id_type_redirected in ' . $occurence .
+                        ' value->' .
+                        print_r($productObject->id_type_redirected, 1) .
+                        ' for shop->' . $shop_id,
+                        'syncdata'
+                    );
                 }
 
                 /**
@@ -1533,13 +1545,12 @@ class SlProducts extends SalesLayerPimUpdate
                             'syncdata'
                         );
                     }
-                    unset($product['data']['product_visibility']);
                 }
                 /**
                  * Clear all remove leftover fields of alt attribute (languages that do not match those of prestashop)
                  */
 
-                $array_alt_attributes = preg_grep('/format_alt?/', array_keys($product['data']));
+                $array_alt_attributes = preg_grep('/product_alt?/', array_keys($product['data']));
                 if (!empty($array_alt_attributes)) {
                     foreach ($array_alt_attributes as $alt_field) {
                         if (isset($product['data'][$alt_field])) {
@@ -1563,7 +1574,6 @@ class SlProducts extends SalesLayerPimUpdate
                                 $shops
                             );
                         }
-
                         unset($product['data']['product_image']);
                     } catch (Exception $e) {
                         $this->debbug(
@@ -1959,7 +1969,6 @@ class SlProducts extends SalesLayerPimUpdate
                         } else {
                             $deleted_string = ' ';
                         }
-
 
                         $customization_fields = Db::getInstance()->executeS('SELECT cf.`id_customization_field`,
                                                         cf.`type`, cf.`required`, cfl.`name`, cfl.`id_lang`
@@ -2402,7 +2411,7 @@ class SlProducts extends SalesLayerPimUpdate
                 $productObject->reference = $product_reference;
 
                 if ($avoid_stock_update || $is_new_product) {
-                    if (isset($product['data']['product_quantity']) && $product['data']['product_quantity'] != 0) {
+                    if (isset($product['data']['product_quantity'])) {
                         $this->debbug(
                             'quantity for save->' . $product['data']['product_quantity'] . ' to shop ->' .
                             $shop_id,
@@ -2535,7 +2544,6 @@ class SlProducts extends SalesLayerPimUpdate
                             print_r($product['data']['product_accessories'], 1),
                             'syncdata'
                         );
-                        unset($product['data']['product_accessories']);
                     } else {
                         if (!is_array(
                             $product['data']['product_accessories']
@@ -2569,7 +2577,6 @@ class SlProducts extends SalesLayerPimUpdate
                     if (isset($product['data'][$fieldSales])) {
                         $value = (float) str_replace(',', '.', $product['data'][$fieldSales]);
                         $productObject->{"$fieldPresta"} = $value;
-                        unset($product['data'][$fieldSales]);
                     }
                 }
 
@@ -2597,7 +2604,6 @@ class SlProducts extends SalesLayerPimUpdate
                                 'syncdata'
                             );
                         }
-                        unset($product['data'][$fieldSales]);
                     }
                 }
 
@@ -2897,19 +2903,34 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
 
+                if (isset($product['data']['product_minimal_quantity']) &&
+                    !empty($product['data']['product_minimal_quantity'])
+                    && is_numeric(
+                        (int)
+                        $product['data']['product_minimal_quantity']
+                    )
+                ) {
+                    $this->debbug(
+                        'Set minimal quantity in ' . $occurence .
+                        ' ->' .
+                        print_r($product['data']['product_minimal_quantity'], 1),
+                        'syncdata'
+                    );
+                    $productObject->minimal_quantity = $product['data']['product_minimal_quantity'];
+                } else {
+                    $productObject->minimal_quantity = 1;
+                }
 
                 if (isset($productObject->low_stock_alert) && $productObject->low_stock_alert == null) {
                     $productObject->low_stock_alert = false;
                 }
 
-
                 try {
                     $this->debbug('Status default category before save -> ' . $occurence .
-                                  ' cat->'. print_r(
+                                  ' cat->' . print_r(
                                       $productObject->id_category_default,
                                       1
                                   ), 'syncdata');
-
 
                     $this->debbug('status active -> ' . $occurence .
                                   ' for store ' . $shop_id . ' before save ' .
@@ -2918,8 +2939,6 @@ class SlProducts extends SalesLayerPimUpdate
                                       1
                                   ), 'syncdata');
                     $productObject->save();
-
-
 
                     if (isset($product['data']['estimacion']) && is_numeric($product['data']['estimacion'])) {
                         $check_column = Db::getInstance()->executeS(
@@ -2941,7 +2960,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         } else {
                             $this->debbug('## Error. ' . $occurence . ' Estimacion column does not exist! ');
                         }
-                        unset($product['data']['estimacion']);
                     }
                 } catch (Exception $e) {
                     $syncCat = true;
@@ -2950,7 +2968,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         ' Saving changes to product problem ->' . print_r($e->getMessage(), 1),
                         'syncdata'
                     );
-                    $productObject = new Product();
+                    $productObject = new Product($productObject->id);
                 }
                 /**
                  * Test after update
@@ -2992,9 +3010,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     }
                 }
 
-
                 unset($productObject);
-
 
                 $isset_Product_discount_1 = isset($product['data']['product_discount_1']);
                 $isset_Product_discount_2 = isset($product['data']['product_discount_2']);
@@ -3031,7 +3047,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 );
                             }
                         }
-                        unset($product['data']['product_discount_1_type']);
+
                         if ($product_discount_1_type != '') {
                             $this->debbug('Data type discount 1->' .
                                           print_r($product_discount_1_type, 1), 'syncdata');
@@ -3095,7 +3111,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 if ($product_discount_1_data['from_quantity'] == 0) {
                                     $product_discount_1_data['from_quantity'] = 1;
                                 }
-                                unset($product['data']['product_discount_1_quantity']);
                             } else {
                                 $product_discount_1_data['from_quantity'] = 1;
                             }
@@ -3121,7 +3136,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 }
                             }
                         }
-                        unset($product['data']['product_discount_1_from']);
 
                         /**
                          * check time to discount
@@ -3141,7 +3155,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 }
                             }
                         }
-                        unset($product['data']['product_discount_1_to']);
                     }
 
                     /**
@@ -3217,7 +3230,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 'to_time' => '0000-00-00 00:00:00'
                             );
 
-
                             if (isset($product['data']['product_discount_2_quantity'])
                                 && $product['data']['product_discount_2_quantity'] != ''
                                 && is_numeric(
@@ -3226,11 +3238,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                             ) {
                                 $product_discount_2_data['from_quantity'] =
                                     $product['data']['product_discount_2_quantity'];
-
                                 if ($product_discount_2_data['from_quantity'] == 0) {
                                     $product_discount_2_data['from_quantity'] = 1;
                                 }
-                                unset($product_discount_2_data['from_quantity']);
                             } else {
                                 $product_discount_2_data['from_quantity'] = 1;
                             }
@@ -3260,7 +3270,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                               print_r($product_discount_2_data['from_time'], 1), 'syncdata');
                             }
                         }
-                        unset($product['data']['product_discount_2_from']);
+
 
                         /**
                          * check time to discount
@@ -3280,7 +3290,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                                 }
                             }
                         }
-                        unset($product['data']['product_discount_2_to']);
                     }
 
                     $this->debbug('Sync special price $context_store :' . $context_store, 'syncdata');
@@ -3387,8 +3396,6 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     }
                 }
             }// end shops
-            unset($product['data']['product_condition']);
-
 
 
             /**
@@ -4945,15 +4952,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
             }
             $productObject->reference = $product_reference;
 
-            if (isset($product['data']['minimal_quantity']) && !empty($product['data']['minimal_quantity'])
-                && is_numeric(
-                    $product['data']['minimal_quantity']
-                )
-            ) {
-                $productObject->minimal_quantity = $product['data']['minimal_quantity'];
-            } else {
-                $productObject->minimal_quantity = 1;
-            }
+
             if (!isset($product['data']['product_available_for_order'])) {
                 $productObject->available_for_order = true;
             }
@@ -5210,8 +5209,9 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
         $seosa_product_existing_labels = Db::getInstance()->executeS(
             sprintf(
-                'SELECT so.id_product_label_location,so.id_product_label
-FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product = "%s" and so.id_shop = "%s"',
+                'SELECT so.id_product_label_location,so.id_product_label FROM '
+                . $this->seosa_product_labels_location_table .
+                ' so WHERE so.id_product = "%s" and so.id_shop = "%s"',
                 $id_product,
                 $shop_id
             )
@@ -5389,9 +5389,7 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                             continue;
                         } else {
                             $this->debbug('Feature found in product array ', 'syncdata');
-
                             $count_values = 0;
-
 
                             $ids_feature_values = Db::getInstance()->executeS(
                                 sprintf(
@@ -5543,7 +5541,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                             }
                                         }
                                         if (isset($values_arr[$num_of_position])) {
-                                            $value = $this->slValidateCatalogName($values_arr[$num_of_position]);
+                                            $value = $values_arr[$num_of_position];
+                                        //  $value = $this->slValidateCatalogName($values_arr[$num_of_position]);
                                         } else {
                                             continue;
                                         }
@@ -5926,13 +5925,9 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                                                 $create_as_custom = $this->create_new_features_as_custom;
                                             }
 
-
-                                            $value = $this->slValidateCatalogName($value);
-
                                             if (Tools::strlen($value) > 255) {
                                                 $value = Tools::substr($value, 0, 250);
                                             }
-
 
                                             if ((is_string($value) && $value == '') || $value == null
                                                 || (is_numeric(
@@ -6698,7 +6693,8 @@ FROM ' . $this->seosa_product_labels_location_table . ' so WHERE so.id_product =
                 }
             } catch (Exception $e) {
                 $this->debbug(
-                    '## Error. Saving new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1),
+                    '## Error. Saving new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1)
+                    . 'Values ->' . print_r($feature_value->value, 1),
                     'syncdata'
                 );
             }
