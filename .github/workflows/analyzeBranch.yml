@@ -53,3 +53,4 @@ jobs:
           -Dsonar.projectKey=${{ github.event.repository.name }}
           -Dsonar.scm.provider=git
           -Dsonar.java.binaries=/tmp
+          
