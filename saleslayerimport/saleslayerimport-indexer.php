@@ -70,7 +70,8 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
                     }
                 }
             } catch (Exception $e) {
-                $SLimport->debbug('## Error. Indexer error : ' . $e->getMessage(), 'syncdata');
+                $SLimport->debbug('## Error. Indexer error : ' . $e->getMessage() .
+                                  ' line->' . $e->getLine(), 'syncdata');
             }
         } while (count($registers) > 0);
 

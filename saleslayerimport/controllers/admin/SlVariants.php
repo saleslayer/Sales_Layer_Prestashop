@@ -81,7 +81,7 @@ class SlVariants extends SalesLayerPimUpdate
         if (empty($connector_id) || empty($comp_id) || empty($currentLanguage) || empty($conn_shops)) {
             $this->debbug('## Error. Some of the information has not been completed corectly', 'syncdata');
 
-            return 'item_updated';
+            return ['stat' => 'item_updated'];
         }
 
         /**
@@ -251,7 +251,7 @@ class SlVariants extends SalesLayerPimUpdate
                             'syncdata'
                         );
                     }
-                    return 'item_updated';
+                    return ['stat' => 'item_updated'];
                 }
             } else {
                 $this->debbug('## Warning. ' . $occurrence .
@@ -287,7 +287,7 @@ class SlVariants extends SalesLayerPimUpdate
                 'syncdata'
             );
 
-            return 'item_updated';
+            return ['stat' => 'item_updated'];
         } else {
             $product_count_pack = Db::getInstance()->getValue(
                 sprintf(
@@ -312,7 +312,7 @@ class SlVariants extends SalesLayerPimUpdate
                 );
 
                 //continue;
-                return 'item_updated';
+                return ['stat' => 'item_updated'];
             }
         }
 
@@ -582,7 +582,7 @@ class SlVariants extends SalesLayerPimUpdate
                 );
 
                 //continue;
-                return 'item_updated';
+                return ['stat' => 'item_updated'];
             }
 
 
@@ -1257,6 +1257,7 @@ class SlVariants extends SalesLayerPimUpdate
                                                           ' Please try another format of date used by strtotime().' .
                                                           ' Set the original time  ->' .
                                                           print_r($value, 1), 'syncdata');
+                                            $valuetm = $value;
                                         }
                                     } else {
                                         $valuetm = $value;
@@ -1658,9 +1659,9 @@ class SlVariants extends SalesLayerPimUpdate
              ), 'syncdata');
 */
             $this->saveProductIdForIndex($product_id);
-            return array('stat' => 'item_updated');
+            return ['stat' => 'item_updated'];
         } else {
-            return 'item_not_updated';
+            return ['stat' => 'item_not_updated'];
         }
     }
 

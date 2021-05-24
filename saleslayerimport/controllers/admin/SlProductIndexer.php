@@ -30,7 +30,7 @@ class SlProductIndexer extends SalesLayerPimUpdate
         $all_shops_image
     ) {
         $this->debbug(
-            'entry to index product id_product ->' . $products_regisers,
+            'entry to index product id_product ->' . print_r($products_regisers, 1),
             'syncdata'
         );
         $ids_for_delete = [];

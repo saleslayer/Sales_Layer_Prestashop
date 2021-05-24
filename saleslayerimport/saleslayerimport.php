@@ -283,7 +283,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.24';
+        $this->version = '1.4.25';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -1195,15 +1195,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         /*From version 1.4.7*/
 
-        $schemaSQL_PS_SL_C_I = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_attachment (
-								`file_reference` varchar(255) NOT NULL
-								 COMMENT '(Sales Layer original file attachment reference)',
-								`id_attachment` int(10) NOT NULL COMMENT '(prestashop file attachment id)',
-								`md5_attachment` varchar(128) NOT NULL COMMENT '(prestashop file md5)',
-								`ps_product_id` BIGINT COMMENT '(prestashop ps_product_id)',
-								PRIMARY KEY (`file_reference`)
-								) ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
-        Db::getInstance()->execute($schemaSQL_PS_SL_C_I);
+        /*  $schemaSQL_PS_SL_C_I = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_attachment (
+                                  `file_reference` varchar(255) NOT NULL
+                                   COMMENT '(Sales Layer original file attachment reference)',
+                                  `id_attachment` int(10) NOT NULL COMMENT '(prestashop file attachment id)',
+                                  `md5_attachment` varchar(128) NOT NULL COMMENT '(prestashop file md5)',
+                                  `ps_product_id` BIGINT COMMENT '(prestashop ps_product_id)',
+                                  PRIMARY KEY (`file_reference`)
+                                  ) ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
+          Db::getInstance()->execute($schemaSQL_PS_SL_C_I);*/
 
         /* From version 1.4.20 */
 
@@ -1754,16 +1754,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
 
-        $schemaAttachment = " SELECT sl.id_attachment FROM " . _DB_PREFIX_ . "slyr_attachment AS sl " .
-                        " LEFT JOIN " . $this->attachment_table . ' AS pa
-            ON (pa.id_attachment = sl.id_attachment ) WHERE pa.id_attachment is null ';
+        /*   $schemaAttachment = " SELECT sl.id_attachment FROM " . _DB_PREFIX_ . "slyr_attachment AS sl " .
+                           " LEFT JOIN " . $this->attachment_table . ' AS pa
+               ON (pa.id_attachment = sl.id_attachment ) WHERE pa.id_attachment is null ';
+           $deleteAttachment = Db::getInstance()->executeS($schemaAttachment);
 
-        $deleteAttachment = Db::getInstance()->executeS($schemaAttachment);
-
-        if (!empty($deleteAttachment)) {
+           if (!empty($deleteAttachment)) {*/
             // $this->debbug('Eliminando archivos  SLYR que ya no existen en la tabla
             // ' query->'.print_r($deleteAttachment,1));
-            foreach ($deleteAttachment as $AttachmentforDelete) {
+          /*  foreach ($deleteAttachment as $AttachmentforDelete) {
                 Db::getInstance()->execute(
                     sprintf(
                         'DELETE FROM ' . _DB_PREFIX_ . 'slyr_attachment WHERE id_attachment = "%s"',
@@ -1771,7 +1770,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     )
                 );
             }
-        }
+        }*/
     }
 
     /**
@@ -2941,15 +2940,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function syncAccesories()
     {
         $this->debbug(' Entry to sync accessories', 'syncdata');
-        ;
         ini_set('max_execution_time', 144000);
+
         do {
             //Process to update accessories once all products have been generated.
-            $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_accessories
-	              Limit 250  ";
+            $sql_sel = "SELECT * FROM " . _DB_PREFIX_ .
+                       "slyr_accessories  Limit 250  ";
             $res = $this->slConnectionQuery('read', $sql_sel);
 
-            if (count($res)) {
+            if (is_array($res) && count($res)) {
                 $ids_for_delete = [];
                 $this->debbug(' Entry to sync accessories->' .
                               print_r($res, 1), 'syncdata');
@@ -2994,6 +2993,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                   print_r($ids_for_delete, 1) .
                                   ' query->' . print_r($delete_query, 1), 'syncdata');
                 }
+            } else {
+                break;
             }
         } while (count($res) > 1);
     }
@@ -3754,7 +3755,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     '## Error. Synchronizing accessories ' . print_r(
                                         $e->getMessage(),
                                         1
-                                    )
+                                    ) . ' line->' . $e->getLine()
                                 );
                             }
 

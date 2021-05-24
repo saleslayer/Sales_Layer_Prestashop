@@ -1042,44 +1042,60 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
     public function downloadImageToTemp(
         $url,
-        $temp_dir = null
+        $temp_dir = null,
+        $get_hash = false
     ) {
         //  $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_import');
-        try {
-            $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
-        } catch (Exception $e) {
-            $this->debbug('## Error. in Create temporary file.->' .
-                          $e->getMessage(), 'syncdata');
-        }
-        if ($temp_dir != null) {
-            $explode_url = explode('/', urldecode($url));
-            $tmpfile = $temp_dir . sha1(end($explode_url));
+        if (!$get_hash) {
+            if ($temp_dir != null) {
+                $explode_url = explode('/', urldecode($url));
+                $tmpfile = $temp_dir . sha1(end($explode_url));
+            } else {
+                try {
+                    $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
+                } catch (Exception $e) {
+                    $this->debbug('## Error. in Create temporary file.->' .
+                                  $e->getMessage(), 'syncdata');
+                }
+            }
+            if (file_exists($tmpfile)) {
+                unlink($tmpfile);
+            }
         }
 
-        if (file_exists($tmpfile)) {
-            unlink($tmpfile);
-        }
         $response = $this->urlSendCustomJson('GET', $url);
         // $extension =   $this->getExensionFile($url);
         if ($response[0]) {
-            $this->debbug('temporary file name generate fo image :' . ($tmpfile), 'syncdata');
-            $response = file_put_contents($tmpfile, $response[1]);
-            if ($response) {
-                unset($response);
-                $this->debbug('sending the real file with the empty file :' . $tmpfile, 'syncdata');
+            if (!$get_hash) {
+                $this->debbug('temporary file name generate fo image :' . ($tmpfile), 'syncdata');
+                $response = file_put_contents($tmpfile, $response[1]);
+                if ($response) {
+                    unset($response);
+                    $this->debbug('sending the real file with the empty file :' . $tmpfile, 'syncdata');
 
-                return $tmpfile;
+                    return $tmpfile;
+                } else {
+                    $this->debbug('Image error, could not be saved on downloaded :' . $tmpfile, 'syncdata');
+                    unlink($tmpfile);
+                    unset($response);
+                    return false;
+                }
             } else {
-                $this->debbug('Image error, could not be saved on downloaded :' . $tmpfile, 'syncdata');
-                unlink($tmpfile);
-                unset($response);
-
-                return false;
+                if (!empty($response[1])) {
+                    $this->debbug('generating hash ', 'syncdata');
+                    return hash('md5', $response[1]);
+                } else {
+                    return false;
+                }
             }
         } else {
-            $this->debbug('Error image could not be downloaded :' . $tmpfile, 'syncdata');
-            unset($tmpfile);
-
+            $this->debbug('Error image could not be downloaded :' . print_r($response, 1), 'syncdata');
+            if (!$get_hash) {
+                if (file_exists($tmpfile)) {
+                    unlink($tmpfile);
+                }
+                unset($tmpfile);
+            }
             return false;
         }
     }

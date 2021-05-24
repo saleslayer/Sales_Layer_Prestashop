@@ -218,4 +218,13 @@ V 1.4.24
 <li> Fix of quantity field, permission to set to 0.</li>
 </ul>
 
+V 1.4.25
+<ul>
+<li> php 7.3 compatibility improvement and reduce notifications of undeclared variables.</li>
+<li> Fix changing product type from pack configuration.</li>
+<li> Improvement in messages of unlinked products in pack.</li>
+<li> Fix in delete accessories.</li>
+</ul>
+
+
 </div>

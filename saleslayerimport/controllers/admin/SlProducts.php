@@ -123,7 +123,8 @@ class SlProducts extends SalesLayerPimUpdate
                 $is_new_product = true;
             } catch (Exception $e) {
                 $this->debbug(
-                    '## Error. Synchronizing product syncProduct-> ' . print_r($e->getMessage(), 1),
+                    '## Error. Synchronizing product syncProduct-> ' . print_r($e->getMessage(), 1)
+                    . ' line->' . $e->getLine(),
                     'syncdata'
                 );
             }
@@ -288,10 +289,25 @@ class SlProducts extends SalesLayerPimUpdate
 
                 if (is_string($product_type)) {
                     if (preg_match('/(simple)/', $product_type)) {
+                        $this->debbug(
+                            $occurence . ' Product type, set simple from config element ->' .
+                            print_r($product_type, 1),
+                            'syncdata'
+                        );
                         $product_type = Product::PTYPE_SIMPLE;
                     } elseif (preg_match('/(pack)/', $product_type)) {
+                        $this->debbug(
+                            $occurence . ' Product type, set pack from config element ->' .
+                            print_r($product_type, 1),
+                            'syncdata'
+                        );
                         $product_type = Product::PTYPE_PACK;
                     } elseif (preg_match('/(virtual)/', $product_type)) {
+                        $this->debbug(
+                            $occurence . ' Product type, set pack from config element ->' .
+                            print_r($product_type, 1),
+                            'syncdata'
+                        );
                         $product_type = Product::PTYPE_VIRTUAL;
                     } else {
                         $product_type = '';
@@ -306,15 +322,31 @@ class SlProducts extends SalesLayerPimUpdate
                 }
                 $array_format_pack  = preg_grep('/pack_format_\+?\d+$/i', array_keys($product['data']));
                 $array_product_pack = preg_grep('/pack_product_\+?\d+$/i', array_keys($product['data']));
+                $this->debbug(
+                    $occurence . ' product type pack, field identified for products->' .
+                    print_r($array_product_pack, 1) .
+                    ' for variants ' .
+                    print_r($array_format_pack, 1),
+                    'syncdata'
+                );
 
-                if ($product_type == '' && (count($array_format_pack) || count($array_product_pack))) {
+                if ($product_type === '' && (count($array_format_pack) || count($array_product_pack))) {
+                    $this->debbug(
+                        $occurence . ' Product type, set pack from count element ->' .
+                        print_r($product_type, 1),
+                        'syncdata'
+                    );
                     $product_type = Product::PTYPE_PACK;
                 } else {
-                    if ($product_type == '') {
+                    if ($product_type === '') {
                         $product_type = Product::PTYPE_SIMPLE;
                     }
                 }
-
+                $this->debbug(
+                    $occurence . ' Product type->' .
+                    print_r($product_type, 1),
+                    'syncdata'
+                );
                 if ($product_type == Product::PTYPE_SIMPLE || $product_type == Product::PTYPE_PACK) {
                     $current_product_type = $productObject->getType();
 
@@ -322,9 +354,30 @@ class SlProducts extends SalesLayerPimUpdate
                      *
                      * PRODUC TYPE SIMPLE
                      */
+                    $this->debbug(
+                        $occurence . ' verify selected product type ->' .
+                        print_r($product_type, 1) . ' == ' .
+                        print_r(Product::PTYPE_SIMPLE, 1),
+                        'syncdata'
+                    );
                     if ($product_type == Product::PTYPE_SIMPLE) {
+                        $this->debbug(
+                            $occurence . ' verify current product type ->' .
+                            print_r($current_product_type, 1) . ' != ' .
+                            print_r(Product::PTYPE_SIMPLE, 1),
+                            'syncdata'
+                        );
                         if ($current_product_type != Product::PTYPE_SIMPLE) {
                             try {
+                                if ($current_product_type == Product::PTYPE_PACK) {
+                                    Pack::deleteItems($productObject->id);
+                                    $productObject->setDefaultAttribute(0);
+                                }
+                                $this->debbug(
+                                    $occurence . ' set Product type to->' .
+                                    print_r('simple', 1),
+                                    'syncdata'
+                                );
                                 $productObject->setWsType('simple');
                             } catch (Exception $e) {
                                 $this->debbug(
@@ -382,10 +435,16 @@ class SlProducts extends SalesLayerPimUpdate
                             // $pack_format_ref = trim(preg_replace('/[^A-Za-z0-9\-]/', ' ', $pack_format_ref));
                             $pack_format_ref = $this->slValidateReference($pack_format_ref);
 
+
                             $schemaRef = 'SELECT id_product_attribute,id_product FROM ' .
                                     $this->product_attribute_table . "
                                              WHERE reference = '" . $pack_format_ref . "'";
                             $regsRef = Db::getInstance()->executeS($schemaRef);
+                            $this->debbug(
+                                $occurence . ' product type pack, field format reference founded->' .
+                                print_r($regsRef, 1) . ' query->' . print_r($schemaRef, 1),
+                                'syncdata'
+                            );
 
                             if (count($regsRef) > 0) {
                                 $pack_format_id = $regsRef[0]['id_product_attribute'];
@@ -403,11 +462,27 @@ class SlProducts extends SalesLayerPimUpdate
                                 } else {
                                     $pack_quantity = 1;
                                 }
-
+                                if (Pack::isPack((int) $pack_product_id)) {
+                                    $this->debbug(
+                                        '## Error. ' . $occurence . ' product type pack->' .
+                                        print_r('You can\'t add product packs into a pack. Reference of Variant: ' .
+                                                print_r($pack_format_ref, 1), 1),
+                                        'syncdata'
+                                    );
+                                    continue;
+                                }
                                 $product_packs_data[] = array(
                                         'pack_product_id' => $pack_product_id,
                                         'pack_format_id' => $pack_format_id,
                                         'pack_quantity' => $pack_quantity,
+                                );
+                            } else {
+                                $this->debbug(
+                                    $occurence . ' product type pack. ## Error. ' .
+                                    'Variant reference to link does not yet exist ->' .
+                                    print_r($pack_format_ref, 1) . ' query->' . print_r($schemaRef, 1)
+                                    . ' result ->' . print_r($regsRef, 1),
+                                    'syncdata'
                                 );
                             }
                         }
@@ -439,6 +514,13 @@ class SlProducts extends SalesLayerPimUpdate
                             }
 
                             if ($pack_product_ref == '' || isset($processed_pack_ids[$pack_id])) {
+                                $this->debbug(
+                                    $occurence . ' product type pack, product already processed' .
+                                    ' or without reference pack id ->' .
+                                    print_r($pack_id, 1) . ' in ->' . print_r($processed_pack_ids, 1) .
+                                    ' reference ->' . print_r($pack_product_ref, 1) . ' send continue',
+                                    'syncdata'
+                                );
                                 continue;
                             }
 
@@ -447,6 +529,12 @@ class SlProducts extends SalesLayerPimUpdate
                             $schemaRef = 'SELECT id_product FROM ' . $this->product_table . "
                                 WHERE reference = '" . $pack_product_ref . "'";
                             $regsRef = Db::getInstance()->executeS($schemaRef);
+
+                            $this->debbug(
+                                $occurence . ' product type pack, field products reference founded->' .
+                                print_r($regsRef, 1) . ' query->' . print_r($schemaRef, 1),
+                                'syncdata'
+                            );
 
                             if (count($regsRef) > 0) {
                                 $pack_product_id = $regsRef[0]['id_product'];
@@ -461,37 +549,85 @@ class SlProducts extends SalesLayerPimUpdate
                                 } else {
                                     $pack_quantity = 1;
                                 }
+                                if (Pack::isPack((int) $pack_product_id)) {
+                                    $this->debbug(
+                                        '## Error. ' . $occurence . ' product type pack->' .
+                                        print_r('You can\'t add product packs into a pack. Reference: ' .
+                                                print_r($pack_product_ref, 1), 1),
+                                        'syncdata'
+                                    );
+                                    continue;
+                                }
                                 $product_packs_data[] = array(
                                         'pack_product_id' => $pack_product_id,
                                         'pack_format_id' => $pack_format_id,
                                         'pack_quantity' => $pack_quantity,
                                     );
+                            } else {
+                                $this->debbug(
+                                    $occurence . ' product type pack. ## Error. ' .
+                                    'Product reference to link does not yet exist   ->' .
+                                    print_r($product_packs_data, 1) . ' result->' . print_r($regsRef, 1),
+                                    'syncdata'
+                                );
                             }
                         }
 
                         if (!empty($product_packs_data)) {
                             try {
-                                if ($current_product_type != Product::PTYPE_PACK) {
-                                    $productObject->setWsType('pack');
-                                }
-                                Pack::deleteItems($productObject->id);
+                                Pack::deleteItems($product_exists);
                                 $productObject->setDefaultAttribute(0);
-                                foreach ($product_packs_data as $product_pack_data) {
+                                // if ($current_product_type != Product::PTYPE_PACK) {
+                                $productObject->setWsType('pack');
+                                //  }
+                                $this->debbug(
+                                    $occurence . ' product type pack, adding this elements ->' .
+                                     print_r($product_packs_data, 1),
+                                    'syncdata'
+                                );
+                                foreach ($product_packs_data as $product_pack_item) {
+                                    $this->debbug(
+                                        $occurence . ' product type pack with id:' .
+                                        $product_exists . ', creating register ->' .
+                                        print_r($product_pack_item, 1),
+                                        'syncdata'
+                                    );
                                     try {
-                                        if (Pack::isPack((int) $product_pack_data['pack_product_id'])) {
+                                        /* Pack::addItem(
+                                             (int) $productObject->id,
+                                             (int) $product_pack_item['pack_product_id'],
+                                             (int) $product_pack_item['pack_quantity'],
+                                             (int) $product_pack_item['pack_format_id']
+                                         );*/
+                                        if (!Db::getInstance()->update(
+                                            'product',
+                                            ['cache_is_pack' => 1],
+                                            'id_product = ' . (int) $product_exists
+                                        )) {
                                             $this->debbug(
-                                                '## Error. ' . $occurence . ' product type pack->' .
-                                                print_r('You can\'t add product packs into a pack', 1),
+                                                '## Error. ' . $occurence .
+                                                ' product type pack set cache_is_pack to true.',
                                                 'syncdata'
                                             );
-                                            continue;
                                         }
-                                        Pack::addItem(
-                                            (int) $productObject->id,
-                                            (int) $product_pack_data['pack_product_id'],
-                                            (int) $product_pack_data['pack_quantity'],
-                                            (int) $product_pack_data['pack_format_id']
-                                        );
+                                        if (!Db::getInstance()->insert('pack', [
+                                            'id_product_pack' => (int) $product_exists,
+                                            'id_product_item' => (int) $product_pack_item['pack_product_id'],
+                                            'id_product_attribute_item' => (int) $product_pack_item['pack_format_id'],
+                                            'quantity' => (int) $product_pack_item['pack_quantity'],
+                                        ])) {
+                                            $this->debbug(
+                                                '## Error. ' . $occurence . ' product type pack set register to pack->',
+                                                'syncdata'
+                                            );
+                                        }
+                                        if (!Configuration::updateGlobalValue('PS_PACK_FEATURE_ACTIVE', '1')) {
+                                            $this->debbug(
+                                                '## Error. ' . $occurence .
+                                                ' product type pack set register to PS_PACK_FEATURE_ACTIVE = 1->',
+                                                'syncdata'
+                                            );
+                                        }
                                     } catch (Exception $e) {
                                         $this->debbug(
                                             '## Error. ' . $occurence . ' product type pack->' . $e->getMessage() .
@@ -2146,7 +2282,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                 $type = 0;
                                             }
                                             if (in_array('required', $field_arr, false) ||
-                                                         in_array('require', $field_arr, false)||
+                                                         in_array('require', $field_arr, false) ||
                                                          in_array('requerido', $field_arr, false)) {
                                                 $this->debbug(
                                                     'command required in array->' .
@@ -2250,11 +2386,11 @@ class SlProducts extends SalesLayerPimUpdate
                                     );
                                     $query = 'UPDATE `' . _DB_PREFIX_ . 'customization_field`
                                                 SET ' .
-                                                 ($value_field['type'] != $type ? '`type` = "' . $type . '" ':'') .
+                                                 ($value_field['type'] != $type ? '`type` = "' . $type . '" ': '') .
                                                  ($value_field['type'] != $type &&
-                                                  $required != $value_field['required']? ',':'') .
+                                                  $required != $value_field['required']? ',': '') .
                                                  ($required != $value_field['required']?
-                                                     ' `required` = "' . $required . '" ':'') .
+                                                     ' `required` = "' . $required . '" ': '') .
                                                 'WHERE `id_customization_field` = ' .
                                              (int) $value_field['id_customization_field'];
                                     if (!Db::getInstance()->execute($query)) {
@@ -2536,29 +2672,35 @@ class SlProducts extends SalesLayerPimUpdate
                     if (is_array(
                         $product['data']['product_accessories']
                     )
-                        && !empty($product['data']['product_accessories'])
                     ) {
-                        $this->saveProductAccessories($productObject->id, $product['data']['product_accessories']);
-                        $this->debbug(
-                            'is accessories as array->' .
-                            print_r($product['data']['product_accessories'], 1),
-                            'syncdata'
-                        );
+                        if (!empty($product['data']['product_accessories'])) {
+                            $this->saveProductAccessories($productObject->id, $product['data']['product_accessories']);
+                            $this->debbug(
+                                'is accessories as array->' .
+                                print_r($product['data']['product_accessories'], 1),
+                                'syncdata'
+                            );
+                        } else {
+                            $productObject->deleteAccessories();
+                        }
                     } else {
                         if (!is_array(
                             $product['data']['product_accessories']
                         )
-                            && $product['data']['product_accessories'] != ''
                         ) {
-                            $this->saveProductAccessories($productObject->id, explode(
-                                ',',
-                                $product['data']['product_accessories']
-                            ));
-                            $this->debbug(
-                                'is accessories as string ->' .
-                                print_r($product['data']['product_accessories'], 1),
-                                'syncdata'
-                            );
+                            if (trim($product['data']['product_accessories']) != '') {
+                                $this->saveProductAccessories($productObject->id, explode(
+                                    ',',
+                                    $product['data']['product_accessories']
+                                ));
+                                $this->debbug(
+                                    'is accessories as string ->' .
+                                    print_r($product['data']['product_accessories'], 1),
+                                    'syncdata'
+                                );
+                            } else {
+                                $productObject->deleteAccessories();
+                            }
                         }
                     }
                 }
@@ -2944,8 +3086,9 @@ class SlProducts extends SalesLayerPimUpdate
                         $check_column = Db::getInstance()->executeS(
                             sprintf(
                                 'SELECT * FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = "' . _DB_NAME_ . '" AND
-TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
+										WHERE TABLE_SCHEMA = "' . _DB_NAME_ .
+                                '" AND TABLE_NAME = "' . $this->product_table .
+                                '" AND COLUMN_NAME = "estimacion"'
                             )
                         );
 
@@ -3627,7 +3770,7 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
     }
     public function syncProductAttachment($files, $product_id, $mulilanguage)
     {
-        $attachment_protected_ids = array();
+        $attachment_protected_ids = [];
         if (isset($mulilanguage) && !empty($mulilanguage)) {
             $occurence = ' product name :' . reset($mulilanguage);
         } else {
@@ -3644,6 +3787,13 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
         $contextShopID = Shop::getContextShopID();
         Shop::setContext(Shop::CONTEXT_ALL);
 
+        $product_attachments = Db::getInstance()->executeS(
+            'SELECT * FROM ' . _DB_PREFIX_ . "product_attachment at
+                     INNER JOIN " . _DB_PREFIX_ . "attachment att ON (att.id_attachment = at.id_attachment)
+                     WHERE 
+                     at.id_product = '" . $product_id . "' "
+        );
+
         if (isset($files) && !empty($files)) {
             $newfileArray = array();
             if (!empty($files)) {
@@ -3654,20 +3804,39 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $filereferences = array();
 
                 foreach ($files as $file) {
-                    $explode = explode('/', urldecode($file));
-                    $filename = end($explode);
-                    $filereferences[] = $filename;
-                    $newfileArray[$filename] = $file;
+                    if (filter_var($file, FILTER_VALIDATE_URL)) {
+                        $explode = explode('/', trim(urldecode($file)));
+                        $filename = end($explode);
+
+                        $ref_name_arr = explode('.', $filename);
+                        $file_name = $ref_name = reset($ref_name_arr);
+                        if (Tools::strlen($ref_name) >= 32) {
+                            $ref_name = Tools::substr($ref_name, 0, 27);
+                        }
+                        if (Tools::strlen($file_name) >= 128) {
+                            $file_name = Tools::substr($file_name, 0, 124);
+                        }
+                        $file_name .= '.' . end($ref_name_arr);
+                        $ref_name .= '.' . end($ref_name_arr);
+
+                        $filereferences[] = $ref_name;
+                        $newfileArray[$ref_name]['url']       = trim(urldecode($file));
+                        $newfileArray[$ref_name]['sha1']      = sha1($filename);
+                        $newfileArray[$ref_name]['file_name'] = $file_name;
+                        //  $newfileArray[$ref_name]['ref_name']  = $ref_name;
+                    }
                 }
 
-                $catch_file_references = "'" . implode("','", $filereferences) . "'";
-                $slyr_attachments = Db::getInstance()->executeS(
-                    'SELECT * FROM ' . _DB_PREFIX_ . 'slyr_attachment
-                    WHERE file_reference IN (' . $catch_file_references . ")
-                      AND ps_product_id = '" . $product_id . "' "
-                );
-                $this->debbug('Searching files cached in SL table for MD5 hash ->' .
-                              print_r($slyr_attachments, 1), 'syncdata');
+                // $catch_file_references = "'" . implode("','", $filereferences) . "'";
+                /* $slyr_attachments = Db::getInstance()->executeS(
+                     'SELECT * FROM ' . _DB_PREFIX_ . 'slyr_attachment
+                     WHERE file_reference IN (' . $catch_file_references . ")
+                       AND ps_product_id = '" . $product_id . "' "
+                 );*/
+
+
+                $this->debbug('Searching files in this same product ->' .
+                              print_r($product_attachments, 1), 'syncdata');
             }
 
             /**
@@ -3687,74 +3856,130 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                     'syncdata'
                 );
                 $time_ini_image = microtime(1);
-                $url = trim($file_url);
 
-                if (!empty($url) && filter_var($url, FILTER_VALIDATE_URL)) {
-                    $temp_file = $this->downloadImageToTemp($url, _PS_DOWNLOAD_DIR_);
-                    if ($temp_file) {
-                        $md5_file = md5_file($temp_file);
-                        if (!empty($slyr_attachments)) {
-                            foreach ($slyr_attachments as $keySLatt => $slyr_attachment) {
+                if (!empty($file_url['url'])) {
+                    // $temp_file = $file_url['temp_file'];
+                    //if ($temp_file) {
+                    // $md5_file = md5_file($temp_file);
+                    if (!empty($product_attachments)) {
+                        foreach ($product_attachments as $keySLatt => $product_attachment) {
+                            $this->debbug(
+                                'Before Verify Processing attachment ->' . print_r(
+                                    $fileReference,
+                                    1
+                                ),
+                                'syncdata'
+                            );
+                            /* if ($slyr_attachment['file_reference'] == $fileReference &&
+                                 $slyr_attachment['md5_attachment'] !== '') {*/
+                            /**
+                             * file is the same
+                             */
+                            unset($product_attachments[$keySLatt]);
+                            $this->debbug(
+                                'Before test md5 Processing file ->' . print_r(
+                                    $product_attachment['file'],
+                                    1
+                                ) . ' <-> ' . print_r($file_url['sha1'], 1),
+                                'syncdata'
+                            );
+
+                            if ($product_attachment['file'] !== $file_url['sha1']) {
                                 $this->debbug(
-                                    'Before Verify Processing attachment ->' . print_r(
-                                        $fileReference,
+                                    'Image is different ->' . print_r(
+                                        $product_attachment['file'],
                                         1
-                                    ),
+                                    ) . ' <-> ' . print_r($file_url['sha1'], 1),
                                     'syncdata'
                                 );
-                                if ($slyr_attachment['file_reference'] == $fileReference &&
-                                    $slyr_attachment['md5_attachment'] !== '') {
-                                    /**
-                                     * file is the same
-                                     */
-                                    unset($slyr_attachments[$keySLatt]);
-                                    $this->debbug(
-                                        'Before test md5 Processing file ->' . print_r(
-                                            $slyr_attachment['md5_attachment'],
-                                            1
-                                        ) . ' <-> ' . print_r($md5_file, 1),
-                                        'syncdata'
-                                    );
-                                    if ($slyr_attachment['md5_attachment'] !== $md5_file) {
+                                /**
+                                 * Image with same name but different md5
+                                 */
+                                // if origin if the image is this variant delete it  from product
+                                $file_delete = new Attachment($product_attachment['id_attachment']);
+                                $file_delete->delete();
+                                $this->debbug(
+                                    'Deleting file  ->' . print_r(
+                                        $product_attachment['file'],
+                                        1
+                                    ) . ' <-> ' . print_r($file_url['sha1'], 1),
+                                    'syncdata'
+                                );
+                                break;
+                            } else {
+                                //file is the same protect id
+                                $attachment_protected_ids[] = $product_attachment['id_attachment'];
+                                continue 2; //jump to another file
+                            }
+                            // }
+                        }
+                    } else {
+                        //check if exist same file un assigned to this product
+
+                        $all_attachments = Db::getInstance()->executeS(
+                            'SELECT * FROM ' . _DB_PREFIX_ . "attachment  at WHERE 
+                     at.file = '" . $file_url['sha1'] . "' "
+                        );
+                        $this->debbug('Searching all files with the same name ->' .
+                                      print_r($all_attachments, 1), 'syncdata');
+
+                        if (!empty($all_attachments)) {
+                            foreach ($all_attachments as $all_attachment) {
+                                $temp_hash = $this->downloadImageToTemp($file_url['url'], _PS_DOWNLOAD_DIR_, true);
+
+                                if ($temp_hash) {
+                                    $file_real_path = _PS_DOWNLOAD_DIR_ . $all_attachment['file'];
+                                    if (file_exists($file_real_path)) {
+                                        $md5_file = md5_file($file_real_path);
                                         $this->debbug(
-                                            'Image is different ->' . print_r(
-                                                $slyr_attachment['md5_attachment'],
+                                            ' before  werify file with the same name founded  ->' . print_r(
+                                                $temp_hash,
                                                 1
                                             ) . ' <-> ' . print_r($md5_file, 1),
                                             'syncdata'
                                         );
-                                        /**
-                                         * Image with same name but different md5
-                                         */
-                                        // if origin if the image is this variant delete it  from product
-                                        $file_delete = new Attachment($slyr_attachment['id_attachment']);
-                                        $file_delete->delete();
-                                        $this->debbug(
-                                            'Deleting file  ->' . print_r(
-                                                $slyr_attachment['id_attachment'],
-                                                1
-                                            ) . ' <-> ' . print_r($md5_file, 1),
-                                            'syncdata'
-                                        );
-                                        break;
+                                        if ($temp_hash == $md5_file) {
+                                            $this->debbug(
+                                                'file with the same name founded  ->' . print_r(
+                                                    $temp_hash,
+                                                    1
+                                                ) . ' <-> ' . print_r($md5_file, 1),
+                                                'syncdata'
+                                            );
+                                            Db::getInstance()->execute('
+							                        INSERT INTO `' . _DB_PREFIX_ . 'product_attachment`
+							                         (`id_attachment`, `id_product`)
+							                        VALUES 
+							                        (' . (int) $all_attachment['id_attachment'] . ', ' .
+                                                                       (int) $product_id . ')
+							                        ');
+
+                                            $attachment_protected_ids[] = $all_attachment['id_attachment'];
+                                            continue 2;
+                                        }
                                     } else {
-                                        //file is the same protect id
-                                        $attachment_protected_ids[] = $slyr_attachment['id_attachment'];
-                                        continue 2; //jump to another file
+                                        $this->debbug(
+                                            '## Error. File attachment not exist ->' . print_r(
+                                                $file_real_path,
+                                                1
+                                            ) . ' <-> ' . print_r($file_url['sha1'], 1),
+                                            'syncdata'
+                                        );
                                     }
                                 }
                             }
                         }
                     }
+                    // }
                 } else {
                     continue;
                 }
-
+                $temp_file = $this->downloadImageToTemp($file_url['url'], _PS_DOWNLOAD_DIR_);
                 /**
                  * Process files that do not exist in the sl cache and have arrived in this connection
                  */
                 $this->debbug(
-                    'Check attachment befor save->' . print_r(
+                    'File downloaded for save to product->' . print_r(
                         $temp_file,
                         1
                     ),
@@ -3763,10 +3988,12 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                 $id_attachment =  $this->saveAttachmentSL(
                     $fileReference,
                     $temp_file,
+                    $file_url['file_name'],
                     $mulilanguage,
                     $product_id,
                     $occurence,
-                    filesize($temp_file)
+                    filesize($temp_file),
+                    $file_url['sha1']
                 );
 
                 if ($id_attachment != 0) {
@@ -3775,14 +4002,14 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                      * INSERT INTO SL CACHE TABLE attachment WITH MD5, NAME OF FILE , ID
                      */
 
-                    Db::getInstance()->execute(
-                        'INSERT INTO ' . _DB_PREFIX_ . "slyr_attachment
-                                        (file_reference, id_attachment, md5_attachment, ps_product_id )
-                                        VALUES ('" . $fileReference . "', " . $id_attachment . ", '" .
-                        $md5_file . "','" . $product_id . "')
-                                        ON DUPLICATE KEY UPDATE id_attachment = '" . $id_attachment .
-                        "', md5_attachment = '" . $md5_file . "'"
-                    );
+                    /*    Db::getInstance()->execute(
+                            'INSERT INTO ' . _DB_PREFIX_ . "slyr_attachment
+                                            (file_reference, id_attachment, md5_attachment, ps_product_id )
+                                            VALUES ('" . $fileReference . "', " . $id_attachment . ", '" .
+                            $md5_file . "','" . $product_id . "')
+                                            ON DUPLICATE KEY UPDATE id_attachment = '" . $id_attachment .
+                            "', md5_attachment = '" . $md5_file . "'"
+                        );*/
                     $this->debbug(
                         'Attachment saved correctly ->' . print_r(
                             $id_attachment,
@@ -3800,46 +4027,51 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
          * DELETE ATTACHMENTS
          */
 
-        $this->debbug('We will check if any of the attachments have been imported' .
-                      ' in the past with this variant', 'syncdata');
+        $this->debbug('We will check if any of the attachments have been imported ' .
+                      ' protected-attachments->' . print_r($product_attachments, 1), 'syncdata');
 
-        $slyr_attachments = Db::getInstance()->executeS(
-            'SELECT * FROM ' . _DB_PREFIX_ . "product_attachment at WHERE  at.id_product = '" . $product_id . "' "
-        );
-
-        if (!empty($slyr_attachments)) {
-            foreach ($slyr_attachments as $slyr_attachment) {
+        if (!empty($product_attachments) && is_array($product_attachments)) {
+            foreach ($product_attachments as $prod_attachment) {
                 try {
-                    $this->debbug('Test if it is needed to delete this attachment ' . print_r($slyr_attachment, 1));
-                    if (!in_array($slyr_attachment['id_attachment'], $attachment_protected_ids, false)) {
+                    $this->debbug('Test if it is needed to delete this attachment ' .
+                                  print_r($prod_attachment, 1), 'syncdata');
+                    if (!in_array($prod_attachment['id_attachment'], $attachment_protected_ids, false)) {
                         $this->debbug('Proceed to delete attachment but not is protected' .
-                                      print_r($slyr_attachment, 1));
+                                      print_r($prod_attachment, 1));
                         Db::getInstance()->execute(
                             'DELETE FROM ' . _DB_PREFIX_ . "product_attachment
-	                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
+	                            WHERE id_attachment = '" . $prod_attachment['id_attachment'] . "' "
                         );
 
-                        $attachment_delete = new Attachment($slyr_attachment['id_attachment']);
-                        $attachment_delete->delete();
-
-                        Db::getInstance()->execute(
-                            'DELETE FROM ' . _DB_PREFIX_ . "slyr_attachment
-	                            WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
-                        );
+                        /*  $attachment_delete = new Attachment($prod_attachment['id_attachment']);
+                          $attachment_delete->delete();
+                          Db::getInstance()->execute(
+                                'DELETE FROM ' . _DB_PREFIX_ . "slyr_attachment
+                                    WHERE id_attachment = '" . $slyr_attachment['id_attachment'] . "' "
+                            );*/
+                        $attachment_delete = null;
                         unset($attachment_delete);
                     }
                 } catch (Exception $e) {
                     $this->debbug('## Error. ' . $occurence .
                                   ' Deleting old attachment ' .
-                                  print_r($slyr_attachment, 1));
+                                  print_r($prod_attachment, 1), 'syncdata');
                 }
             }
         }
         Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
     }
 
-    public function saveAttachmentSL($fileReference, $file_localpath, $mulilanguage, $id_product, $occurence, $filesize)
-    {
+    public function saveAttachmentSL(
+        $fileReference,
+        $file_localpath,
+        $file_name,
+        $mulilanguage,
+        $id_product,
+        $occurence,
+        $filesize,
+        $sha1
+    ) {
         try {
             $explode = explode('.', $fileReference);
 
@@ -3847,16 +4079,27 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
 
             $languages = Language::getLanguages();
             foreach ($languages as $language) {
-                $attachment->name[$language['id_lang']] = (string) $fileReference;
+                $ref_name = (string) $fileReference;
+                if (Tools::strlen($ref_name) >= 32) {
+                    $ref_name = Tools::substr($ref_name, 0, 27);
+                    $ref_name .= '.' . end($explode);
+                }
+                $attachment->name[$language['id_lang']] = $ref_name;
                 if (isset($mulilanguage[$language['id_lang']])) {
                     $attachment->description[$language['id_lang']] =
                         Tools::substr($mulilanguage[$language['id_lang']] . ' ' . reset($explode), 128);
                 }
             }
 
-            $attachment->file = sha1(urldecode($fileReference));
-            $attachment->file_name = urldecode($fileReference);
+            // $attachment->file = sha1(urldecode($fileReference));
+            $attachment->file = $sha1;
 
+            //$file_name = urldecode($fileReference);
+            if (Tools::strlen($file_name) >= 128) {
+                $file_name = Tools::substr($file_name, 0, 123);
+                $file_name .= '.' . end($explode);
+            }
+            $attachment->file_name = $file_name;
 
             $attachment->file_size = $filesize;
 
@@ -4903,7 +5146,8 @@ TABLE_NAME = "' . $this->product_table . '" AND COLUMN_NAME = "estimacion"'
                         $friendly_url_index = 'friendly_url';
                     }
 
-                    if ($product['data'][ $friendly_url_index ] != '') {
+                    if (isset($product['data'][ $friendly_url_index ]) &&
+                        $product['data'][ $friendly_url_index ] != '') {
                         $friendly_url = $product['data'][ $friendly_url_index ];
                     } else {
                         $friendly_url = $product_name;
