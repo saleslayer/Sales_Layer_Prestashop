@@ -57,7 +57,7 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
                 $query = "SELECT * FROM " . _DB_PREFIX_ . 'slyr_indexer LIMIT 250 ';
                 $registers = Db::getInstance()->executeS($query);
                 if (count($registers) > 0) {
-                    $response = $indexer->indexProducts($registers, $all_shops);
+                    $response = $indexer->indexProducts($registers);
                     if (count($response)) {
                         Db::getInstance()->execute('DELETE FROM ' . _DB_PREFIX_ .
                                                    'slyr_indexer WHERE id IN(' .

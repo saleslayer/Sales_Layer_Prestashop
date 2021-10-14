@@ -47,6 +47,10 @@ class SlProducts extends SalesLayerPimUpdate
         $this->debbug(' load: product_images_sizes ' . print_r($this->product_images_sizes, 1), 'syncdata');
     }
 
+    /**
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     public function syncOneProduct(
         $product,
         $schema,
@@ -101,19 +105,38 @@ class SlProducts extends SalesLayerPimUpdate
 
 
         //Force verify if exist already
-        /*  if( $product_exists ) {
-        $productObject_exist = Db::getInstance()->getValue('SELECT * FROM '._DB_PREFIX_.'product
-        WHERE id_product="'.$product_exists.'"');
-              $this->debbug('Verify if product '.$product_exists.' cached exist in prestashop ->'.
-        print_r($productObject_exist,1),'syncdata');
+        if ($product_exists) {
+            $product_duplicates_extract = Db::getInstance()->executeS(
+                sprintf(
+                    'SELECT * FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
+                 WHERE sl.ps_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "product" AND sl.slyr_id != "%s" ',
+                    $product_exists,
+                    $comp_id,
+                    $product['ID']
+                )
+            );
 
-              if(!$productObject_exist){
-                  $this->debbug('Deleting product form slyr table but not exist in prestashop','syncdata');
-                  Db::getInstance()->execute( 'DELETE FROM '._DB_PREFIX_.'slyr_category_product
-        WHERE ps_type = "product" AND ps_id = "'.$product_exists.'" ');
-                  $product_exists = false;
-              }
-          }*/
+
+            if (!empty($product_duplicates_extract)) {
+                foreach ($product_duplicates_extract as $key => $duplicate) {
+                    $this->debbug('Deleting product duplicate from cache form ' .
+                                  'slyr table but not exist in prestashop', 'syncdata');
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+			                       WHERE slyr_id = "%s"
+			                        AND comp_id = "%s"
+			                        AND ps_id = "%s"
+			                        AND ps_type = "product"',
+                            $duplicate['slyr_id'],
+                            $duplicate['comp_id'],
+                            $duplicate['ps_id']
+                        )
+                    );
+                    ;
+                }
+            }
+        }
 
 
         if (!$product_exists) {
@@ -279,10 +302,14 @@ class SlProducts extends SalesLayerPimUpdate
                 $category_default_found = false;
 
                 $product_type = '';
-                if (is_array($product['data']['product_type']) && !empty($product['data']['product_type'])) {
+                if (isset($product['data']['product_type']) &&
+                    is_array($product['data']['product_type'])
+                    && !empty($product['data']['product_type'])) {
                     $product_type = reset($product['data']['product_type']);
                 } else {
-                    if (!is_array($product['data']['product_type']) && $product['data']['product_type'] != '') {
+                    if (isset($product['data']['product_type']) &&
+                        !is_array($product['data']['product_type']) &&
+                        $product['data']['product_type'] != '') {
                         $product_type = $product['data']['product_type'];
                     }
                 }
@@ -1744,28 +1771,65 @@ class SlProducts extends SalesLayerPimUpdate
                         $arrayIdCategories = array_unique($arrayIdCategories);
 
                         if (!empty($categories) && count($categories)) {
-                            $this->debbug(
-                                'Updating categories but product has old category values -> ' . print_r(
-                                    $categories,
-                                    1
-                                ) . ' newest after unique array -> ' . print_r($arrayIdCategories, 1),
-                                'syncdata'
-                            );
-                            $array_diff = $this->slArrayDiff($categories, $arrayIdCategories);
+                            //filter only categories from this connector
+                            foreach ($categories as $category_product) {
+                                if (! in_array($category_product, $arrayIdCategories, false)) {
+                                    //check if is necessary delete collect
+                                    $category_shops_info_schema = "SELECT sl.id, sl.shops_info FROM "
+                                                                  . _DB_PREFIX_ . "slyr_category_product sl" .
+                                                                  " WHERE sl.ps_id = " . $category_product .
+                                                                  " AND sl.comp_id = " . $comp_id .
+                                                                  " AND sl.ps_type = 'slCatalogue'";
+                                    $category_shops_info  = Db::getInstance()->executeS($category_shops_info_schema);
 
-                            if ($exist_id_categories && count($array_diff)) {
+                                    if (! empty($category_shops_info)) {
+                                        if (is_array($category_shops_info) && count($category_shops_info)) {
+                                            foreach ($category_shops_info as $shopsConn) {
+                                                $shops_info = json_decode($shopsConn['shops_info'], 1);
+                                                if (is_array($shops_info) && count($shops_info) > 0) {
+                                                    $check_al_conectors = [];
+                                                    foreach (array_keys($shops_info) as $conn_id) {
+                                                        if ($conn_id != $connector_id) { //is the same
+                                                            $check_al_conectors[] = $conn_id;
+                                                        }
+                                                    }
+                                                    if (empty($check_al_conectors)) {
+                                                        //delete collect but exist only in this connector
+                                                        if ($this->sync_categories) {
+                                                            $this->debbug(
+                                                                'Delete nonexistent category what not' .
+                                                                'exist en any connector -> ' .
+                                                                print_r(
+                                                                    $category_product,
+                                                                    1
+                                                                ),
+                                                                'syncdata'
+                                                            );
+                                                            $productObject->deleteCategory($category_product, true);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {// is the same category (unchanged)
+                                    foreach ($arrayIdCategories as $key_cat => $cat_id) {
+                                        if ($cat_id == $categories) {
+                                            unset($arrayIdCategories[$key_cat]);
+                                        }
+                                    }
+                                }
+                            }
+                            //  $array_diff = $this->slArrayDiff($categories, $arrayIdCategories);
+                            if ($exist_id_categories && count($arrayIdCategories)) {
                                 $this->debbug(
-                                    'Differences in categories  $diferences-> ' . print_r(
+                                    'Add new categories  $categories already asigned-> ' . print_r(
                                         $categories,
                                         1
                                     ) . ' deleting old and setting new categories ->' .
-                                    print_r($arrayIdCategories, 1) .
-                                    ' diff->' . print_r($array_diff, 1),
+                                    print_r($arrayIdCategories, 1),
                                     'syncdata'
                                 );
-                                if ($this->sync_categories) {
-                                    $productObject->deleteCategories();
-                                }
                                 // $productObject->updateCategories($arrayIdCategories);
                                 $productObject->addToCategories($arrayIdCategories);
                             } else {
@@ -1786,9 +1850,9 @@ class SlProducts extends SalesLayerPimUpdate
                                 $productObject->addToCategories($arrayIdCategories);
                             // $productObject->updateCategories($arrayIdCategories);
                             } else {
-                                if ($this->sync_categories) {
-                                    $productObject->deleteCategories();
-                                }
+                                /* if ($this->sync_categories) {
+                                     $productObject->deleteCategories();
+                                 }*/
                             }
                         }
                     } catch (Exception $e) {
@@ -3111,7 +3175,7 @@ class SlProducts extends SalesLayerPimUpdate
                         ' Saving changes to product problem ->' . print_r($e->getMessage(), 1),
                         'syncdata'
                     );
-                    $productObject = new Product($productObject->id);
+                    $productObject = new Product($product_exists, false, null, $shop_id);
                 }
                 /**
                  * Test after update
@@ -3777,7 +3841,7 @@ class SlProducts extends SalesLayerPimUpdate
             $occurence = ' ID :' . $product_id;
         }
         $this->debbug(
-            $occurence . '  Beginning to synchronise images. First sync shop for this product->' . print_r(
+            $occurence . '  Beginning to synchronise Attachments. First sync shop for this product->' . print_r(
                 $this->first_sync_shop,
                 1
             ),
@@ -4043,7 +4107,8 @@ class SlProducts extends SalesLayerPimUpdate
 	                            WHERE id_attachment = '" . $prod_attachment['id_attachment'] . "' "
                         );
 
-                        /*  $attachment_delete = new Attachment($prod_attachment['id_attachment']);
+                        /*
+                          $attachment_delete = new Attachment($prod_attachment['id_attachment']);
                           $attachment_delete->delete();
                           Db::getInstance()->execute(
                                 'DELETE FROM ' . _DB_PREFIX_ . "slyr_attachment
@@ -4059,6 +4124,7 @@ class SlProducts extends SalesLayerPimUpdate
                 }
             }
         }
+        Product::updateCacheAttachment($product_id);
         Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
     }
 
@@ -4174,7 +4240,7 @@ class SlProducts extends SalesLayerPimUpdate
 
         $contextShopID = Shop::getContextShopID();
         Shop::setContext(Shop::CONTEXT_ALL);
-        $all_shops_image = Shop::getShops(true, null, true);
+        //  $all_shops_image = Shop::getShops(true, null, true);
         $cover = true;
         $catch_images = array();
 
@@ -4464,7 +4530,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             $cover_stat = $image_cover->cover;
 
                                             $this->debbug(
-                                                'Associating image to all stores' . print_r($all_shops_image, 1),
+                                                'Associating image to all stores' . print_r($shops, 1),
                                                 'syncdata'
                                             );
 
@@ -4614,10 +4680,10 @@ class SlProducts extends SalesLayerPimUpdate
                             $result_save_image = $image->add();
 
                             $this->debbug(
-                                'Associating image to all stores' . print_r($all_shops_image, 1),
+                                'Associating image to shops->' . print_r($shops, 1),
                                 'syncdata'
                             );
-                            $image->associateTo($all_shops_image);
+                            $image->associateTo($shops);
                         } catch (Exception $e) {
                             $result_save_image = false;
                             $this->debbug(
@@ -4663,10 +4729,10 @@ class SlProducts extends SalesLayerPimUpdate
                                 $result_save_image = $cloned_image->add();
 
                                 $this->debbug(
-                                    'Associating image to all stores' . print_r($all_shops_image, 1),
+                                    'Associating image to shops' . print_r($shops, 1),
                                     'syncdata'
                                 );
-                                $cloned_image->associateTo($all_shops_image);
+                                $cloned_image->associateTo($shops);
                             } catch (Explode $e) {
                                 $this->debbug('## Error. ' . $occurence . ' Second attempt.', 'syncdata');
                             }
@@ -4843,8 +4909,10 @@ class SlProducts extends SalesLayerPimUpdate
         //Comprobamos de nuevo si existe el producto en Slyr
 
         $contextShopID = Shop::getContextShopID();
-        Shop::setContext(Shop::CONTEXT_ALL);
-        $productObject = new Product();
+        //Shop::setContext(Shop::CONTEXT_ALL);
+        $shop_for_create = (count($shops) ? reset($shops) : $contextShopID);
+        Shop::setContext(Shop::CONTEXT_SHOP, $shop_for_create);
+        $productObject = new Product(null, false, null, $shop_for_create);
 
         $product_id = false;
         //Eliminamos carácteres especiales del nombre
@@ -5101,7 +5169,11 @@ class SlProducts extends SalesLayerPimUpdate
             $this->debbug('Creating new product. ' . $occurence, 'syncdata');
             //Creamos el producto
 
-            $productObject = new Product();
+            $contextShopID = Shop::getContextShopID();
+            //Shop::setContext(Shop::CONTEXT_ALL);
+            $shop_for_create = (count($shops) ? reset($shops) : $contextShopID);
+            Shop::setContext(Shop::CONTEXT_SHOP, $shop_for_create);
+            $productObject = new Product(null, false, null, $shop_for_create);
             $productObject->name = array();
             $productObject->description = array();
             $productObject->description_short = array();
@@ -5536,6 +5608,7 @@ class SlProducts extends SalesLayerPimUpdate
         &$product,
         $schema
     ) {
+        Shop::setContext(shop::CONTEXT_ALL);
         if (isset($product['data']['product_reference']) && !empty($product['data']['product_reference'])) {
             $occurence = ' product reference : "' . $product['data']['product_reference'] . '"';
         } elseif (isset($product['data']['product_name']) && !empty($product['data']['product_name'])) {
@@ -6344,7 +6417,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                 do {
                     $first_index_name = '';
-                    $first_value = '';
+                    $first_value      = '';
 
                     foreach ($product['data'] as $first_index_name_elm => $first_index_value) {
                         $first_index_name = $first_index_name_elm;

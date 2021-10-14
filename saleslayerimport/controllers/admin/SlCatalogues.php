@@ -112,6 +112,40 @@ class SlCatalogues extends SalesLayerPimUpdate
                 $comp_id
             )
         );
+        /**
+         * Test of duplicates in cache
+         */
+        if ($catalog_exists) {
+            $catalog_exists_duplicates = Db::getInstance()->executeS(
+                sprintf(
+                    'SELECT * FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
+                 WHERE sl.ps_id = "%s" 
+                 AND sl.comp_id = "%s" 
+                 AND sl.ps_type = "slCatalogue" 
+                 AND sl.slyr_id != "%s"',
+                    $catalog_exists,
+                    $comp_id,
+                    $catalog['ID']
+                )
+            );
+            if (!empty($catalog_exists_duplicates)) { // delete duplicates
+                foreach ($catalog_exists_duplicates as $duplicate) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+		                       WHERE slyr_id = "%s"
+		                       AND comp_id = "%s" 
+		                       AND ps_id = "%s" 
+		                       AND ps_type = "slCatalogue"',
+                            $duplicate['slyr_id'],
+                            $duplicate['comp_id'],
+                            $duplicate['ps_id']
+                        )
+                    );
+                }
+            }
+        }
+
 
         if (!$catalog_exists) {
             /**
@@ -384,6 +418,11 @@ class SlCatalogues extends SalesLayerPimUpdate
                             // Slyr y creamos vinculo con esta categoria
                             //If we find the category we insert a record in the Slyr
                             // table and we create a link with this category
+                            $this->debbug(
+                                'Inserted association before create link->' .
+                                print_r($catalog, 1),
+                                'syncdata'
+                            );
                             Db::getInstance()->execute(
                                 sprintf(
                                     'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
@@ -402,7 +441,6 @@ class SlCatalogues extends SalesLayerPimUpdate
                                 ' comp_id ->' . print_r($comp_id, 1),
                                 'syncdata'
                             );
-
 
                             $found = true;
                             break;
@@ -423,8 +461,10 @@ class SlCatalogues extends SalesLayerPimUpdate
                  * Category cannot be found, creating new category for all shops
                  */
                 $contextShopID = Shop::getContextShopID();
-                Shop::setContext(Shop::CONTEXT_ALL);
-                $cat = new Category();
+                //Shop::setContext(Shop::CONTEXT_ALL);
+                $id_shop = (is_array($shops) ? reset($shops) : $contextShopID);
+                Shop::setContext(Shop::CONTEXT_SHOP, $id_shop);
+                $cat = new Category(null, null, $id_shop);
 
                 $cat->name                = array();
                 $cat->link_rewrite        = array();
@@ -1381,6 +1421,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                 try {
                     foreach ($shop_ids as $shop) {
+                        Shop::setContext(Shop::CONTEXT_SHOP, $shop);
                         $cat = new Category($category_id, null, $shop['id_shop']);
                         if ($cat->id_parent != $new_parent_id && !empty($new_parent_id)) {
                             if ($new_parent_id == 1) {
@@ -1423,11 +1464,15 @@ class SlCatalogues extends SalesLayerPimUpdate
         }
 
         try {
+            // foreach ($shop_ids as $shop) {
+            // Shop::setContext(Shop::CONTEXT_SHOP,$shop);
+            Shop::setContext(Shop::CONTEXT_ALL);
             $category_regenerate = new Category(
-                (int)Configuration::get('PS_HOME_CATEGORY'),
-                (int)Configuration::get('PS_LANG_DEFAULT')
+                (int) Configuration::get('PS_HOME_CATEGORY'),
+                (int) Configuration::get('PS_LANG_DEFAULT')
             );
             $category_regenerate->regenerateEntireNtree();
+            //  }
             //$category_regenerate->save();
         } catch (Exception $e) {
             $this->debbug('## Error. Reorganizing category tree regenerateEntireNtree: ' . $e->getMessage() .
@@ -1532,7 +1577,12 @@ class SlCatalogues extends SalesLayerPimUpdate
             }
 
             foreach ($shops as $shop) {
-                if (empty($shops_used_by_other_connector)) {
+                $query = "SELECT id_shop FROM " . _DB_PREFIX_ . 'category_shop ' .
+                         'WHERE id_category = "' . $catalog_ps_id .
+                         '" AND id_shop = "' . $shop . '" GROUP BY id_shop';
+                $registers = Db::getInstance()->executeS($query);
+
+                if (empty($shops_used_by_other_connector) && count($registers)) {
                     //if (!in_array($shop, $shops_used_by_other_connector, false)) {
                     try {
                         Shop::setContext(Shop::CONTEXT_SHOP, $shop);

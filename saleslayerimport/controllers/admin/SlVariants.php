@@ -606,17 +606,58 @@ class SlVariants extends SalesLayerPimUpdate
             /**
              * Check if exist in sl cache
              */
-
-            $check_sl_product_format_id = (int) Db::getInstance()->getValue(
-                sprintf(
-                    'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
+            $query_search_variant =  sprintf(
+                'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
                          WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "combination"',
-                    $product_format_id,
-                    $comp_id
-                )
+                $product_format_id,
+                $comp_id
             );
+            $check_sl_product_format_id = (int) Db::getInstance()->getValue($query_search_variant);
 
             if ($check_sl_product_format_id) {
+                $this->debbug(
+                    'Exist combination in cache sl in DB -> ' .
+                     print_r(
+                         $check_sl_product_format_id,
+                         1
+                     ) . ' query->' . print_r($query_search_variant, 1),
+                    'syncdata'
+                );
+                /**
+                 * Check duplicates in sl cache
+                 */
+                $query_search_duplicates =  sprintf(
+                    'SELECT * FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
+                         WHERE sl.ps_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "combination"',
+                    $check_sl_product_format_id,
+                    $comp_id
+                );
+                $Variant_cache_duplicates = Db::getInstance()->executeS($query_search_duplicates);
+                if (count($Variant_cache_duplicates) > 1) {
+                    //delete duplicates in cache of SL
+                    foreach ($Variant_cache_duplicates as $key => $value) {
+                        if ($value['slyr_id'] != $product_format_id) {
+                            $this->debbug(
+                                'Delete duplicate in cache sl ' .
+                                '  $value ->' . print_r(
+                                    $value,
+                                    1
+                                ),
+                                'syncdata'
+                            );
+                            Db::getInstance()->execute(
+                                sprintf(
+                                    'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product
+                                             WHERE slyr_id = "%s"
+                                             AND comp_id = "%s"
+                                             AND ps_type = "combination"',
+                                    $value['slyr_id'],
+                                    $value['comp_id']
+                                )
+                            );
+                        }
+                    }
+                }
                 $sl_product_format_id = $check_sl_product_format_id;
             }
 
@@ -830,8 +871,37 @@ class SlVariants extends SalesLayerPimUpdate
                             }
 
                             if ($sl_product_format_id == 0 && empty(array_diff($attributes, $attributes_val))) {
-                                $sl_product_format_id = $value['id_product_attribute'];
-                                break 2;
+                                $this->debbug(
+                                    'Exist combination from combination of attributes -> ' .
+                                    print_r(
+                                        $check_sl_product_format_id,
+                                        1
+                                    ),
+                                    'syncdata'
+                                );
+                                $query_check_exist_union =  sprintf(
+                                    'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
+                                     WHERE sl.slyr_id != "%s" 
+                                     AND sl.comp_id = "%s" 
+                                     AND sl.ps_type = "combination" 
+                                     AND sl.ps_id = "%s" LIMIT 1 ',
+                                    $product_format_id,
+                                    $comp_id,
+                                    $value['id_product_attribute']
+                                );
+                                $check_sl_ps_cache =  Db::getInstance()->executeS($query_check_exist_union);
+                                $this->debbug(
+                                    'Check if already is asigned to another variant this group of attributes -> ' .
+                                    print_r(
+                                        $check_sl_ps_cache,
+                                        1
+                                    ) . ' query->' . print_r($query_check_exist_union, 1),
+                                    'syncdata'
+                                );
+                                if (empty($check_sl_ps_cache)) {
+                                    $sl_product_format_id = $value['id_product_attribute'];
+                                    break 2;
+                                }
                             }
                         }
                     }// lang
@@ -1292,10 +1362,10 @@ class SlVariants extends SalesLayerPimUpdate
                                 $valida_val = $this->slValidateBoolean($value);
                                 if (Validate::isBool($valida_val)) {
                                     if ($valida_val) {
-                                        $productObject = new Product($product_id, null, null, $shop_id);
-                                        $productObject->deleteDefaultAttributes();
+                                        ObjectModel::updateMultishopTable('Combination', array(
+                                            'default_on' => null,
+                                        ), 'a.`id_product` = ' . (int) $product_id);
                                         $comb->default_on = 1;
-                                        unset($productObject);
                                     }
                                 } else {
                                     $this->debbug($occurrence . '## Warning. Default_on is not boolean value ->' .
@@ -1977,7 +2047,6 @@ class SlVariants extends SalesLayerPimUpdate
                 '	ON (a.`id_attribute` = al.`id_attribute` AND al.`id_lang` ' . $left_group_lang . ') ' .
                 "WHERE  ag.`id_attribute_group` = '" . $attribute_group_id . "'  AND " . $left_group_value .
                  $sql_hexatag . '  ' . ' GROUP BY al.`id_attribute` , agl.`name`, a.`position`' .
-
                 'ORDER BY agl.`name` ASC, a.`position` ASC';
             try {
                 $isAttribute = Db::getInstance()->executeS($schemaAttribute);
@@ -1988,11 +2057,11 @@ class SlVariants extends SalesLayerPimUpdate
                 );
             } catch (Exception $e) {
                 $this->debbug(
-                    '## Error. in query for seach attribute  ->' . print_r($schemaAttribute, 1),
+                    '## Error. in query for search attribute  ->' . print_r($schemaAttribute, 1),
                     'syncdata'
                 );
             }
-            //   $this->debbug('## Busca el attributo query->'.print_r($schemaAttribute,1),'syncdata');
+            $this->debbug('## in search  attribute query->' . print_r($schemaAttribute, 1), 'syncdata');
         } catch (Exception $e) {
             $isAttribute = [];
             $this->debbug(
@@ -2167,7 +2236,9 @@ class SlVariants extends SalesLayerPimUpdate
         } else {
             $this->debbug('Attribute found send only id' . print_r($isAttribute, 1), 'syncdata');
             //Obtenemos id de atributo ya existente
-            $attribute_value_id = $isAttribute[0]['id_attribute'];
+            
+            $isAttribute_first_reg = reset($isAttribute);
+            $attribute_value_id = $isAttribute_first_reg['id_attribute'];
 
             if (!empty($multilanguage)) {
                 $this->debbug(
@@ -2254,7 +2325,7 @@ class SlVariants extends SalesLayerPimUpdate
             $attribute_exists_id = $attribute_exists['ps_id'];
 
             //Buscamos registro de lenguaje en tabla Slyr
-            $attribute_lang_exists = (int)Db::getInstance()->getValue(
+            $attribute_lang_exists = (int) Db::getInstance()->getValue(
                 sprintf(
                     'SELECT sl.ps_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
                     WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_attribute_group_id = "%s"
@@ -2283,7 +2354,7 @@ class SlVariants extends SalesLayerPimUpdate
                         $attribute_group_id,
                         $comp_id
                     )
-                );  // id_lang     $id_lang
+                );
             } else {
                 $this->debbug(
                     ' Register found, updating $attribute_lang_exists->' . print_r($attribute_lang_exists, 1),
@@ -2300,11 +2371,10 @@ class SlVariants extends SalesLayerPimUpdate
                         $comp_id,
                         $attribute_group_id
                     )
-                );  // AND id_lang = "%s" , $id_lang
+                );
             }
 
             if ($attribute_exists_id != $attribute_value_id) {
-                //Cambia registro de lenguaje en tabla Slyr por nuevo
                 $update_cache_query = '';
                 try {
                     $update_cache_query = sprintf(

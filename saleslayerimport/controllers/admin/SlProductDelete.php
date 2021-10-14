@@ -104,7 +104,12 @@ class SlProductDelete extends SalesLayerPimUpdate
             }
 
             foreach ($shops as $shop) {
-                if (!in_array($shop, $shops_used_by_other_connector, false)) {
+                $query = "SELECT id_shop FROM " . _DB_PREFIX_ . 'product_shop ' .
+                         'WHERE id_product = "' . $product_ps_id .
+                         '" AND id_shop = "' . $shop . '" GROUP BY id_shop';
+                $registers = Db::getInstance()->executeS($query);
+
+                if (!in_array($shop, $shops_used_by_other_connector, false) && count($registers)) {
                     try {
                         Shop::setContext(Shop::CONTEXT_SHOP, $shop);
                         $prod = new Product($product_ps_id, null, null, $shop);

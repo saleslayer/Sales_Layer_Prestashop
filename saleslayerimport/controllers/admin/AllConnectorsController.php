@@ -286,7 +286,7 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                         'saleslayerimport',
                         'ajax',
                         [],
-                        null,
+                        Configuration::get('PS_SSL_ENABLED'),
                         null,
                         $this->SLimport->shop_loaded_id
                     ),
@@ -296,7 +296,7 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                         'saleslayerimport',
                         'diagtools',
                         [],
-                        null,
+                        Configuration::get('PS_SSL_ENABLED'),
                         null,
                         $this->SLimport->shop_loaded_id
                     )

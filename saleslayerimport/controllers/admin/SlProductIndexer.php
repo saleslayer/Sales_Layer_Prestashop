@@ -22,12 +22,10 @@ class SlProductIndexer extends SalesLayerPimUpdate
 
     /**
      * @param $products_regisers
-     * @param $all_shops_image
      */
 
     public function indexProducts(
-        $products_regisers,
-        $all_shops_image
+        $products_regisers
     ) {
         $this->debbug(
             'entry to index product id_product ->' . print_r($products_regisers, 1),
@@ -37,8 +35,18 @@ class SlProductIndexer extends SalesLayerPimUpdate
         foreach ($products_regisers as $product) {
             $product_id = $product['id_product'];
             try {
-                $this->debbug('Send to indexing  id_product->' .
-                              $product_id, 'syncdata');
+                $query = "SELECT id_shop FROM " . _DB_PREFIX_ . 'product_shop ' .
+                         'WHERE id_product = "' . $product_id .
+                         '" AND active = "1" GROUP BY id_shop';
+                $registers = Db::getInstance()->executeS($query);
+                $all_shops_image = [];
+                foreach ($registers as $shops) {
+                    $all_shops_image[] = $shops['id_shop'];
+                }
+                //$all_shops_image = json_decode(stripslashes($product['data']), 1);
+                /* $this->debbug('Send to indexing  id_product->' .
+                               $product_id . ' shops->' . print_r($all_shops_image, 1) .
+                               ' query ->' . print_r($query, 1), 'syncdata');*/
                 foreach ($all_shops_image as $shop_id_in) {
                     Shop::setContext(shop::CONTEXT_SHOP, $shop_id_in);
                     $prod_index = new Product($product_id, false, null, $shop_id_in);

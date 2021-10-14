@@ -226,5 +226,15 @@ V 1.4.25
 <li> Fix in delete accessories.</li>
 </ul>
 
+V 1.4.26
+<ul>
+<li> Product creation only in stores configured in the connector.</li>
+<li> Creation of features in all stores. (Bug fix in multistore)</li>
+<li> Better control of product deallocation - categories. </li>
+<li> Fix variants with same attributes are not created. </li>
+</ul>
+
+
+
 
 </div>

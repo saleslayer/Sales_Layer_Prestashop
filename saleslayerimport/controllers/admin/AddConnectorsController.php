@@ -48,7 +48,7 @@ class AddConnectorsController extends ModuleAdminController
                     'saleslayerimport',
                     'ajax',
                     [],
-                    null,
+                    Configuration::get('PS_SSL_ENABLED'),
                     null,
                     $this->SLimport->shop_loaded_id
                 ),
@@ -57,7 +57,7 @@ class AddConnectorsController extends ModuleAdminController
                     'saleslayerimport',
                     'diagtools',
                     [],
-                    null,
+                    Configuration::get('PS_SSL_ENABLED'),
                     null,
                     $this->SLimport->shop_loaded_id
                 ),
@@ -78,6 +78,12 @@ class AddConnectorsController extends ModuleAdminController
         $this->toolbar_title[] = 'How to use Sales Layer';
     }
 
+    /**
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     * @throws SmartyException
+     * @throws PrestaShopExceptionCore
+     */
     public function postProcess()
     {
         if (Tools::isSubmit('addnewconector')) {
@@ -108,7 +114,7 @@ class AddConnectorsController extends ModuleAdminController
                             'saleslayerimport',
                             'ajax',
                             [],
-                            null,
+                            Configuration::get('PS_SSL_ENABLED'),
                             null,
                             $this->SLimport->shop_loaded_id
                         ),
@@ -117,7 +123,7 @@ class AddConnectorsController extends ModuleAdminController
                             'saleslayerimport',
                             'diagtools',
                             [],
-                            null,
+                            Configuration::get('PS_SSL_ENABLED'),
                             null,
                             $this->SLimport->shop_loaded_id
                         ),
@@ -164,7 +170,7 @@ class AddConnectorsController extends ModuleAdminController
                                 'saleslayerimport',
                                 'ajax',
                                 [],
-                                null,
+                                Configuration::get('PS_SSL_ENABLED'),
                                 null,
                                 $this->SLimport->shop_loaded_id
                             ),
@@ -173,7 +179,7 @@ class AddConnectorsController extends ModuleAdminController
                                 'saleslayerimport',
                                 'diagtools',
                                 [],
-                                null,
+                                Configuration::get('PS_SSL_ENABLED'),
                                 null,
                                 $this->SLimport->shop_loaded_id
                             ),
@@ -192,7 +198,12 @@ class AddConnectorsController extends ModuleAdminController
                         $this->SLimport->checkFreeSpaceMemory();
                         $this->SLimport->sl_updater->setIdentification($conn_code, $conn_secret);
                         $this->SLimport->sl_updater->getConnectorsInfo($conn_code);
-                        $this->SLimport->sl_updater->update(true, null, true);
+                        try {
+                            $this->SLimport->sl_updater->update(true, null, true);
+                        } catch (Exception $e) {
+                            $this->SLimport->debbug('Error in update new connector ->' . print_r($e->getMessage(), 1) .
+                                                    ' in line ->' . $e->getLine(), 'syncdata', true);
+                        }
                         $this->SLimport->setConnectorData($conn_code, 'last_update', 0);
 
 

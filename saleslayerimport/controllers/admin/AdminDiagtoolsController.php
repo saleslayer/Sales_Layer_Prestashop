@@ -96,7 +96,7 @@ class AdminDiagtoolsController extends ModuleAdminController
                 'saleslayerimport',
                 'ajax',
                 [],
-                null,
+                Configuration::get('PS_SSL_ENABLED'),
                 null,
                 $this->SLimport->shop_loaded_id
             )];
@@ -278,7 +278,7 @@ class AdminDiagtoolsController extends ModuleAdminController
                         'saleslayerimport',
                         'ajax',
                         [],
-                        null,
+                        Configuration::get('PS_SSL_ENABLED'),
                         null,
                         $this->SLimport->shop_loaded_id
                     )
@@ -289,7 +289,7 @@ class AdminDiagtoolsController extends ModuleAdminController
                         'saleslayerimport',
                         'diagtools',
                         [],
-                        null,
+                        Configuration::get('PS_SSL_ENABLED'),
                         null,
                         $this->SLimport->shop_loaded_id
                     )
@@ -299,7 +299,7 @@ class AdminDiagtoolsController extends ModuleAdminController
                         'saleslayerimport',
                         'deletelogs',
                         [],
-                        null,
+                        Configuration::get('PS_SSL_ENABLED'),
                         null,
                         $this->SLimport->shop_loaded_id
                     ),

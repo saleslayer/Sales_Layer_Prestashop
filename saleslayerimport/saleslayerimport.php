@@ -283,7 +283,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.25';
+        $this->version = '1.4.26';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -310,7 +310,7 @@ class SalesLayerImport extends Module
                         'saleslayerimport',
                         'ajax',
                         [],
-                        null,
+                        Configuration::get('PS_SSL_ENABLED'),
                         null,
                         $this->shop_loaded_id
                     )
@@ -1223,6 +1223,19 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     INDEX `id_product` (`id_product` ASC))
                                     COMMENT = 'Sales Layer table for accessories' ";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+
+        /* from 1.4.26*/
+       /* $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
+                      " WHERE table_schema = '" . _DB_NAME_ . "' " .
+                      " AND table_name = '" . _DB_PREFIX_ . "slyr_indexer' " .
+                      " AND column_name = 'data'";
+        $indexer_data = Db::getInstance()->executeS($query_read);
+
+        if (empty($indexer_data)) {
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_indexer ' .
+                           "ADD COLUMN `data` TEXT(20000) NULL AFTER `id_product` ";
+            Db::getInstance()->execute(sprintf($query_alter));
+        }*/
     }
 
     /**
@@ -1634,7 +1647,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             foreach ($categoriesDelete as $categoryDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"',
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s" ' .
+                        ' AND ps_type = "slCatalogue" ',
                         $categoryDelete['id']
                     )
                 );
@@ -1652,7 +1666,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             foreach ($productsDelete as $productDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"',
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"' .
+                        ' AND ps_type = "product" ',
                         $productDelete['id']
                     )
                 );
@@ -1670,7 +1685,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             foreach ($attributesDelete as $attributeDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"',
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s" ' .
+                        ' AND ps_type = "product_format_field" ',
                         $attributeDelete['id']
                     )
                 );
@@ -1708,7 +1724,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             foreach ($attributeValuesDelete as $attributeValueDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"',
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"' .
+                        ' AND ps_type = "product_format_value" ',
                         $attributeValueDelete['id']
                     )
                 );
@@ -1726,13 +1743,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             foreach ($featuresDelete as $featureDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"',
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"  ' .
+                        ' AND ps_type = "combination" ',
                         $featureDelete['id']
                     )
                 );
             }
         }
-
 
         $schemaImages = " SELECT sl.id_image FROM " . _DB_PREFIX_ . "slyr_image AS sl " .
             " LEFT JOIN " . $this->image_shop_table . ' AS pa
@@ -3622,7 +3639,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             } catch (Exception $e) {
                                 $result_update = 'item_not_updated';
                                 $this->debbug(
-                                    '## Error. Synchronizing category ' . print_r($e->getMessage(), 1),
+                                    '## Error. Synchronizing category ' . print_r($e->getMessage(), 1) .
+                                    ' line->' . $e->getLine() .
+                                    ' trace->' . print_r($e->getTrace(), 1),
                                     'syncdata'
                                 );
                             }
