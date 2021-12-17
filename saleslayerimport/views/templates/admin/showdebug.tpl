@@ -130,6 +130,7 @@
     .min-hei-400{min-height:400px}
     .min-hei-40{min-height:40px}
     .min-wid-100{min-width:100px}
+    .min-wid-200{min-width:200px}
     table{font-size:14px;width:100%!important;display:inline-block;word-wrap:break-word}
     table td{word-wrap:break-word}
     .table-responsive{display:table}
@@ -245,6 +246,13 @@
                   </select>
                 </div>
               </td>
+              <td class="min-hei-40">
+                <div class="col-md-3 mar-top-btt-40 min-wid-200">
+                  <button type="button" class="btn btn-danger btn-xl" onclick="ajaxexecuter(this);"
+                          name="cleardatahash" title="By removing this cache your editing of existing items will be much slower, but all data is overwritten."><i class="fas fa-trash-alt"></i> Clear data hash cache
+                  </button>
+                </div>
+              </td>
             </tr>
           </table>
         </div>
@@ -265,6 +273,7 @@
         <input type="hidden" name="ajaxloading" id="ajaxonline" value="0"/>
         <input type="hidden" name="statline" id="statline" value="0"/>
         <input type="hidden" name="download" id="downloadfile" value="" />
+        <input type="hidden" name="cleardatahash_val" id="cleardatahash_val" value="" />
         <button type="button" class="btn btn-success btn-xs" title="Reload Logs" onclick="ajaxexecuter(this);"
                 name="showlogfilesbutt"><i class="fas fa-sync-alt"></i> Reload logs
         </button>
@@ -519,7 +528,7 @@
                       var commandfor = dataevent.getAttribute('data');
                       pagenull();
                       sync_custom_command(commandfor, '');
-                      var h1 = document.createElement('h3');
+                      var h1 = document.createElement('span');
                       var div = document.getElementById('slh1selector');
                       var node = document.createTextNode(commandfor);
                       h1.appendChild(node);
@@ -642,12 +651,14 @@
             ajax.innerHTML = 'It does not work';
           }
           console.log('Ajax connection error, trying send document as post');
-          if(command == 'debugmode' || command == 'performance'){
+          if((command == 'debugmode' || command == 'performance') ||
+                  (command == 'showlogfiles' && sub == 1)){
+            document.getElementById('cleardatahash_val').value = "";
             document.getElementById('downloadfile').value = "";
             document.getElementById('form_sl_edit').submit();
           }
-          if(command == 'showlogfiles' && sub == 1){
-            document.getElementById('downloadfile').value = "";
+          if(command == 'cleardatahash'){
+            document.getElementById('cleardatahash_val').value = "1";
             document.getElementById('form_sl_edit').submit();
           }
           document.getElementById('ajaxonline').value = '0';

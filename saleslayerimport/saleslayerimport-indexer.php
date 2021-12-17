@@ -41,10 +41,10 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
     $pimUpdate = new SalesLayerPimUpdate();
     if (!$pimUpdate->testDownloadingBlock('INDEXER')) {
-        $SLimport->debbug(
-            "A indexer is already in progress. Try to run after 15 minutes.",
-            'syncdata'
-        );
+        /*  $SLimport->debbug(
+              "A indexer is already in progress. Try to run after 15 minutes.",
+              'syncdata'
+          );*/
         return false;
     }
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SlProductIndexer.php';
@@ -65,23 +65,21 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
                                                    ')');
                         $SLimport->debbug(
                             'After executed indexer return ->' . print_r($response, 1),
-                            'syncdata'
+                            'indexer'
                         );
                     }
                 }
             } catch (Exception $e) {
                 $SLimport->debbug('## Error. Indexer error : ' . $e->getMessage() .
-                                  ' line->' . $e->getLine(), 'syncdata');
+                                  ' line->' . $e->getLine(), 'indexer');
             }
-        } while (count($registers) > 0);
 
-        /* $sql_query_to_insert = "DELETE FROM " . _DB_PREFIX_ . "slyr_syncdata" .
-                                                " WHERE item_type = 'index' ";
-         $SLimport->slConnectionQuery('-', $sql_query_to_insert);*/
+            $SLimport->clearDebugContent();
+        } while (count($registers) > 0);
     } catch (Exception $e) {
         $SLimport->debbug(
             '## Error. in load Indexer_file ->' . print_r($e->getMessage(), 1),
-            'syncdata'
+            'indexer'
         );
     }
     $pimUpdate->removeDownloadingBlock('INDEXER');

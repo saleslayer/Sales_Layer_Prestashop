@@ -73,9 +73,21 @@ class SlProducts extends SalesLayerPimUpdate
             $occurence = ' ID :' . $product['ID'];
         }
         $this->sync_categories =  $sync_categories;
-        $syncCat = true;
+        $syncProduct = true;
         $additional_output = array();
         $is_new_product = false;
+        $exist_id_categories = isset($product['ID_catalogue']);
+
+
+        $data_clear=[];
+        $data_clear['data'] = $product['data'];
+        unset($data_clear['data']['product_quantity']);
+        if ($exist_id_categories) {
+            $data_clear['ID_catalogue'] = $product['ID_catalogue'];
+        }
+        $data_clear['shops'] = $shops;
+        $json_clear = json_encode($data_clear);
+        $data_hash = hash($this->hash_algorithm_comparator, $json_clear);
 
         $this->debbug(
             ' Entering to process: ' . $occurence . '  Product Information: ' . print_r(
@@ -118,7 +130,7 @@ class SlProducts extends SalesLayerPimUpdate
 
 
             if (!empty($product_duplicates_extract)) {
-                foreach ($product_duplicates_extract as $key => $duplicate) {
+                foreach ($product_duplicates_extract as $duplicate) {
                     $this->debbug('Deleting product duplicate from cache form ' .
                                   'slyr table but not exist in prestashop', 'syncdata');
                     Db::getInstance()->execute(
@@ -127,7 +139,7 @@ class SlProducts extends SalesLayerPimUpdate
 			                       WHERE slyr_id = "%s"
 			                        AND comp_id = "%s"
 			                        AND ps_id = "%s"
-			                        AND ps_type = "product"',
+                                    AND ps_type = "product"',
                             $duplicate['slyr_id'],
                             $duplicate['comp_id'],
                             $duplicate['ps_id']
@@ -178,68 +190,70 @@ class SlProducts extends SalesLayerPimUpdate
 
             if ($exist_id_categories && $this->sync_categories && !empty($sl_product_parent_ids)) {
                 foreach ($sl_product_parent_ids as $sl_product_parent_id) {
-                    $product_category_id = (int)Db::getInstance()->getValue(
-                        sprintf(
-                            'SELECT sl.ps_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
+                    if ($sl_product_parent_id != 0) {
+                        $product_category_id = (int)Db::getInstance()->getValue(
+                            sprintf(
+                                'SELECT sl.ps_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
                             WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "slCatalogue"',
-                            $sl_product_parent_id,
-                            $comp_id
-                        )
-                    );
-
-                    if (!$product_category_id) {
-                        $this->debbug(
-                            '## Error. ' . $occurence . ' The catalog with ID :' .
-                            $sl_product_parent_id . ' for the company with ID: '
-                            . $comp_id . ' does not exist in the table. ' .
-                             'It is possible that it has been deactivated or deleted.' .
-                            'Change the state of the category and of the product to invisible,' .
-                            'and then back to visible again so that the issue can be resolved.',
-                            'syncdata'
+                                $sl_product_parent_id,
+                                $comp_id
+                            )
                         );
-                        continue;
-                    } else {
-                        $sl_product_parent_id = $product_category_id;
 
-                        if ($product_category_id != 0) {
-                            if ($sl_product_parent_id) {
-                                do {
-                                    $schemaCats = 'SELECT id_category, id_parent, active FROM '
-                                        . $this->category_table .
-                                        " WHERE id_category = '" . $sl_product_parent_id . "' 
+                        if (!$product_category_id) {
+                            $this->debbug(
+                                '## Error. ' . $occurence . ' The catalog with ID :' .
+                                $sl_product_parent_id . ' for the company with ID: '
+                                . $comp_id . ' does not exist in the table. ' .
+                                'It is possible that it has been deactivated or deleted.' .
+                                'Change the state of the category and of the product to invisible,' .
+                                'and then back to visible again so that the issue can be resolved.',
+                                'syncdata'
+                            );
+                            continue;
+                        } else {
+                            $sl_product_parent_id = $product_category_id;
+
+                            if ($product_category_id != 0) {
+                                if ($sl_product_parent_id) {
+                                    do {
+                                        $schemaCats = 'SELECT id_category, id_parent, active FROM '
+                                                      . $this->category_table .
+                                                      " WHERE id_category = '" . $sl_product_parent_id . "' 
                                         ORDER BY id_category ASC LIMIT 1";
-                                    $category = Db::getInstance()->executeS($schemaCats);
+                                        $category = Db::getInstance()->executeS($schemaCats);
 
-                                    if (isset($category[0]['id_category']) && $category[0]['id_category'] != 0
-                                        && !in_array(
-                                            $category[0]['id_category'],
-                                            $arrayIdCategories,
-                                            false
-                                        )
-                                    ) {
-                                        /*   $schemaCatslangg = 'SELECT id_category,name FROM '
-                                                         . $this->category_lang_table .
-                                                         " WHERE id_category = '" . $category[0]['id_category'] . "'
-                                                          AND id_lang = '1'
-                                           ORDER BY id_category ASC LIMIT 1";
-                                           $categorylang = Db::getInstance()->executeS($schemaCatslangg);
+                                        if (isset($category[0]['id_category']) && $category[0]['id_category'] != 0
+                                            && !in_array(
+                                                $category[0]['id_category'],
+                                                $arrayIdCategories,
+                                                false
+                                            )
+                                        ) {
+                                            /*   $schemaCatslangg = 'SELECT id_category,name FROM '
+                                                             . $this->category_lang_table .
+                                                             " WHERE id_category = '" . $category[0]['id_category'] . "'
+                                                              AND id_lang = '1'
+                                               ORDER BY id_category ASC LIMIT 1";
+                                               $categorylang = Db::getInstance()->executeS($schemaCatslangg);
 
-                                           $this->debbug('Get name of category ->' .
-                                                         print_r($categorylang[0]['name'], 1) . ' return -> ' .
-                                                         print_r($categorylang, 1), 'syncdata');*/
-                                        $sl_product_parent_id =  $category[0]['id_parent'];
-                                        $arrayIdCategories[] = $category[0]['id_category'];
-                                    } else {
-                                        $sl_product_parent_id = 0;
-                                    }
+                                               $this->debbug('Get name of category ->' .
+                                                             print_r($categorylang[0]['name'], 1) . ' return -> ' .
+                                                             print_r($categorylang, 1), 'syncdata');*/
+                                            $sl_product_parent_id =  $category[0]['id_parent'];
+                                            $arrayIdCategories[] = $category[0]['id_category'];
+                                        } else {
+                                            $sl_product_parent_id = 0;
+                                        }
 
 
-                                    if ($sl_product_parent_id === 0) {
-                                        break;
-                                    }
-                                } while ($sl_product_parent_id !== 0);
-                            } else {
-                                $arrayIdCategories[] = 0;
+                                        if ($sl_product_parent_id === 0) {
+                                            break;
+                                        }
+                                    } while ($sl_product_parent_id !== 0);
+                                } else {
+                                    $arrayIdCategories[] = 0;
+                                }
                             }
                         }
                     }
@@ -869,7 +883,7 @@ class SlProducts extends SalesLayerPimUpdate
                             ), 'syncdata');
                             $productObject->save();
                         } catch (Exception $e) {
-                            $syncCat = false;
+                            $syncProduct = false;
                             $this->debbug(
                                 '## Error. ' . $occurence . ' When saving changes to product ->' . print_r(
                                     $e->getMessage(),
@@ -1011,7 +1025,17 @@ class SlProducts extends SalesLayerPimUpdate
                             html_entity_decode(
                                 $product['data'][$product_description_index]
                             );
-                        $productObject->description[$lang['id_lang']] = $product_description;
+                        if (Validate::isCleanHtml($product_description)) {
+                            $productObject->description[$lang['id_lang']] = $product_description;
+                        } else {
+                            $this->debbug(
+                                '##Error. invalid-html content-> ' . $occurence .
+                                ' ->' .
+                                print_r($product_name, 1) .
+                                ' in lang_id->' . $lang['id_lang'],
+                                'syncdata'
+                            );
+                        }
                     }
                     /**
                      * Product description short
@@ -1743,7 +1767,7 @@ class SlProducts extends SalesLayerPimUpdate
                             '## Error. ' . $occurence . ' In Synchronization of images :' . print_r(
                                 $e->getMessage(),
                                 1
-                            ),
+                            ). ' in Line->' . $e->getLine(),
                             'syncdata'
                         );
                     }
@@ -2917,7 +2941,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 );
                                 unset($manufacturer);
                             } catch (Exception $e) {
-                                $syncCat = false;
+                                $syncProduct = false;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' In saving new Manufacturer ' . print_r(
                                         $e->getMessage(),
@@ -3169,7 +3193,7 @@ class SlProducts extends SalesLayerPimUpdate
                         }
                     }
                 } catch (Exception $e) {
-                    $syncCat = true;
+                    $syncProduct = true;
                     $this->debbug(
                         '## Error. ' . $occurence .
                         ' Saving changes to product problem ->' . print_r($e->getMessage(), 1),
@@ -3697,12 +3721,24 @@ class SlProducts extends SalesLayerPimUpdate
         }
 
         $this->debbug(
-            $occurence . ' Ending with product result:' . ($syncCat ? 'Success' : 'could not finish'),
+            $occurence . ' Ending with product result:' . ($syncProduct ? 'Success' : 'could not finish'),
             'syncdata'
         );
 
-        if ($syncCat) {
-            $this->saveProductIdForIndex($product_exists);
+        if ($syncProduct) {
+            $prepare_input_compare = []; // ps_id, hash, timestamp_modified, sl_id, id_conn, ps_type
+            $prepare_input_compare['sl_id']               = $product['ID'];
+            $prepare_input_compare['ps_type']             = 'product';
+            $prepare_input_compare['conn_id']             = $connector_id;
+            $prepare_input_compare['ps_id']               = $product_exists;
+            $prepare_input_compare['hash']                = $data_hash;
+
+            $query_insert =   SalesLayerImport::setRegisterInputCompare($prepare_input_compare);
+            $this->debbug(
+                $occurence . ' Inserting data hash:' . print_r($query_insert, 1),
+                'syncdata'
+            );
+            $this->saveProductIdForIndex($product_exists, $connector_id);
             $productObject = null;
             unset($productObject);
 
@@ -4258,10 +4294,13 @@ class SlProducts extends SalesLayerPimUpdate
                         ' check correct sizes of images reference ->' . $image_reference . ' value ->' . print_r(
                             $image_list,
                             1
-                        ),
+                        ) . ' sizes->' . print_r($this->product_images_sizes, 1),
                         'syncdata'
                     );
                     foreach ($this->product_images_sizes as $imgFormat) {
+                        if (is_array($imgFormat)) {
+                            $imgFormat = reset($imgFormat);
+                        }
                         if (isset($image_list[$imgFormat]) && !empty($image_list[$imgFormat])) {
                             $catch_images[$image_reference] = $image_list[$imgFormat];
                             break;
@@ -4286,8 +4325,29 @@ class SlProducts extends SalesLayerPimUpdate
                     $slyr_images = Db::getInstance()->executeS(
                         'SELECT * FROM ' . _DB_PREFIX_ . "slyr_image im
                         WHERE   im.ps_product_id = '" . $product_id . "'"
-                    ); //im.origin = 'prod'  AND  AND im.image_reference IN (" . $catch_images_references . ")  "
+                    );
+                    //im.origin = 'prod'  AND  AND im.image_reference IN (" . $catch_images_references . ")  "
                     $this->debbug('Images of product -> ' . print_r($slyr_images, 1), 'syncdata');
+
+                    if (!empty($slyr_images)) { // unset nonexistent images
+                        foreach ($slyr_images as $slyr_key => $slyr_cache_image) {
+                            $test_image = 'SELECT * FROM ' . _DB_PREFIX_ . 'image i ' .
+                                          ' WHERE i.id_image=' . $slyr_cache_image['id_image'] . ' ';
+                            $test_cache = Db::getInstance()->getValue($test_image);
+
+                            if (!$test_cache) {
+                                $this->debbug('##Warning. nonexistent image identified in cache of images ->' .
+                                              print_r($slyr_cache_image, 1) . ' result ->' .
+                                              print_r($test_cache, 1) . 'query ->' .
+                                              print_r($test_image, 1), 'syncdata');
+                                unset($slyr_images[$slyr_key]);
+                                $delete_im_cache = 'DELETE FROM ' . _DB_PREFIX_ .
+                                                   'slyr_image WHERE id_image ="' .
+                                                   $slyr_cache_image['id_image'] . '"';
+                                Db::getInstance()->execute($delete_im_cache);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -4405,10 +4465,19 @@ class SlProducts extends SalesLayerPimUpdate
                 $url = trim($image_url);
 
                 if (!empty($url)) {
-                    $temp_image = $this->downloadImageToTemp($url);
+                    $cached = SalesLayerImport::getPreloadedImage($url);
+                    if ($cached) {
+                        $temp_image = Tools::stripslashes($cached['local_path']);
+                    } else {
+                        $temp_image = $this->downloadImageToTemp($url);
+                    }
 
                     if ($temp_image) {
-                        $md5_image = md5_file($temp_image);
+                        if ($cached) {
+                            $md5_image = $cached['md5_image'];
+                        } else {
+                            $md5_image = md5_file($temp_image);
+                        }
 
                         if (!empty($slyr_images)) {
                             foreach ($slyr_images as $keySLImg => $slyr_image) {
@@ -4561,8 +4630,9 @@ class SlProducts extends SalesLayerPimUpdate
                                                 'syncdata'
                                             );
                                         }
-
-                                        unlink($temp_image);
+                                        if (file_exists($temp_image)) {
+                                            unlink($temp_image);
+                                        }
                                         unset($image_cover);
 
                                         // exit from  second loop
@@ -4802,9 +4872,13 @@ class SlProducts extends SalesLayerPimUpdate
                             );
                             //  $this->debbug('## Error. '.$occurence.'. object->'.print_r($image,1), 'syncdata');
                             $image->delete();
-                            unlink($temp_image);
+                            // unlink($temp_image);
                         }
                         unset($image);
+                        if (file_exists($temp_image)) {
+                            unlink($temp_image);
+                        }
+                        SalesLayerImport::deletePreloadImage($url);
                     }
                 }
                 $this->debbug('END processing this image Timing ->' . ($time_ini_image - microtime(1)), 'syncdata');
@@ -5139,7 +5213,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         sprintf(
                                             'INSERT INTO ' . _DB_PREFIX_ . 'slyr_category_product
 	                                        (ps_id, slyr_id, ps_type, comp_id, date_add)
-	                                        VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP(),)',
+	                                        VALUES("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP())',
                                             $product_id,
                                             $product['ID'],
                                             'product',
@@ -6206,7 +6280,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                 $this->debbug(
                                                     'array is empty ' . $feature_name_index . ' ->' . print_r(
                                                         (isset($product['data'][$feature_name_index]) ?
-                                                            $product['data'][$feature_name_index]:'empty'),
+                                                            $product['data'][$feature_name_index]: 'empty'),
                                                         1
                                                     ) . ' id_lang ->' . print_r($lang_sub['id_lang'], 1),
                                                     'syncdata'
@@ -6464,7 +6538,7 @@ class SlProducts extends SalesLayerPimUpdate
                             'Feature name does not have any language code of 
                             index name ->' . $first_index_name . ' -> ' . print_r(
                                 (isset($schema[$first_index_name])?
-                                $schema[$first_index_name]:'Not exist in schema array'),
+                                $schema[$first_index_name]: 'Not exist in schema array'),
                                 1
                             ),
                             'syncdata'
@@ -6496,7 +6570,7 @@ class SlProducts extends SalesLayerPimUpdate
                             $this->debbug(
                                 'Setting for all languages ->' . $first_index_name . ' -> ' . print_r(
                                     (isset($schema[$first_index_name])?
-                                    $schema[$first_index_name]:'Not exist in Schema array'),
+                                    $schema[$first_index_name]: 'Not exist in Schema array'),
                                     1
                                 ),
                                 'syncdata'

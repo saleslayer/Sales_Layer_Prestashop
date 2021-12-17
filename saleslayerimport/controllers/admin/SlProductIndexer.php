@@ -29,7 +29,7 @@ class SlProductIndexer extends SalesLayerPimUpdate
     ) {
         $this->debbug(
             'entry to index product id_product ->' . print_r($products_regisers, 1),
-            'syncdata'
+            'indexer'
         );
         $ids_for_delete = [];
         foreach ($products_regisers as $product) {
@@ -59,7 +59,7 @@ class SlProductIndexer extends SalesLayerPimUpdate
             } catch (Exception $e) {
                 $this->debbug('## Error. id_product -> ' . $product_id .
                           ' Set indexer to 0: ' .
-                          $e->getMessage(), 'syncdata');
+                          $e->getMessage(), 'indexer');
             }
             try {
                 Shop::setContext(shop::CONTEXT_ALL);
@@ -67,8 +67,23 @@ class SlProductIndexer extends SalesLayerPimUpdate
             } catch (Exception $e) {
                 $this->debbug('## Error. id_product->' . $product_id .
                           ' indexer error: ' .
-                          $e->getMessage(), 'syncdata');
+                          $e->getMessage(), 'indexer');
             }
+
+            $up_las_modified = 'UPDATE ' . _DB_PREFIX_ . 'slyr_input_compare  SET timestamp_modified ="' .
+                               date('Y-m-d H:i:s') .
+                               '" WHERE ' .
+                               ' ps_type ="product" ' .
+                               'AND ps_id = ' . $product_id .
+                               '  AND conn_id = "' . $product['conn_id'] . '"';
+            try {
+                Db::getInstance()->execute($up_las_modified);
+            } catch (Exception $e) {
+                $this->debbug('## Error. in query for update las modify of item  id_product->' . $product_id .
+                              ' indexer error: ' .
+                              $e->getMessage() . ' query->' . print_r($up_las_modified, 1), 'indexer');
+            }
+
             $ids_for_delete[] = $product['id'];
         }
         return $ids_for_delete;

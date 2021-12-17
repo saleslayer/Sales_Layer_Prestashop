@@ -140,57 +140,6 @@ This button will help you to eliminate in bulk all the categories, products and 
 
 <h2>Changelog</h2>
 
-V 1.4.16
-<ul>
-<li> New features for rules for taxes (tax). From this version it is possible to use, aside
-from ids of the tax, the direct value of the tax adding a channel “number+%”.</li>
-<li> Attributes addition to create discounts between dates. </li>
-<li> Custom alt attributes for images.</li>
-<li> The order of the images works now for variants. It is respected the order in Sales
-layer when exporting.</li>
-<li> Possibility of adding many suppliers. </li>
-<li>The system verifies the integrity of the uploaded files.</li>
-<li> Performance improved.</li>
-<li> Added message status for the CPU load level and added warning messages.</li>
-<li> Direct access to documentation from plugin page.</li>
-</ul>
-
-V 1.4.17
-<ul>
-<li> Correction of correct assignment of multilanguage in features.</li>
-<li> Correction of virtual products. </li>
-<li> Products will be created in all stores as invisible and are activated only in stores that are enabled in configuration..</li>
-<li> Correction of Assignment of images in multistore. They are now assigned to all stores every time the product is edited.</li>
-<li> Tighter selection of variant attributes to skip empty values in a given language. </li>
-<li> Solved indexing problem in multistore.</li>
-<li> Connector launcher fix not updating at 00:00.</li>
-<li> Enable fields for editing in product: "visibility,redirect_type,id_type_redirected "</li>
-</ul>
-
-V 1.4.18
-<ul>
-<li> Correction of alt attributes of product images.</li>
-<li> Correction of cover assignment of a deleted product in multistore. </li>
-<li> A smart deactivation of products and categories. Elements are disabled only if they are received from all connectors that have been created. (It allows to have a separate store in several groups).</li>
-</ul>
-
-V 1.4.19
-<ul>
-<li> Solved indexing problem in multistore.</li>
-<li> Improved date recognition when php strtostring() function fails. </li>
-<li> Product default category correction. </li>
-</ul>
-
-V 1.4.20
-<ul>
-<li> Product url fix for default language.</li>
-<li> Variant renaming every time sync runs. </li>
-<li> Progress bar display correctly when working on accessories. </li>
-<li> Improved the way to link accessories. </li>
-<li> Developed a more efficient indexer. </li>
-<li> Improve sync speed. </li>
-</ul>
-
 V 1.4.21
 <ul>
 <li> Added function that repairs plugin' tables in diagnostic mode.</li>
@@ -234,6 +183,17 @@ V 1.4.26
 <li> Fix variants with same attributes are not created. </li>
 </ul>
 
+V 1.5.0
+<ul>
+<li> Speed improvements.</li>
+<li> Small fixes. </li>
+<li> Asynchronous stock update. </li>
+<li> Asynchronous image preload. </li>
+<li> Data comparison with data hash. </li>
+<li> Balancer. </li>
+<li> Work in multi-processes. </li>
+<li> Variants with products are synchronized with products. </li>
+</ul>
 
 
 

@@ -233,7 +233,7 @@
             var start = document.getElementById('allelements').value;
             if (start == 0) {
               document.getElementById('allelements').value = parseInt(data_return['actual_stat']);
-              showProgressBarSL(0, start, data_return['next_cron_expected'],data_return['work_stat']);
+              showProgressBarSL(0, start, data_return['next_cron_expected'],data_return['work_stat'],data_return['speed']);
               clearInterval(timerCheck);
               timerCheck = setInterval(function () {
                 check_status()
@@ -246,7 +246,7 @@
               $('#messages').html('');
               clearTimeout(timeout);
               var actual = start - parseInt(data_return['actual_stat']);
-              showProgressBarSL(actual, start, data_return['next_cron_expected'],data_return['work_stat']);
+              showProgressBarSL(actual, start, data_return['next_cron_expected'],data_return['work_stat'],data_return['speed']);
               //   console.log('status start->'+ start +'  now->'+ data_return['actual_stat'] +' actual->' +actual);
               if (actual == start) {
                 clearInterval(timerCheck);
@@ -299,7 +299,7 @@
         }
     }
 
-    function showProgressBarSL(status, total, time = null,show_stat = '') {
+    function showProgressBarSL(status, total, time = null,show_stat = '',speed = '') {
       var onePr = total / 100;
       var statPr;
       if (status == 0) {
@@ -319,7 +319,12 @@
       } else {
         text_color = 'text-body'
       }
-      div = '<div class="row"><div class="progress-bar " role="progressbar" style="width:' + statPr + '%" aria-valuenow="' + statPr + '" aria-valuemin="0" aria-valuemax="100"></div></div><span class="text-center ' + text_color + '">'+ show_stat + statPr + '%  (' + status + '/' + total + ')</span>';
+      var speed_txt = '';
+      if(speed){
+        speed_txt = ' ' + speed + 'x';
+      }
+
+      div = '<div class="row"><div class="progress-bar " role="progressbar" style="width:' + statPr + '%" aria-valuenow="' + statPr + '" aria-valuemin="0" aria-valuemax="100"></div></div><span class="text-center ' + text_color + '">'+ show_stat + statPr + '%  (' + status + '/' + total + ')' + speed_txt + ' </span>';
       document.getElementById('progressbar').innerHTML = div
     }
     function showAditionalstatus(message){

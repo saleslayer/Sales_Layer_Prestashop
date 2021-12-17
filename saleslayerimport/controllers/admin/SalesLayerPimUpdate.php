@@ -75,7 +75,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
     ) {
         $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " . _DB_PREFIX_ . "slyr_syncdata";
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
-
+        $this->saveConfiguration(['LAST_CONNECTOR' => $connector_id . '_' . time()]);
         $this->debbug(" reading from table  " . print_r($items_processing, 1));
         if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
             $this->debbug(
@@ -121,6 +121,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         //Clear registers in Sales Layer table deleted in Prestashop
         $this->clearDeletedSlyrRegs();
+        $this->clearDataHash();
+        $this->clearWorkProcess();
 
 
         $api = new SalesLayerConn($connector_id, $secret_key);
@@ -145,10 +147,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
         if ($api->hasResponseError()) {
             $this->debbug('## Error. : ' . $api->getResponseError() . ' Msg: ' . $api->getResponseErrorMessage());
             $this->removeDownloadingBlock('DOWNLOADING');
+            $this->deleteConfiguration('LAST_CONNECTOR');
             return false;
         }
 
-
+        $this->clearPreloadCache();
         $this->debbug('Language data ' . print_r($data_returned['schema']['languages'], 1));
 
 
@@ -254,8 +257,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
         } else {
             $product_formats_items_del = array();
         }
-
-
+        /*  $this->debbug('After organize table ->' . print_r($product_items, 1));
+          $this->removeDownloadingBlock('DOWNLOADING');
+          return false;*/
 
         $sync_params = $arrayReturn = array();
 
@@ -280,7 +284,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $sync_params['conn_params']['comp_id'] = $comp_id;
         $sync_params['conn_params']['connector_id'] = $connector_id;
-        $sync_params['conn_params']['shops'] = $this->getConnectorShops($connector_id);
+        $sync_params['conn_params']['shops'] = $this->connector_shops;
         $sync_params['conn_params']['currentLanguage'] = $this->currentLanguage;
         $sync_params['conn_params']['defaultLanguage'] = $this->defaultLanguage;
 
@@ -301,19 +305,18 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $time_ini_store_items_delete = microtime(1);
                 if (!empty($catalogue_items_del)) {
                     $item_type = 'category';
-
                     $this->debbug('Total count of categories to be deleted stored: ' . count($catalogue_items_del));
-
                     $this->debbug('Deleted category data to be stored: ' . print_r($catalogue_items_del, 1));
-
                     $arrayReturn['categories_to_delete'] = count($catalogue_items_del);
                     foreach ($catalogue_items_del as $catalog) {
-                        $item_data = array();
-                        $item_data['sl_id'] = $catalog;
-                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                            json_encode($item_data)
-                        ) . "', '" . addslashes(json_encode($sync_params)) . "')";
-                        $this->insertSyncdataSql();
+                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog)) {
+                            $item_data = [];
+                            $item_data['sl_id'] = $catalog;
+                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                                json_encode($item_data)
+                            ) . "', '" . addslashes(json_encode($sync_params)) . "')";
+                            $this->insertSyncdataSql();
+                        }
                     }
                 }
 
@@ -329,12 +332,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $arrayReturn['products_to_delete'] = count($product_items_del);
 
                     foreach ($product_items_del as $product) {
-                        $item_data = array();
-                        $item_data['sl_id'] = $product;
-                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                            json_encode($item_data)
-                        ) . "', '" . addslashes(json_encode($sync_params)) . "')";
-                        $this->insertSyncdataSql();
+                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $product)) {
+                            $item_data             = array();
+                            $item_data['sl_id']    = $product;
+                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                                json_encode($item_data)
+                            ) . "', '" . addslashes(json_encode($sync_params)) . "')";
+                            $this->insertSyncdataSql();
+                        }
                     }
                 }
 
@@ -353,12 +358,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     }
                     $arrayReturn['product_formats_to_delete'] = count($product_formats_items_del);
                     foreach ($product_formats_items_del as $product_format) {
-                        $item_data = array();
-                        $item_data['sl_id'] = $product_format;
-                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                            json_encode($item_data)
-                        ) . "', '" . addslashes(json_encode($sync_params)) . "')";
-                        $this->insertSyncdataSql();
+                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $product_format)) {
+                            $item_data             = array();
+                            $item_data['sl_id']    = $product_format;
+                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                                json_encode($item_data)
+                            ) . "', '" . addslashes(json_encode($sync_params)) . "')";
+                            $this->insertSyncdataSql();
+                        }
                     }
                 }
 
@@ -397,7 +404,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 if (!empty($catalogue_items)) {
                     $item_type = 'category';
                     $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['catalogue'];
-                    $sync_params['conn_params']['data_schema'] = $data_schema['catalogue'];
+                    $sync_params['conn_params']['data_schema'] = $data_schema;
                     $defaultCategory = (int)Configuration::get('PS_HOME_CATEGORY');
                     $defaultCategory = $this->checkDefaultCategory($defaultCategory);
                     $catalogue_items = $this->firstReorganizeCategories($catalogue_items);
@@ -416,13 +423,34 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_insert['sync_data'] = $catalog;
                         $data_insert['defaultCategory'] = $defaultCategory;
 
-                        $item_data_to_insert = json_encode($data_insert); // html_entity_decode
-                        $sync_params_to_insert = json_encode($sync_params);
+                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog, $data_insert)) {
+                            $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
+                            $sync_params_to_insert = json_encode($sync_params);
 
-                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                            $item_data_to_insert
-                        ) . "', '" . addslashes($sync_params_to_insert) . "')";
-                        $this->insertSyncdataSql();
+                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                                $item_data_to_insert
+                            ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                            $this->insertSyncdataSql();
+                        }
+                    }
+                }
+                /**
+                 * Move variants to products (unify variants)
+                 */
+                if (!empty($product_formats_items)) {
+                    foreach ($product_formats_items as $key_variant => $product_formats_item) {
+                        if (isset($product_formats_item['ID_products'])) {
+                            if (isset($product_items[$product_formats_item['ID_products']])) {
+                                $product_items[$product_formats_item['ID_products']]['variants']
+                                [$product_formats_item['ID']]['item'] =
+                                    $product_formats_item;
+
+                                $product_items[$product_formats_item['ID_products']]['variants']
+                                [$product_formats_item['ID']]['schema'] =
+                                    $data_returned['data_schema_info']['product_formats'];
+                                unset($product_formats_items[$key_variant]);
+                            }
+                        }
                     }
                 }
 
@@ -431,8 +459,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
                  */
 
                 if (!empty($product_items)) {
-                    $item_type = 'product';
-
                     if ($this->debugmode > 1) {
                         $this->debbug('Total count of synced products to store: ' . count($product_items));
                     }
@@ -440,23 +466,77 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $this->debbug('Synced products data to store: ' . print_r($product_items, 1));
                     }
 
-
                     $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['products'];
-                    $sync_params['conn_params']['data_schema'] = $data_schema['products'];
+                    $sync_params['conn_params']['data_schema'] = $data_schema;
                     $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
                     $sync_params['conn_params']['sync_categories'] = $exist_categories;
                     $arrayReturn['products_to_sync'] = count($product_items);
                     foreach ($product_items as $product) {
-                        $data_insert = array();
+                        $item_type = 'product';
+                        $data_insert              = [];
                         $data_insert['sync_data'] = $product;
 
-                        $item_data_to_insert = json_encode($data_insert); //html_entity_decode
-                        $sync_params_to_insert = json_encode($sync_params);
+                        if ($this->checkChangesBeforeSave(
+                            $sync_type,
+                            $item_type,
+                            $product,
+                            $avoid_stock_update,
+                            $shops
+                        )) {
+                            if (isset($product['variants']) && count($product['variants'])) {
+                                foreach ($product['variants'] as $variant_id => $variant) {
+                                    if (!$this->checkChangesBeforeSave(
+                                        $sync_type,
+                                        'product_format',
+                                        $variant['item'],
+                                        $avoid_stock_update,
+                                        $shops
+                                    )) {//variant without changes
+                                        unset($data_insert['sync_data']['variants'][$variant_id]);
+                                    }
+                                }
+                            }
+                            if (isset($data_insert['sync_data']['variants']) &&
+                                empty($data_insert['sync_data']['variants'])) {
+                                unset($data_insert['sync_data']['variants']);
+                            }
 
-                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                            $item_data_to_insert
-                        ) . "', '" . addslashes($sync_params_to_insert) . "')";
-                        $this->insertSyncdataSql();
+                            $item_data_to_insert   = json_encode($data_insert); //html_entity_decode
+                            $sync_params_to_insert = json_encode($sync_params);
+                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                                $item_data_to_insert
+                            ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                            $this->insertSyncdataSql();
+                        } else {
+                            //if product not have changes
+                            if (isset($product['variants']) && count($product['variants'])) {
+                                $item_type = 'product_format';
+                                foreach ($product['variants'] as $variant) {
+                                    $data_insert              = [];
+                                    $data_insert['sync_data'] = $variant['item'];
+                                    if ($this->checkChangesBeforeSave(
+                                        $sync_type,
+                                        $item_type,
+                                        $variant['item'],
+                                        $avoid_stock_update,
+                                        $shops
+                                    )) {
+                                        $sync_params['conn_params']['data_schema_info'] =
+                                            $data_returned['data_schema_info']['product_formats'];
+                                        $sync_params['conn_params']['data_schema'] = $data_schema;
+                                        $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
+                                        $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
+                                        $sync_params_to_insert = json_encode($sync_params);
+
+                                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" .
+                                                                 addslashes(
+                                                                     $item_data_to_insert
+                                                                 ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                                        $this->insertSyncdataSql();
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -492,13 +572,21 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_insert = array();
                         $data_insert['sync_data'] = $product_format;
 
-                        $item_data_to_insert = json_encode($data_insert); // html_entity_decode
-                        $sync_params_to_insert = json_encode($sync_params);
+                        if ($this->checkChangesBeforeSave(
+                            $sync_type,
+                            $item_type,
+                            $product_format,
+                            $avoid_stock_update,
+                            $shops
+                        )) {
+                            $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
+                            $sync_params_to_insert = json_encode($sync_params);
 
-                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                            $item_data_to_insert
-                        ) . "', '" . addslashes($sync_params_to_insert) . "')";
-                        $this->insertSyncdataSql();
+                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                                $item_data_to_insert
+                            ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                            $this->insertSyncdataSql();
+                        }
                     }
                 }
 
@@ -510,7 +598,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 unset($this->sl_catalogues, $this->sl_products, $this->sl_variants);
             }
         }
+        $this->runWorkProcess('image-preloader');
         $this->removeDownloadingBlock('DOWNLOADING');
+        $this->stopIndexer();
+        $this->callProcess('update-stock');
+        
         if (!$api->hasResponseError()) {
             $this->debbug('Actualizando last update ->' . $last_update_save . ' ');
             $this->sl_updater->setConnectorLastUpdate($connector_id, $last_update_save);
@@ -518,6 +610,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
             //call to cron for sincronize all cached data
             if (!$onlystore && $this->checkRegistersForProccess()) {
                 $this->verifyRetryCall(true);
+            } else {
+                $this->deleteConfiguration('LAST_CONNECTOR');
             }
         }
 
@@ -1052,10 +1146,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $tmpfile = $temp_dir . sha1(end($explode_url));
             } else {
                 try {
-                    $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import');
+                    $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import' . rand(0, 99999) . '_' . uniqid(rand(0, 999)));
                 } catch (Exception $e) {
                     $this->debbug('## Error. in Create temporary file.->' .
-                                  $e->getMessage(), 'syncdata');
+                                  $e->getMessage(), 'image_preloader');
                 }
             }
             if (file_exists($tmpfile)) {
@@ -1067,29 +1161,29 @@ class SalesLayerPimUpdate extends SalesLayerImport
         // $extension =   $this->getExensionFile($url);
         if ($response[0]) {
             if (!$get_hash) {
-                $this->debbug('temporary file name generate fo image :' . ($tmpfile), 'syncdata');
+                $this->debbug('temporary file name generate fo image :' . ($tmpfile), 'image_preloader');
                 $response = file_put_contents($tmpfile, $response[1]);
                 if ($response) {
                     unset($response);
-                    $this->debbug('sending the real file with the empty file :' . $tmpfile, 'syncdata');
+                    $this->debbug('inject data to template file :' . $tmpfile, 'image_preloader');
 
                     return $tmpfile;
                 } else {
-                    $this->debbug('Image error, could not be saved on downloaded :' . $tmpfile, 'syncdata');
+                    $this->debbug('Image error, could not be saved on downloaded :' . $tmpfile, 'image_preloader');
                     unlink($tmpfile);
                     unset($response);
                     return false;
                 }
             } else {
                 if (!empty($response[1])) {
-                    $this->debbug('generating hash ', 'syncdata');
+                    $this->debbug('generating hash ', 'image_preloader');
                     return hash('md5', $response[1]);
                 } else {
                     return false;
                 }
             }
         } else {
-            $this->debbug('Error image could not be downloaded :' . print_r($response, 1), 'syncdata');
+            $this->debbug('##Error. image could not be downloaded :' . print_r($response, 1), 'image_preloader');
             if (!$get_hash) {
                 if (file_exists($tmpfile)) {
                     unlink($tmpfile);
@@ -1136,7 +1230,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
             curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
         }
         if (!$wait_for_response) {
-            $this->debbug('conection with timeout ' . $this->timeout_for_run_process_connections, 'syncdata');
+            $this->debbug('run short connection without wait response->' .
+                          $this->timeout_for_run_process_connections, 'balancer');
             curl_setopt($ch, CONNECTION_TIMEOUT, $this->timeout_for_run_process_connections);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout_for_run_process_connections);
             curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->timeout_for_run_process_connections);
@@ -1162,7 +1257,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         } else {
             if ($wait_for_response) {
                 if ($httpcode == 0) {
-                    $this->debbug(' ## Error. curl problem connection result  ' . curl_error($ch), 'syncdata');
+                    $this->debbug(' ## Error. curl problem connection result  ' . curl_error($ch), 'balancer');
                 }
                 $this->debbug(
                     '## Error. result connection http:' . $httpcode . ' -> ' . print_r(
@@ -1174,7 +1269,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     ) . ' URL -> ' . $url . ' curl_error ->' .
                     print_r(curl_error($ch), 1) .
                     ' $result->' . print_r($result, 1),
-                    'syncdata'
+                    'balancer'
                 );
                 $http_stat = false;
             } else {
@@ -1392,7 +1487,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         if (array_key_exists($keyStruct, $campoTabla['data'])) {
                             if (isset($campoStruct['language_code']) && !empty($campoStruct['language_code'])) {
                                 $index_name = $campoStruct['basename'] . '_' . $campoStruct['language_code'];
-                                $tablas[$keyTab]['data'][$index_name] = $tablas[$keyTab]['data'][$keyStruct];
+                                $tablas[$keyTab]['data'][$index_name] =
+                                    $tablas[$keyTab]['data'][$keyStruct];
                             } else {
                                 $this->debbug(
                                     'This is not multi-language ' . print_r(
@@ -1408,8 +1504,16 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 }
             }
         }
-
-        return $tablas;
+        $new_table = [];
+        foreach ($tablas as $campoTabla) {
+            if (isset($campoTabla['ID'])) {
+                $new_table[$campoTabla['ID']] = $campoTabla;
+            } else {
+                $new_table = $tablas;
+                break;
+            }
+        }
+        return $new_table;
     }
 
     /**

@@ -27,7 +27,7 @@ if (!Module::isInstalled('saleslayerimport')
 ) {
     die('Bad token');
 }
-
+echo ' ';
 require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
 
 $SLimport = new SalesLayerImport();
@@ -36,7 +36,6 @@ if (!$is_internal == 1) {
     // call from cron
     $SLimport->saveCronExecutionTime();
 }
-
 $force_sync = Tools::getValue('force_sync');
 
 if ($force_sync != '') {
@@ -58,16 +57,17 @@ if ($SLimport->checkRegistersForProccess()) {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
     $sync_libs = new SalesLayerPimUpdate();
     try {
-        $response = $sync_libs->syncDataConnectors();
-        if (count($response)) {
-            $createMessage = implode('</br>', $response);
+        $response = $sync_libs->runBalancer();
+        if ($response) {
+            // $createMessage = implode('</br>', $response);
             $SLimport->debbug(
-                ' After executed sync_data_connectors return ->' . print_r($createMessage, 1),
+                ' After executed runBalancer return ->' . print_r($response, 1),
                 'autosync'
             );
         }
     } catch (Exception $e) {
-        $SLimport->debbug('## Error. Sync data connectors in Cron start : ' . $e->getMessage(), 'error');
+        $SLimport->debbug('## Error. Sync data connectors in Cron start : ' . $e->getMessage() .
+                          'Line->' . $e->getLine(), 'error');
     }
 } else {
     try {

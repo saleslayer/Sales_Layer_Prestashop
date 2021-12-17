@@ -103,6 +103,12 @@ class SlCatalogues extends SalesLayerPimUpdate
 
             return 'item_not_updated';
         }
+        $data_clear = [];
+        $data_clear['ID_PARENT'] = $catalog['ID_PARENT'];
+        $data_clear['data'] = $catalog['data'];
+
+        $data_clear = json_encode($data_clear);
+        $data_hash = hash($this->hash_algorithm_comparator, $data_clear);
 
         $catalog_exists = (int)Db::getInstance()->getValue(
             sprintf(
@@ -145,6 +151,9 @@ class SlCatalogues extends SalesLayerPimUpdate
                 }
             }
         }
+
+
+
 
 
         if (!$catalog_exists) {
@@ -850,7 +859,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $catalog['data'][$section_name_index],
                         'Catalog'
                     );
-                    if ($catalog_name != $cat->name[$lang['id_lang']]) {
+                    if (!isset($cat->name[$lang['id_lang']]) || $catalog_name != $cat->name[$lang['id_lang']]) {
                         $cat->name[$lang['id_lang']] = html_entity_decode($catalog_name);
                     }
 
@@ -892,7 +901,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                     !empty($catalog['data'][$section_description_index])) {
                     $section_description = html_entity_decode($catalog['data'][$section_description_index]);
 
-                    if ($cat->description[$lang['id_lang']] != $section_description) {
+                    if (!isset($cat->description[$lang['id_lang']]) ||
+                        $cat->description[$lang['id_lang']] != $section_description) {
                         $cat->description[$lang['id_lang']] = $section_description;
                     }
 
@@ -934,7 +944,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                 }
 
                 if ($meta_title != '') {
-                    if ($cat->meta_title[$lang['id_lang']] != $meta_title) {
+                    if (!isset($cat->meta_title[$lang['id_lang']]) ||
+                        $cat->meta_title[$lang['id_lang']] != $meta_title) {
                         if (Tools::strlen($meta_title) > 249) {
                             /* $this->debbug('## Warning. ' . $occurence . ' Meta title has been cut->' .
                                            print_r(Tools::strlen($meta_title), 1), 'syncdata');*/
@@ -975,7 +986,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                     }
                 }
 
-                if ($meta_description != '' && $cat->meta_description[$lang['id_lang']] != $meta_description) {
+                if ($meta_description != '' && (!isset($cat->meta_description[$lang['id_lang']]) ||
+                                                $cat->meta_description[$lang['id_lang']] != $meta_description)) {
                     if (Tools::strlen($meta_description) > 255) {
                         /* $this->debbug('## Warning. ' . $occurence . ' Meta description has been cut->' .
                                        print_r(Tools::strlen($meta_description), 1), 'syncdata');*/
@@ -1034,7 +1046,8 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                 if ($friendly_url != '') {
                     $friendly_url = Tools::link_rewrite($friendly_url);
-                    if ($friendly_url != $cat->link_rewrite[$lang['id_lang']]) {
+                    if (!isset($cat->link_rewrite[$lang['id_lang']]) ||
+                        $friendly_url != $cat->link_rewrite[$lang['id_lang']]) {
                         $cat->link_rewrite[$lang['id_lang']] = $friendly_url;
                         // $need_update = true;
                     }
@@ -1186,13 +1199,29 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $url = trim($image_url);
 
                         if (!empty($url)) {
-                            $temp_file = $this->downloadImageToTemp($url);
+                            $cached = SalesLayerImport::getPreloadedImage($url);
+                            if ($cached) {
+                                $temp_file = Tools::stripslashes($cached['local_path']);
+                                $this->debbug('Image founded in cache as preloaded->' .
+                                              print_r($temp_file, 1) . 'and before used  befor clear ->' .
+                                              print_r($cached, 1), 'syncdata');
+                            } else {
+                                $temp_file = $this->downloadImageToTemp($url);
+                                $this->debbug('Image downloaded->' .
+                                              print_r($temp_file, 1), 'syncdata');
+                            }
                             if ($temp_file) {
                                 $cat->deleteImage(true);
-                                $this->debbug('Uploading image', 'syncdata');
+                                $this->debbug('Uploading image from ->' . print_r($temp_file, 1), 'syncdata');
                                 // $url = str_replace(' ', '%20', $url);
                                 $this->copyImg($cat->id, $cat->id, $temp_file, 'categories', true, true);
                                 $protected_ids[] = $cat->id;
+                            }
+                            if ($cached) {
+                                if (file_exists($temp_file)) {
+                                    unlink($temp_file);
+                                }
+                                SalesLayerImport::deletePreloadImage($url);
                             }
                         }
                     }
@@ -1366,10 +1395,25 @@ class SlCatalogues extends SalesLayerPimUpdate
             Db::getInstance()->execute($schemaUpdateShops);
         }
 
-        unset($cat);
+
+
         if ($syncCat) {
+            $prepare_input_compare = [];
+            $prepare_input_compare['sl_id']               = $catalog['ID'];
+            $prepare_input_compare['ps_type']             = 'category';
+            $prepare_input_compare['conn_id']             = $connector_id;
+            $prepare_input_compare['ps_id']               = $cat->id;
+            $prepare_input_compare['hash']                = $data_hash;
+
+            $query_insert =   SalesLayerImport::setRegisterInputCompare($prepare_input_compare);
+            $this->debbug(
+                $occurence . ' Inserting data hash:' . print_r($query_insert, 1),
+                'syncdata'
+            );
+            unset($cat);
             return 'item_updated';
         } else {
+            unset($cat);
             return 'item_not_updated';
         }
     }

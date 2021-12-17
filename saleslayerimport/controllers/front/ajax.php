@@ -45,10 +45,8 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['server_time'] = 'Server time: ' . date('H:i');
             $SLimport = new SalesLayerImport();
 
-            $sql_processing = 'SELECT ( SELECT count(*) as sl_cuenta_registros  FROM '
-                              . _DB_PREFIX_ . 'slyr_syncdata ) as sl_cuenta_registros' .
-                              ' ,sync_type,item_type  FROM ' . _DB_PREFIX_ . 'slyr_syncdata WHERE ' .
-                              'id = (SELECT MIN(id) as id FROM ' . _DB_PREFIX_ . 'slyr_syncdata  LIMIT 1) LIMIT 1';
+            $sql_processing = ' SELECT count(*) as sl_cuenta_registros  FROM '
+                              . _DB_PREFIX_ . 'slyr_syncdata ';
             $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
 
             if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
@@ -57,38 +55,45 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 $return['total_stat']  = null;
                 //work_stat
 
-                $current_flag = $SLimport->slConnectionQuery(
-                    'read',
-                    'SELECT * FROM ' . $SLimport->saleslayer_syncdata_flag_table . ' ORDER BY id DESC LIMIT 1'
-                );
+                $balancer_runned = $SLimport->getConfiguration('BALANCER');
+                $working_stat =  $SLimport->getConfiguration('SYNC_STATUS');
                 //work_stat
+                $parse_work = '';
+                $process    = '';
+                $item_type  = '';
+                if ($working_stat) {
+                    $parse_work = explode('_', $working_stat);
+                    $process = $parse_work[0];
+                    $item_type = $parse_work[1];
+                }
+
                 $Work_in_message = '';
-                if ($items_processing['sync_type'] == 'update') {
+                if ($process == 'update') {
                     $Work_in_message .= 'Updating ';
                 } else {
-                    if ($items_processing['item_type'] == 'product_format') {
+                    if ($item_type == 'product_format') {
                         $Work_in_message .= 'Removing ';
                     } else {
                         $Work_in_message .= 'Deactivating ';
                     }
                 }
-                if ($items_processing['item_type'] == 'category') {
+                if ($item_type == 'category') {
                     $Work_in_message .= 'categories';
-                } elseif ($items_processing['item_type'] == 'product') {
+                } elseif ($item_type == 'product') {
                     $Work_in_message .= 'products';
-                } elseif ($items_processing['item_type'] == 'product_format') {
+                } elseif ($item_type == 'product_format') {
                     $Work_in_message .= 'variants';
-                } elseif ($items_processing['item_type'] == 'accessories') {
+                } elseif ($item_type == 'accessories') {
                     $Work_in_message .= 'accessories';
-                } elseif ($items_processing['item_type'] == 'index') {
+                } elseif ($item_type == 'index') {
                     $Work_in_message = 'Indexing';
                 }
-                if (!count($current_flag) ||
-                    (isset($current_flag[0]['syncdata_pid']) && $current_flag[0]['syncdata_pid'] == 0)) {
+                if (!$balancer_runned) {
                     $Work_in_message = 'Waiting for cron';
                 }
                 $Work_in_message .= '&nbsp;';
                 $return['work_stat'] = $Work_in_message ;
+                $return['speed']     = $SLimport->getCountProcess('synchronizer');
 
                 $result = $SLimport->testSlcronExist();
                 $register_forProcess = $SLimport->checkRegistersForProccess();
@@ -97,15 +102,10 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                     $execution_frecuency_cron = $SLimport->getConfiguration('CRON_MINUTES_FREQUENCY');
                     $updated_time = strtotime($result[0]['updated_at']);
                     $now_is_bd = strtotime($result[0]['timeBD']);
-                    //  $old_execution_time = $SLimport->checkCronProcessExecutionTime();
-                    // $SLimport->debbug('old Latest executed time of cron ->    ' . date('H:i:s',$old_execution_time) .
-                    // 'Latest updated time in bd ->'.date('H:i:s',$updated_time) ,'syncdata' );
+
                     $next_sync_bd_time = $updated_time + $execution_frecuency_cron;
                     $start_in_bd_seconds = $next_sync_bd_time - $now_is_bd;
-//                    $start_at_servertime = time() + $start_in_bd_seconds;
-                    // $SLimport->debbug('Latest Execution time of cron is  ' . date('d-m-Y H:i:s',$updated_time) .
-                    // 'next start in -> ' . $this->timeOccurence( $start_in_bd_seconds).' at server time ->' .
-                    // date('d-m-Y H:i:s',$start_at_servertime) , 'syncdata');
+
                     $return['next_cron_expected'] = $this->timeOccurence($start_in_bd_seconds);
                 } else {
                     $return['next_cron_expected'] = 0;
@@ -239,6 +239,8 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $sql_processing = "DELETE FROM " . _DB_PREFIX_ . 'slyr_syncdata';
             $SLimport->slConnectionQuery('-', $sql_processing);
 
+            $SLimport->clearPreloadCache();
+            $SLimport->clearTempImages();
             $return['message_type'] = 'success';
             $return['message'] = 'Deleted all from synchronization';
 
@@ -355,6 +357,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
         $conn_code,
         $onlystore = false
     ) {
+        $return = [];
         $SLimport = new SalesLayerImport();
         $SLimport->debbug('Start update from AJAX command to process connector: ' . print_r($conn_code, 1));
         $createMessege = '';
@@ -365,16 +368,13 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
         if ($SLimport->checkRegistersForProccess()) {
             try {
-                $response = $sync_libs->syncDataConnectors();
-                if (count($response)) {
-                    $createMessege = implode('<br>', $response);
-                }
-                $return = $createMessege;
+                $SLimport->callProcess('cron', ['internal' => 1]);
+                $return = 'Synchronization executed';
                 $update_success = true;
             } catch (Exception $e) {
                 $SLimport->debbug(
                     '## Error. Sync data connectors ' . $conn_code . ' : ' .
-                    $e->getMessage() . ' line->' . $$e->getLine(),
+                    $e->getMessage() . ' line->' . $e->getLine(),
                     'error'
                 );
                 $return = 'Error: Sync data connectors  ' . $conn_code . ' : ' . $e->getMessage();
@@ -491,6 +491,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
         if ($res) {
             foreach ($res as $row) {
                 $p = new Product($row['id_product']);
+
                 $p->deleteImage(true);
                 $p->delete();
             }
@@ -548,6 +549,10 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
         }
 
         $SLimport->clearDeletedSlyrRegs();
+        $SLimport->clearDataHash(false);
+        $SLimport->clearPreloadCache();
+        $SLimport->clearWorkProcess();
+        $SLimport->clearTempImages();
 
         Db::getInstance()->execute("DELETE FROM " . _DB_PREFIX_ . 'slyr_category_product');
 

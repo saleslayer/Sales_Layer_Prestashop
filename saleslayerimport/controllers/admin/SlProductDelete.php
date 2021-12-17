@@ -42,7 +42,7 @@ class SlProductDelete extends SalesLayerPimUpdate
                 1
             ) . ' connector ->' .
             print_r($connector, 1),
-            'syncdata'
+            'delete'
         );
         $product_ps_arr = Db::getInstance()->executeS(
             sprintf(
@@ -82,7 +82,7 @@ class SlProductDelete extends SalesLayerPimUpdate
                                 $return_update,
                                 1
                             ) . 'query ->' . $update_query,
-                            'syncdata'
+                            'delete'
                         );
                     }
                     foreach ($shops_active as $shops_used) {
@@ -145,7 +145,7 @@ class SlProductDelete extends SalesLayerPimUpdate
                             'it is possible that it does not exist anymore in prestashop,' .
                             'and thus it can no longer be eliminated.' .
                             ' Try deactivating product manually from prestashop.',
-                            'syncdata'
+                            'delete'
                         );
                     }
                 } else {
@@ -157,7 +157,7 @@ class SlProductDelete extends SalesLayerPimUpdate
                         ) . ' Product has been uploaded by several routes and there is still' .
                         ' a connector in which the product has been received as visible: ' .
                         print_r($shops_active, 1),
-                        'syncdata'
+                        'delete'
                     );
                 }
             }

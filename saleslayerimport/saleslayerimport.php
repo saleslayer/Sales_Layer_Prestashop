@@ -105,7 +105,7 @@ class SalesLayerImport extends Module
     private $max_execution_time                 = 290;
     private $memory_min_limit                   = 300;
     private $sql_insert_limit                   = 5;
-    private $logfile_delete_days                = 15;// After so many days the debug files will be deleted
+    private $logfile_delete_days                = 10;// After so many days the debug files will be deleted
 
 
     ##############################################################
@@ -136,6 +136,7 @@ class SalesLayerImport extends Module
     public $comp_id                          = '';
     public $sl_catalogues;
     public $sl_products;
+    public $sl_products_dl;
     public $sl_variants;
     public $shop_languages;
     public $sl_time_ini_process;
@@ -145,7 +146,7 @@ class SalesLayerImport extends Module
     public $debugmode;
     public $cron_frequency;
     public $sync_categories                 = true;
-    private $sql_items_delete               = array();
+    public $sql_items_delete               = array();
     private $debug_occurence                = array();
     private $updated_elements               = array();
     private $syncdata_pid;
@@ -155,6 +156,26 @@ class SalesLayerImport extends Module
     private $sl_time_ini_sync_data_process;
     private $load_cron_time_status;
     public $shop_loaded_id;
+    public $hash_algorithm_comparator      = 'md5';
+    private $limit_min_value_max_execution = 100;
+    private $limit_max_value_max_execution = 290;
+    private $limit_max_reserved_execution  = 400;
+    private $limit_per_process              = 5;
+    public $start_sync_connector          = false;
+    public $start_sync_timestamp          = false;
+    private $process_definition = [//max number of processes for default
+        'delete' =>  [
+            'category'       => 1,
+            'product'        => 2,
+            'product_format' => 2],
+        'update' => [
+            'category'       => 1,
+            'product'        => 100,
+            'product_format' => 5,
+            'accessories'    => 1
+        ]
+    ];
+
 
     ############################################################
 
@@ -283,7 +304,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.4.26';
+        $this->version = '1.5.0';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -607,28 +628,19 @@ class SalesLayerImport extends Module
                 $error_write = false;
                 if ($error_content) {
                     $error_write = true;
-                    $error_file = DEBBUG_PATH_LOG . '_error_debbug_log_' . date('Y-m-d') . '.txt';
+                    $error_file = DEBBUG_PATH_LOG . '_error_log_' . date('d-m') . '.log';
                 }
-
-
-                switch ($type_file) {
-                    case 'timer':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_timers_' . date('Y-m-d') . '.txt';
-                        break;
-
-                    case 'autosync':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_auto_sync_' . date('Y-m-d') . '.txt';
-                        break;
-
-                    case 'syncdata':
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_sync_data_' . date('Y-m-d') . '.txt';
-                        break;
-
-                    default:
-                        $file = DEBBUG_PATH_LOG . '_debbug_log_' . date('Y-m-d') . '.txt';
-                        break;
+                if ($type_file == 'syncdata') {
+                    $this->loadDebugVariables();
                 }
-
+                $start = ($this->start_sync_timestamp ? $this->start_sync_timestamp : time());
+                $file = DEBBUG_PATH_LOG . '_log_' . date('d-m', $start) .
+                          ($type_file == 'syncdata' ? 'sync' : $type_file) .
+                          ($type_file == 'syncdata' && $this->start_sync_timestamp ?
+                              'H' .  date('H-i', $this->start_sync_timestamp) : '') .
+                          ($type_file == 'syncdata' && $this->start_sync_connector ?
+                              '_' . $this->start_sync_connector : '') .
+                          ($type_file == 'syncdata' ? '_' . getmypid() : '') . '.log';
 
                 $new_file = false;
 
@@ -636,16 +648,16 @@ class SalesLayerImport extends Module
                     $new_file = true;
                 }
             }
-            if ($this->debugmode > 2) {
-                $mem = sprintf("%05.2f", (memory_get_usage(true) / 1024) / 1024);
+            // if ($this->debugmode > 2) {
+            $mem = sprintf("%05.2f", (memory_get_usage(true) / 1024) / 1024);
 
-                $pid = getmypid();
+            $pid = getmypid();
 
-                $time_end_process = round(microtime(true) - $this->sl_time_ini_process);
-                $load_cpu = sys_getloadavg();
-                $load_cpu = $load_cpu[0];
-                $msg = "pid:{$pid}-mem:{$mem}-cpu:{$load_cpu}-time:{$time_end_process}-$msg";
-            }
+            $time_end_process = round(microtime(true) - $this->sl_time_ini_process);
+            $load_cpu = sys_getloadavg();
+            $load_cpu = $load_cpu[0];
+            $msg = "pid:{$pid}-mem:{$mem}-cpu:{$load_cpu}-time:{$time_end_process}-$msg";
+            // }
 
             if ($this->debugmode || $error_content || $force_print) {
                 if (!file_exists(DEBBUG_PATH_LOG)) {
@@ -725,10 +737,12 @@ class SalesLayerImport extends Module
                 $sql_sel = 'SELECT * FROM ' . $this->saleslayer_aditional_config . " WHERE configname = '$configname'";
                 $res = $this->slConnectionQuery('read', $sql_sel);
                 if (!empty($res)) {
-                    $sql_sel = 'UPDATE ' . $this->saleslayer_aditional_config .
-                        " SET  save_value = '" . $save_value . "' " .
-                        " WHERE id_config = '" . $res[0]['id_config'] . "' Limit 1";
-                    $this->slConnectionQuery('-', $sql_sel);
+                    if ($res[0]['save_value'] !== $save_value) {
+                        $sql_sel = 'UPDATE ' . $this->saleslayer_aditional_config .
+                                   " SET  save_value = '" . $save_value . "' " .
+                                   " WHERE id_config = '" . $res[0]['id_config'] . "' Limit 1";
+                        $this->slConnectionQuery('-', $sql_sel);
+                    }
                 } else {
                     $sql_sel = "INSERT INTO  " . $this->saleslayer_aditional_config . " ( configname , save_value )
                      VALUES ('" . $configname . "','" . $save_value . "')";
@@ -751,13 +765,13 @@ class SalesLayerImport extends Module
         if (count($result)) {
             $old_execution_time = $this->checkCronProcessExecutionTime(); //check old time of execution from slyr table
 
-            $this->debbug('Saving newest cron execution time form BD ->' . $result[0]['updated_at'], 'autosync');
-            $timetosave = strtotime($result[0]['updated_at']);
+            $this->debbug('Saving newest cron execution time form BD ->' . $result[0]['timeBD'], 'autosync');
+            $timetosave = strtotime($result[0]['timeBD']);
 
             $this->saveConfiguration(['LATEST_CRON_EXECUTION' => $timetosave]); // save newest time of execution
 
             if (!$old_execution_time) {
-                $old_execution_time = $this->max_execution_time - 10;
+                $old_execution_time = $this->max_execution_time ;
                 $this->debbug(
                     'Compare executions of cron ' . date('H:i:s', $timetosave) . ' Old->' . date(
                         'H:i;s',
@@ -767,7 +781,7 @@ class SalesLayerImport extends Module
                 );
             }
 
-            $execution_time_cron = $timetosave - $old_execution_time - 10;
+            $execution_time_cron = $timetosave - $old_execution_time ;
             $this->debbug('Frequency of execution of cron is ' . $execution_time_cron, 'autosync');
 
             if ($execution_time_cron > 0) {
@@ -980,7 +994,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 								`id_lang` int(11) DEFAULT NULL COMMENT 'Prestashop id_language',
 								`shops_info` text COMMENT 'Sales Layer connectors shops',
 								PRIMARY KEY (`id`)
-								) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+								) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 
         Db::getInstance()->execute($schemaSQL_PS_SL_C_P);
 
@@ -1030,7 +1044,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 								`id_image` int(10) NOT NULL COMMENT '(prestashop image id)',
 								`md5_image` varchar(128) NOT NULL COMMENT '(prestashop image md5)',
 								PRIMARY KEY (`image_reference`)
-								) ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
+								) ENGINE=MyISAM DEFAULT CHARSET=utf8; ";
 
         Db::getInstance()->execute($schemaSQL_PS_SL_C_I);
 
@@ -1060,20 +1074,22 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     INDEX `sync_type` (`sync_type` ASC) ,
                                     INDEX `item_type` (`item_type` ASC) ,
                                     INDEX `sync_tries` (`sync_tries` ASC))
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
                                     COMMENT = 'Sales Layer Sync Data Table' ";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
 
-        $schemaSQL_PS_SL_SETDATA_flag = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_syncdata_flag_table .
-                                        " (
-                                      `id` BIGINT NOT NULL AUTO_INCREMENT,
-                                      `syncdata_pid` BIGINT NOT NULL,
-                                      `syncdata_last_date` INT(11) NOT NULL,
-                                      PRIMARY KEY (`id`),
-                                      INDEX `syncdata_pid` (`syncdata_pid` ASC),
-                                      INDEX `syncdata_last_date` (`syncdata_last_date` ASC))
-                                      COMMENT = 'Sales Layer Sync Data Flag Table' ";
-        Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA_flag);
+        /*   $schemaSQL_PS_SL_SETDATA_flag = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_syncdata_flag_table .
+                                           " (
+                                         `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                         `syncdata_pid` BIGINT NOT NULL,
+                                         `syncdata_last_date` INT(11) NOT NULL,
+                                         PRIMARY KEY (`id`),
+                                         INDEX `syncdata_pid` (`syncdata_pid` ASC),
+                                         INDEX `syncdata_last_date` (`syncdata_last_date` ASC))
+                                         ENGINE=MyISAM DEFAULT CHARSET=utf8;
+                                         COMMENT = 'Sales Layer Sync Data Flag Table' ";
+           Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA_flag);*/
 
 
         $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
@@ -1175,6 +1191,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                       `save_value` VARCHAR(500) NULL,
                                     PRIMARY KEY (`id_config`),
                                     UNIQUE INDEX `configname_UNIQUE` (`configname` ASC))
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
                                     COMMENT = 'Sales Layer additional configuration' ";
         Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
         /*From 1.4.1*/
@@ -1212,6 +1229,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     `id_product` BIGINT NOT NULL,
                                     PRIMARY KEY (`id`),
                                     INDEX `id_product` (`id_product` ASC))
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
                                     COMMENT = 'Sales Layer poducts ids for reindex' ";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
@@ -1221,21 +1239,94 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     `accessories` varchar(20000) NOT NULL,
                                     PRIMARY KEY (`id`),
                                     INDEX `id_product` (`id_product` ASC))
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
                                     COMMENT = 'Sales Layer table for accessories' ";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
-        /* from 1.4.26*/
-       /* $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
+        /* from 1.4.27*/
+        $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_input_compare (
+                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+                                     `sl_id` BIGINT unsigned NOT NULL,
+                                     `ps_type` varchar(14) NOT NULL, 
+                                    `conn_id` int(9) unsigned NOT NULL,                                    
+                                    `ps_id` BIGINT NOT NULL ,
+                                    `hash` varchar(50),
+                                    `timestamp_modified` datetime DEFAULT NULL,
+                                    UNIQUE(`sl_id`,`ps_type`,`conn_id`),
+                                    INDEX `reg` (`ps_id` ASC , `hash` ASC, `ps_type` ASC, `conn_id` ASC ),
+                                    UNIQUE INDEX `reg_unique` (`ps_id` ASC ,`ps_type` ASC, `conn_id` ASC )
+                                    )
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8;                                     
+                                    COMMENT = 'Sales Layer table for data hash' ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+
+        $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_stock_update (
+                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,                                    
+                                    `ps_type` varchar(14) NOT NULL, 
+                                    `id_shop` int(9) unsigned NOT NULL,                                    
+                                    `ps_id` BIGINT NOT NULL ,                                  
+                                    `stock` int(11) NOT NULL,
+                                    UNIQUE(`ps_id`,`ps_type`,`id_shop`),                                    
+                                    UNIQUE INDEX `reg_unique` (`ps_id` ASC , `ps_type` ASC, `id_shop` ASC )
+                                    ) 
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8;                                    
+                                    COMMENT = 'Sales Layer table for update stock quickly' ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+
+        $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
                       " WHERE table_schema = '" . _DB_NAME_ . "' " .
                       " AND table_name = '" . _DB_PREFIX_ . "slyr_indexer' " .
-                      " AND column_name = 'data'";
-        $indexer_data = Db::getInstance()->executeS($query_read);
+                      " AND column_name = 'conn_id'";
 
-        if (empty($indexer_data)) {
+        $shops_info = Db::getInstance()->executeS($query_read);
+
+        if (empty($shops_info)) {
             $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_indexer ' .
-                           "ADD COLUMN `data` TEXT(20000) NULL AFTER `id_product` ";
+                           "ADD COLUMN `conn_id` int(10) AFTER `id_product` ";
             Db::getInstance()->execute(sprintf($query_alter));
-        }*/
+        }
+
+        $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_image_preloader (
+                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,                                    
+                                    `url` varchar(3000) NOT NULL, 
+                                    `ps_type` varchar(14) NOT NULL, 
+                                    `status` VARCHAR(2) NOT NULL DEFAULT 'no',
+                                    `md5_image` varchar(128) ,                                   
+                                    `local_path` varchar(128),                                               
+                                    INDEX `type` (`ps_type` ASC),
+                                    INDEX `url` (`url` ASC),
+                                    INDEX `type_status` (`ps_type`,`status`)                                    
+                                    )
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8;                                     
+                                    COMMENT = 'Sales Layer table for preload images before sync' ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+
+        $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_process (
+                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,                                    
+                                    `prc_type` varchar(30) NOT NULL, 
+                                    `prc_time` datetime DEFAULT NULL, 
+                                    `pid` int(15) DEFAULT 0,
+                                    INDEX `prc_type` (`prc_type` ASC)                                  
+                                    )                                    
+                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
+                                    COMMENT = 'Sales Layer table for control process' ";
+        Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+
+        $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
+                      " WHERE table_schema = '" . _DB_NAME_ . "' " .
+                      " AND table_name = '" . _DB_PREFIX_ . "slyr_syncdata' " .
+                      " AND column_name = 'date_start'";
+
+        $shops_info = Db::getInstance()->executeS($query_read);
+
+        if (empty($shops_info)) {
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_syncdata ' .
+                           'ENGINE = MyISAM ,' .
+                           "ADD COLUMN `date_start` datetime DEFAULT NULL AFTER `status`, " .
+                           'ADD INDEX `date_start` (`date_start` ASC) ';
+
+            Db::getInstance()->execute(sprintf($query_alter));
+        }
     }
 
     /**
@@ -1525,7 +1616,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $result = $this->testSlcronExist();
 
         if (count($result)) {
-            $updated_time = strtotime($result[0]['updated_at']);
+            // $updated_time = strtotime($result[0]['updated_at']);
+            $updated_time = $this->getConfiguration('LATEST_CRON_EXECUTION');
             $limit_time = strtotime($result[0]['timeBD']) - (60 * 60);
 
             if ($updated_time > $limit_time) {
@@ -1631,8 +1723,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function clearDeletedSlyrRegs()
     {
         $this->debbug(
-            'Reasync deleted content and remove all from sl table if not exist in prestashop',
-            'syncdata'
+            'Reasync deleted content and remove all from sl table if not exist in prestashop'
         );
 
         $categoriesDelete = Db::getInstance()->executeS(
@@ -1650,6 +1741,27 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s" ' .
                         ' AND ps_type = "slCatalogue" ',
                         $categoryDelete['id']
+                    )
+                );
+            }
+        }
+        $categoriesDelete = Db::getInstance()->executeS(
+            "SELECT sl.ps_id FROM `" . _DB_PREFIX_ . 'slyr_input_compare`  sl
+            LEFT JOIN `' . _DB_PREFIX_ . "category`  ca ON (ca.id_category = sl.ps_id )
+            WHERE  sl.ps_type = 'category' AND ca.id_category is null"
+        );
+
+        if (!empty($categoriesDelete)) {
+            //  $this->debbug(' delete this slCatalogue register but already deleted ' .
+            // print_r($categoriesDelete,1).' sql->'.$schemaCats);
+            foreach ($categoriesDelete as $categoryDelete) {
+                Db::getInstance()->execute(
+                    sprintf(
+                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ' .
+                        '  WHERE ' .
+                        ' ps_type = "category" ' .
+                        ' AND ps_id = "%s" ',
+                        $categoryDelete['ps_id']
                     )
                 );
             }
@@ -1673,6 +1785,26 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
+        $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_input_compare`  sl " .
+                       " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
+                       " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
+        $productsDelete = Db::getInstance()->executeS($schemaProds);
+
+        if (!empty($productsDelete)) {
+            //  $this->debbug(' delete this product register but already deleted ' .
+            // print_r($productsDelete,1).' $sql->'.$schemaProds);
+            foreach ($productsDelete as $productDelete) {
+                Db::getInstance()->execute(
+                    sprintf(
+                        'DELETE FROM ' . _DB_PREFIX_ .
+                        'slyr_input_compare WHERE ' .
+                        ' ps_type = "product" ' .
+                        ' AND id = "%s" ',
+                        $productDelete['id']
+                    )
+                );
+            }
+        }
 
         $schemaAttrs = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
             " LEFT JOIN " . $this->attribute_group_table . " ag ON (ag.id_attribute_group = sl.ps_id ) " .
@@ -1680,8 +1812,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $attributesDelete = Db::getInstance()->executeS($schemaAttrs);
 
         if (!empty($attributesDelete)) {
-            //  $this->debbug(' delete this product_format_field register but already deleted ' .
-            // print_r($attributesDelete,1).' $sql->'.$schemaAttrs);
             foreach ($attributesDelete as $attributeDelete) {
                 Db::getInstance()->execute(
                     sprintf(
@@ -1732,7 +1862,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
 
-        $schemaFeatures = " SELECT id FROM " . _DB_PREFIX_ . "slyr_category_product  AS sl " .
+        $schemaFeatures = " SELECT sl.id FROM " . _DB_PREFIX_ . "slyr_category_product  AS sl " .
             " LEFT JOIN " . $this->product_attribute_table . " AS pa ON (pa.id_product_attribute = sl.ps_id ) " .
             " WHERE  sl.ps_type = 'combination' AND ( pa.id_product_attribute is null OR pa.id_product = 0) ";
         $featuresDelete = Db::getInstance()->executeS($schemaFeatures);
@@ -1746,6 +1876,29 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"  ' .
                         ' AND ps_type = "combination" ',
                         $featureDelete['id']
+                    )
+                );
+            }
+        }
+
+        $schemaFeatures = " SELECT sl.ps_id FROM " . _DB_PREFIX_ . "slyr_input_compare  AS sl " .
+                          " LEFT JOIN " . $this->product_attribute_table .
+                          " AS pa ON (pa.id_product_attribute = sl.ps_id ) " .
+                          " WHERE  sl.ps_type = 'product_format' AND " .
+                          " ( pa.id_product_attribute is null OR pa.id_product = 0) ";
+        $featuresDelete = Db::getInstance()->executeS($schemaFeatures);
+
+        if (!empty($featuresDelete)) {
+            //  $this->debbug(' delete this combination register but already deleted ' .
+            // print_r($featuresDelete,1).' sql->'.$schemaFeatures);
+            foreach ($featuresDelete as $featureDelete) {
+                Db::getInstance()->execute(
+                    sprintf(
+                        'DELETE FROM ' . _DB_PREFIX_ .
+                        'slyr_input_compare WHERE ' .
+                        ' ps_type = "product_format" ' .
+                        ' AND ps_id = "%s"',
+                        $featureDelete['ps_id']
                     )
                 );
             }
@@ -1771,23 +1924,49 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
 
-        /*   $schemaAttachment = " SELECT sl.id_attachment FROM " . _DB_PREFIX_ . "slyr_attachment AS sl " .
-                           " LEFT JOIN " . $this->attachment_table . ' AS pa
-               ON (pa.id_attachment = sl.id_attachment ) WHERE pa.id_attachment is null ';
-           $deleteAttachment = Db::getInstance()->executeS($schemaAttachment);
+        $categoriesDelete = Db::getInstance()->executeS(
+            "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_input_compare`  sl
+            LEFT JOIN `' . _DB_PREFIX_ . "category`  ca ON (ca.id_category = sl.ps_id )
+            WHERE  sl.ps_type = 'category' AND ca.id_category is null"
+        );
 
-           if (!empty($deleteAttachment)) {*/
-            // $this->debbug('Eliminando archivos  SLYR que ya no existen en la tabla
-            // ' query->'.print_r($deleteAttachment,1));
-          /*  foreach ($deleteAttachment as $AttachmentforDelete) {
+        if (!empty($categoriesDelete)) {
+            //  $this->debbug(' delete this slCatalogue register but already deleted ' .
+            // print_r($categoriesDelete,1).' sql->'.$schemaCats);
+            foreach ($categoriesDelete as $categoryDelete) {
                 Db::getInstance()->execute(
                     sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_attachment WHERE id_attachment = "%s"',
-                        $AttachmentforDelete['id_attachment']
+                        'DELETE FROM ' . _DB_PREFIX_ .
+                        'slyr_input_compare WHERE ' .
+                        ' ps_type = "category" ' .
+                        'AND id = "%s"',
+                        $categoryDelete['id']
                     )
                 );
             }
-        }*/
+        }
+
+        $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_input_compare`  sl " .
+                       " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
+                       " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
+        $productsDelete = Db::getInstance()->executeS($schemaProds);
+
+        if (!empty($productsDelete)) {
+            //  $this->debbug(' delete this product register but already deleted ' .
+            // print_r($productsDelete,1).' $sql->'.$schemaProds);
+            foreach ($productsDelete as $productDelete) {
+                Db::getInstance()->execute(
+                    sprintf(
+                        'DELETE FROM ' . _DB_PREFIX_ .
+                        'slyr_input_compare ' .
+                        ' WHERE ' .
+                        'ps_type = "product" ' .
+                        ' AND id = "%s"',
+                        $productDelete['id']
+                    )
+                );
+            }
+        }
     }
 
     /**
@@ -1865,20 +2044,24 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         $ids_images = Db::getInstance()->executeS(
             sprintf(
-                'SELECT id_image FROM ' . $this->image_shop_table .
+                'SELECT SQL_NO_CACHE id_image FROM ' . $this->image_shop_table .
                 ' WHERE id_product = "%s" GROUP BY id_image ',
                 $id_product
-            )
+            ),
+            true,
+            false
         );
         $this->debbug('id_images from ' . $this->image_shop_table . ' -> ' .
                       print_r($ids_images, 1), 'syncdata');
 
         $ids_images_image = Db::getInstance()->executeS(
             sprintf(
-                'SELECT id_image  FROM ' . $this->image_table .
+                'SELECT SQL_NO_CACHE id_image  FROM ' . $this->image_table .
                 ' WHERE id_product = "%s" GROUP BY id_image ',
                 $id_product
-            )
+            ),
+            true,
+            false
         );
         $this->debbug('id_images from ' . $this->image_table . ' -> ' .
             print_r($ids_images_image, 1), 'syncdata');
@@ -1918,7 +2101,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 /*test if exist this image in ps_image table*/
                 try {
                     $ps_images = Db::getInstance()->executeS(
-                        sprintf('SELECT id_image FROM ' . $this->image_table . ' WHERE id_image = "%s" ', $id_image)
+                        sprintf('SELECT id_image FROM ' . $this->image_table .
+                                ' WHERE id_image = "%s" ', $id_image)
                     );
                     if (empty($ps_images)) {
                         $test_ok_ps_image = false;
@@ -1939,9 +2123,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 try {
                     $ps_images_lang = Db::getInstance()->executeS(
                         sprintf(
-                            'SELECT id_image FROM ' . $this->image_lang_table . ' WHERE id_image = "%s" ',
+                            'SELECT SQL_NO_CACHE id_image FROM ' . $this->image_lang_table . ' WHERE id_image = "%s" ',
                             $id_image
-                        )
+                        ),
+                        true,
+                        false
                     );
                     if (empty($ps_images_lang)) {
                         $test_ok_image_lang_table = false;
@@ -1959,9 +2145,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     /*test if exist ps_image_shop registers*/
                     $ps_images_shop = Db::getInstance()->executeS(
                         sprintf(
-                            'SELECT id_image FROM ' . $this->image_shop_table . ' WHERE id_image = "%s" ',
+                            'SELECT SQL_NO_CACHE id_image FROM ' . $this->image_shop_table . ' WHERE id_image = "%s" ',
                             $id_image
-                        )
+                        ),
+                        true,
+                        false
                     );
                     if (empty($ps_images_shop)) {
                         $test_ok_image_shop = false;
@@ -2269,386 +2457,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     }
 
     /**
-     * Function to synchronize Sales Layer connectors data stored in sync data table.
-     * @return array|bool
-     * @throws PrestaShopDatabaseException
-     * @throws PrestaShopException
-     */
-
-
-    public function syncDataConnectors()
-    {
-        $processed_delete = array();
-        $this->sl_catalogues = new SlCatalogues();
-        $this->sl_products = new SlProducts();
-        $this->sl_products_dl = new SlProductDelete();
-        $this->sl_variants = new SlVariants();
-        $processed = array();
-        $this->allocateMemory();
-        $this->debbug('memory limit status ->' . ini_get('memory_limit'));
-        $this->stopIndexer();
-        $result = $this->testSlcronExist();
-        $this->load_cron_time_status = $result;
-        $this->recalculateDurationOfSyncronizationProcess($result);
-
-        $this->sl_time_ini_sync_data_process = microtime(1);
-
-        $this->debbug("==== Sync Data INIT " . date('Y-m-d H:i:s') . " ====", 'syncdata');
-
-        try {
-            $sql_test = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata WHERE sync_tries >= 3 AND status = 'pr' ";
-            $result_test = $this->slConnectionQuery('read', $sql_test);
-
-            if (!empty($result_test)) {
-                //Print errors that have occurred due to php processes
-                $this->debbug('## Error. Processes have been detected that could not be completed' .
-                    ' and it is possible that this is due to a PHP error, please check the' .
-                    ' php / apache / nginx error log to find a solution to this problem.' .
-                    ' Stored information is:', 'syncdata');
-                foreach ($result_test as $item_err) {
-                    $item_data = json_decode($item_err['item_data'], 1);
-                    $this->debbug('## Error. item_type:' . $item_err['item_type'] .
-                        ' ID:' . print_r($item_data['sync_data']['ID'], 1) .
-                        ' Item_data_pack->' . print_r($item_err, 1), 'syncdata', true);
-                }
-                $this->debbug('Server information ================================================ ', 'syncdata', true);
-                $this->debbug('PS VERSION: ' . print_r(_PS_VERSION_, 1), 'syncdata', true);
-                $this->debbug('php Version: ' . print_r(phpversion(), 1), 'syncdata', true);
-                $this->debbug('Plugin Version: ' . print_r($this->version, 1), 'syncdata', true);
-                $this->debbug('max execution time: ' . print_r(ini_get('max_execution_time'), 1), 'syncdata', true);
-                $this->debbug('SERVER_SOFTWARE: ' . print_r($_SERVER["SERVER_SOFTWARE"], 1), 'syncdata', true);
-                $this->debbug('display_errors: ' . ini_get('display_errors'), 'syncdata', true);
-                $this->debbug(
-                    'ignore_repeated_errors: ' . print_r(ini_get('ignore_repeated_errors'), 1),
-                    'syncdata',
-                    true
-                );
-                $this->debbug(
-                    'intl.error_level: ' . print_r(ini_get('intl.error_level'), 1),
-                    'syncdata',
-                    true
-                );
-                $this->debbug(
-                    'cron frequency: ' . print_r($this->getConfiguration('CRON_MINUTES_FREQUENCY'), 1),
-                    'syncdata',
-                    true
-                );
-                $this->debbug(
-                    'loaded extensions: ' . print_r(get_loaded_extensions(), 1),
-                    'syncdata',
-                    true
-                );
-            }
-
-            //Clear exceeded attemps
-            $sql_delete = " DELETE FROM " . _DB_PREFIX_ . "slyr_syncdata WHERE sync_tries >= 3";
-            $this->slConnectionQuery('-', $sql_delete);
-        } catch (Exception $e) {
-            $this->debbug('## Error. Data cleaning has exceeded the maximum number of attempts: '
-                . $e->getMessage(), 'syncdata');
-        }
-
-        $load = sys_getloadavg();
-
-        if (($this->cpu_max_limit_for_retry_call * 2) < $load[0]) {
-            $this->debbug(
-                '## Warning. at:' . date(
-                    'H:i:s'
-                ) . ' We have detected that the cpu is overloaded, The saturation limit of cpu doubled.' .
-                 ' Cpu load->' .
-                print_r(
-                    $load[0],
-                    1
-                ) . ' limit ->' .
-                $this->cpu_max_limit_for_retry_call .
-                '. It\'s possible that that\'s why the synchronization will go much slower. ' .
-                ' We have reduced the number of insertions per process to 1.',
-                'syncdata'
-            );
-            $this->sql_insert_limit = 1;
-        //return false;
-        } elseif ($load[0] > $this->cpu_max_limit_for_retry_call) {
-            $this->debbug(
-                '## Warning. at:' . date(
-                    'H:i:s'
-                ) . ' We have detected that the cpu is overloaded,' .
-                 'we will try to postpone this synchronization for a ' .
-                  '10 seconds so as not to saturate your server any more. ' .
-                  'Cpu load->' .
-                print_r(
-                    $load[0],
-                    1
-                ) . ' limit ->' . $this->cpu_max_limit_for_retry_call . ' send sleep.' .
-                ' We have reduced the number of insertions per process to 3.',
-                'syncdata'
-            );
-            $this->sql_insert_limit = 3;
-            sleep(10);
-            $this->recalculateDurationOfSyncronizationProcess();
-        }
-
-        $this->syncdata_pid = getmypid();
-        $this->end_process = false;
-        $this->checkSyncDataFlag();
-
-        if (!$this->end_process) {
-            try {
-                $sql = " SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
-                     WHERE sync_type = 'delete' ORDER BY item_type ASC, sync_tries ASC, id ASC ";
-
-                $items_to_delete = $this->slConnectionQuery(
-                    'read',
-                    $sql
-                );
-                $this->allocateMemory();
-                if (!empty($items_to_delete)) {
-                    foreach ($items_to_delete as $item_to_delete) {
-                        $this->checkProcessTime();
-                        $this->checkSqlItemsDelete();
-
-                        if ($this->end_process) {
-                            $this->debbug('Breaking syncdata process due to time limit.', 'syncdata');
-                            break;
-                        } else {
-                            $sync_tries = $item_to_delete['sync_tries'];
-                            $sync_params = json_decode(
-                                Tools::stripslashes($item_to_delete['sync_params']),
-                                1
-                            );
-                            $this->processing_connector_id = $sync_params['conn_params']['connector_id'];
-                            $this->comp_id                 = $sync_params['conn_params']['comp_id'];
-                            $this->conector_shops_ids      = $sync_params['conn_params']['shops'];
-
-                            //   $this->store_view_ids = $sync_params['conn_params']['store_view_ids'];
-
-                            $item_data = json_decode(Tools::stripslashes($item_to_delete['item_data']), 1);
-                            $sl_id = $item_data['sl_id'];
-
-                            switch ($item_to_delete['item_type']) {
-                                case 'category':
-                                    try {
-                                        $result_delete = $this->sl_catalogues->deleteCategory(
-                                            $sl_id,
-                                            $this->comp_id,
-                                            $this->conector_shops_ids,
-                                            $this->processing_connector_id
-                                        );
-                                    } catch (Exception $e) {
-                                        $this->debbug(
-                                            '## Error. in delete category : ' . print_r($item_to_delete, 1),
-                                            'syncdata'
-                                        );
-                                    }
-                                    break;
-
-                                case 'product':
-                                    try {
-                                        $result_delete = $this->sl_products_dl->deleteProduct(
-                                            $sl_id,
-                                            $this->comp_id,
-                                            $this->conector_shops_ids,
-                                            $this->processing_connector_id
-                                        );
-                                    } catch (Exception $e) {
-                                        $this->debbug(
-                                            '## Error. In delete product: ' . print_r($item_to_delete, 1),
-                                            'syncdata'
-                                        );
-                                    }
-                                    break;
-
-                                case 'product_format':
-                                    try {
-                                        $result_delete = $this->sl_variants->deleteVariant(
-                                            $sl_id,
-                                            $this->comp_id,
-                                            $this->conector_shops_ids
-                                        );
-                                    } catch (Exception $e) {
-                                        $this->debbug(
-                                            '## Error. In delete Variant: ' . print_r($item_to_delete, 1),
-                                            'syncdata'
-                                        );
-                                    }
-                                    break;
-
-                                default:
-                                    $result_delete = 'Undefined ithem';
-                                    $this->debbug(
-                                        '## Error. Incorrect item: ' . print_r($item_to_delete, 1),
-                                        'syncdata'
-                                    );
-                                    break;
-                            }
-
-                            switch ($result_delete) {
-                                case 'item_not_deleted':
-                                    $this->debbug(
-                                        '## Error. Problem in deleting Item: ' . print_r($item_to_delete, 1),
-                                        'syncdata'
-                                    );
-                                    $sync_tries++;
-
-                                    $sql_update = " UPDATE " . _DB_PREFIX_ . "slyr_syncdata" .
-                                        " SET sync_tries = " . $sync_tries .
-                                        " WHERE id = " . $item_to_delete['id'];
-
-                                    $this->slConnectionQuery('-', $sql_update);
-                                    $this->clearDebugContent();
-                                    break;
-
-                                default:
-                                    $processed_delete[] = str_replace('_', ' ', $item_to_delete['item_type']);
-                                    $this->sql_items_delete[] = $item_to_delete['id'];
-                                    $this->clearDebugContent();
-                                    break;
-                            }
-                        }
-                    }
-                    $this->debbug('Run regenerateEntireNtree after delete', 'syncdata');
-
-                    $this->sl_catalogues->reorganizeCategories($this->conector_shops_ids);
-                }
-            } catch (Exception $e) {
-                $this->debbug('## Error. Deleting syncdata process: ' .
-                    $e->getMessage(), 'syncdata');
-            }
-
-            $indexes = array('category', 'product', 'accessories', 'product_format');
-            $categories_clear = true;
-            $product_clear = true;
-            $product_format_clear = true;
-
-
-            foreach ($indexes as $index) {
-                if ($index == 'product' && $categories_clear) {
-                    $this->allocateMemory();
-                    /**
-                     * After category synchronization
-                     */
-
-                    $categories_clear = false;
-                    try {
-                        $this->sl_catalogues->reorganizeCategories($this->conector_shops_ids);
-                    } catch (Exception $e) {
-                        $this->debbug(
-                            '## Error. In reorganizing Categories after Update ' .
-                            $e->getMessage() . ' line->' . $e->getLine(),
-                            'syncdata'
-                        );
-                    }
-
-                    unset($this->category_images_sizes, $this->sl_catalogues, $this->categories_collection);
-                } elseif ($index == 'accessories' && $product_clear) {
-                    /**
-                     * After Product synchronization
-                     */
-                    $product_clear = false;
-                    unset($this->product_images_sizes, $this->sl_products);
-                } elseif ($index == 'product_format' && $product_format_clear) {
-                    /**
-                     * After Product acesories synchronization
-                     */
-                    $product_format_clear = false;
-                }
-
-                $sql_check_try = 0;
-
-                do {
-                    $sqlpre = ' SET @id = null,@sync_type = null,@item_type = null,' .
-                        '@sync_tries = null,@item_data = null,@sync_params = null ';
-                    $sqlpre2 =  'UPDATE ' . _DB_PREFIX_ .
-                                'slyr_syncdata dest, (SELECT MIN(A.id) ,A.id,A.sync_tries,@id := A.id,' .
-                        '@sync_type := A.sync_type,@item_type := A.item_type,@sync_tries := A.sync_tries , ' .
-                        '@item_data := A.item_data,@sync_params := A.sync_params FROM ' . _DB_PREFIX_ .
-                                'slyr_syncdata A ' .
-                        " WHERE sync_type = 'update' AND item_type = '" . $index . "' LIMIT 1 ) src " .
-                        " SET dest.status = 'pr', dest.sync_tries = src.sync_tries + 1   WHERE   dest.id = src.id  ";
-                    $sqlpre3 = ' SELECT @id AS id,@sync_type AS sync_type,@item_type AS item_type , ' .
-                        ' @sync_tries AS sync_tries,@item_data AS item_data,@sync_params AS sync_params  ';
-
-                    $this->slConnectionQuery('-', $sqlpre);
-                    $this->slConnectionQuery('-', $sqlpre2);
-
-                    $items_to_update = $this->slConnectionQuery(
-                        'read',
-                        $sqlpre3
-                    );
-
-                    if (!empty($items_to_update)
-                        && isset($items_to_update[0]['id'])
-                        && $items_to_update[0]['id'] != null) {
-                        $processed_ithems = $this->updateItems($items_to_update);
-                        unset($items_to_update);
-
-                        if (count($processed_ithems)) {
-                            foreach ($processed_ithems as $result) {
-                                $this->updated_elements[] = $result;
-                            }
-                        }
-                        unset($processed_ithems);
-                    } else {
-                        // $sql_check_try++;
-                        $this->debbug('Stop because there are no more elements of ' . $index, 'syncdata');
-                        unset($items_to_update);
-                        break;
-                    }
-
-                    if ($this->end_process) {
-                        $this->debbug('Break 2 from but is end the process', 'syncdata');
-                        unset($items_to_update);
-                        break 2;
-                    }
-                } while ($sql_check_try < 4);
-            }
-        }
-
-        $this->checkSqlItemsDelete(true);
-
-        if (!$this->checkRegistersForProccess()) {
-            $this->startIndexer();
-        }
-
-        if (count($processed_delete)) {
-            $order_deleted = array_count_values($processed_delete);
-            foreach ($order_deleted as $deleted_key => $deleted) {
-                if ($deleted_key == 'category' && $deleted > 1) {
-                    $deleted_key = 'categorie';
-                }
-                $processed[] = 'Deleted ' . $deleted_key . ($deleted > 1 ? 's' : '') . ': ' . $deleted;
-            }
-        }
-
-
-        if (count($this->updated_elements)) {
-            $order_updated = array_count_values($this->updated_elements);
-            foreach ($order_updated as $updated_key => $updated) {
-                if ($updated_key == 'category' && $updated > 1) {
-                    $updated_key = 'categorie';
-                }
-                $processed[] = 'Modified ' . $updated_key . ($updated > 1 ? 's' : '') . ': ' . $updated;
-            }
-        }
-
-        $this->debbug('Processed :-> ' . print_r($processed, 1));
-        try {
-            $this->disableSyncDataFlag();
-            $this->verifyRetryCall();
-        } catch (Exception $e) {
-            $this->debbug('## Error. Deleting sync_data_flag: ' . $e->getMessage(), 'syncdata');
-        }
-
-        $this->debbug(
-            '### time_all_syncdata_process: ' . (microtime(1) - $this->sl_time_ini_sync_data_process) . ' seconds.',
-            'syncdata'
-        );
-
-        $this->debbug("==== Sync Data END " . date('Y-m-d H:i:s') . " ====", 'syncdata');
-
-        return $processed;
-    }
-
-    /**
      * Replace "/" to  "-" for strtotime recognition
      * @param $date
      *
@@ -2680,18 +2488,19 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $memory_remaining = $memory_multiply - $mem;
 
         if ($memory_remaining < 100) {
-            $this->debbug(
-                'The synchronization does not have any mb left wih which to work, it will be assigned more ->'
-                . $memory_multiply,
-                'syncdata'
-            );
+            /* $this->debbug(
+                 'The synchronization does not have any mb left wih which to work, it will be assigned more ->'
+                 . $memory_multiply,
+                 'syncdata'
+             );*/
             $memory_multiply = $memory_multiply * 3;
         }
 
-        $this->debbug(
-            'Actual Memory limit ->' . $actual_limit . ' In Use->' . $mem . ' Memory recommended ->' . $memory_multiply,
-            'syncdata'
-        );
+        /*  $this->debbug(
+              'Actual Memory limit ->' . $actual_limit . ' In Use->' .
+         $mem . ' Memory recommended ->' . $memory_multiply,
+              'syncdata'
+          );*/
         if ($actual_limit < $memory_multiply) {
             $this->debbug('Reassigning memory max_limit to ->' . $memory_multiply);
             @ini_set('memory_limit', $memory_multiply . 'M');
@@ -2741,14 +2550,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 if (Tools::strtolower(Tools::substr(PHP_OS, 0, 3)) == 'win') {
                     $wmi = new COM('winmgmts://');
                     $prc = $wmi->ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId='$pid'");
-
                     $i = count($prc);
-
                     $this->debbug(
                         "Searching active process pid '$pid' by Windows. Is active? " . ($i > 0 ? 'Yes' : 'No')
                     );
-
-
                     return ($i > 0 ? true : false);
                 } else {
                     if (function_exists('posix_getpgid')) {
@@ -2757,8 +2562,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 $pid
                             ) ? 'Yes' : 'No')
                         );
-
-
                         return (posix_getpgid($pid) ? true : false);
                     } else {
                         $this->debbug(
@@ -2766,8 +2569,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 "ps -p $pid | wc -l"
                             ) > 1 ? 'Yes' : 'No')
                         );
-
-
                         if (shell_exec("ps -p $pid | wc -l") > 1) {
                             return true;
                         }
@@ -2784,15 +2585,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
-
         return false;
     }
-
     /**
      * Save product for async index
      */
-
-    public function saveProductIdForIndex($product_id)
+    public function saveProductIdForIndex($product_id, $connector_id)
     {
         $this->debbug(
             'before test to save ? id_product->' .
@@ -2811,9 +2609,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 'Saving id_product for indexing after sync',
                 'syncdata'
             );
+            $connector_id = explode('H', $connector_id);
+            $connector_id = (int) filter_var(reset($connector_id), FILTER_SANITIZE_NUMBER_INT);
+
             $sl_query_flag_to_insert = " INSERT INTO " . _DB_PREFIX_ . "slyr_indexer " .
-                                       " (id_product) VALUES " .
-                                       "('" . $product_id . "')";
+                                       " (id_product,conn_id) VALUES " .
+                                       "('" . $product_id . "','" . $connector_id . "')";
             $this->slConnectionQuery('-', $sl_query_flag_to_insert);
         }
     }
@@ -2881,6 +2682,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 //set process to process in end
                 $item_type = 'accessories';
                 $sync_type = 'update';
+                $sync_params = [];
+                $sync_params['conn_params']['connector_id'] = $this->processing_connector_id;
+                $sync_params['conn_params']['comp_id']      = $this->comp_id;
+                $sync_params['conn_params']['shops']        = $this->conector_shops_ids;
+
                 $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
             WHERE sync_type = '$sync_type' AND item_type = '$item_type' Limit 1  ";
                 $result = $this->slConnectionQuery('read', $sql_sel);
@@ -2888,9 +2694,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 if (!$result) {
                     $this->product_accessories = true;
                     $sql_query_to_insert = "INSERT INTO " . _DB_PREFIX_ . "slyr_syncdata" .
-                                       " ( sync_type, item_type, item_data ) VALUES " .
+                                       " ( sync_type, item_type, item_data, sync_params ) VALUES " .
                                        "('" . $sync_type . "', '" . $item_type .
-                                           "', '" . json_encode(['virtual work for sync accessories']) . "')";
+                                           "', '" . json_encode(['virtual work for sync accessories']) .
+                                           "','" . addslashes(json_encode($sync_params)) . "')";
                     $this->slConnectionQuery('-', $sql_query_to_insert);
                 } else {
                     $this->product_accessories = true;
@@ -2908,46 +2715,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             );
         }
     }
-
-    /**
-     * Synchronize Acessories 'related_ithems'->accesories skus
-     *
-     * @param $item_type
-     * @param $array_name
-     */
-
-    /*  public function saveStatAccessories($item_type, $array_name)
-      {
-          if (isset($this->{$array_name}) && is_array($this->{$array_name}) &&
-               count($this->{$array_name})) {
-              // $item_type = 'accessories';
-              $sync_type = 'update';
-              try {
-                  $item_data_to_insert = html_entity_decode(json_encode($this->{$array_name}));
-
-                  $sql_sel = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata
-              WHERE sync_type = '$sync_type' AND item_type = '$item_type' Limit 1  ";
-                  $res = $this->slConnectionQuery('read', $sql_sel);
-
-                  if (!$res) {
-                      $sql_query_to_insert = "INSERT INTO " . _DB_PREFIX_ . "slyr_syncdata" .
-                          " ( sync_type, item_type, item_data ) VALUES " .
-                          "('" . $sync_type . "', '" . $item_type . "', '" . addslashes($item_data_to_insert) . "')";
-                      $this->slConnectionQuery('-', $sql_query_to_insert);
-                  } else {
-                      $sql_query_to_insert = " UPDATE " . _DB_PREFIX_ . "slyr_syncdata" .
-                          " SET item_data =  '" . addslashes(
-                              $item_data_to_insert
-                          ) . "' WHERE sync_type = '$sync_type' AND item_type = '$item_type' ";
-                      $this->slConnectionQuery('-', $sql_query_to_insert);
-                  }
-              } catch (Exception $e) {
-                  $this->debbug('## Error. An error has occurred keeping changes of ' .
-                                $item_type . ' of a product.->' .
-                      $e->getMessage() . ' line->' . $e->getLine(), 'syncdata');
-              }
-          }
-      }*/
 
 
     /**
@@ -2996,8 +2763,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                     if (!empty($product_accessories_ids)) {
                         $this->debbug(' Entry to sync accessories->' .
-                                      print_r($product_accessories_ids, 1), 'syncdata');
-                        $productObject = new Product($id_product);
+                                      print_r($product_accessories_ids, 1) .
+                                      ' shops->' . print_r($this->conector_shops_ids, 1), 'syncdata');
+                        $productObject = new Product($id_product, false, null, reset($this->conector_shops_ids));
                         $productObject->deleteAccessories();
                         $productObject->changeAccessories($product_accessories_ids);
                     }
@@ -3015,52 +2783,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         } while (count($res) > 1);
     }
-    /**
-     * Ejecutar despues de la synchronización de productos
-     */
-
-    /* public function syncIndexes()
-     {
-         //Process to update accessories once all products have been generated.
-         if (!empty($this->for_index)) {
-             $this->debbug(' Entry to sync Indexes->' .
-                           print_r($this->for_index, 1), 'syncdata');
-             $all_shops_image = Shop::getShops(true, null, true);
-             foreach ($this->for_index as $id_product => $product_id_val) {
-                 try {
-                     foreach ($all_shops_image as $shop_id_in) {
-                         Shop::setContext(shop::CONTEXT_SHOP, $shop_id_in);
-                         $prod_index = new Product($product_id_val, false, null, $shop_id_in);
-                         $prod_index->indexed = 0;
-                         if ($prod_index->price === null || $prod_index->price === '') {
-                             $prod_index->price = 0;
-                         }
-                         $this->debbug('Status active for stores in indexing-> ps_ product_id' .
-                                       $product_id_val  .
-                                       ' for store ' . $shop_id_in . ' before save ' .
-                                       print_r(
-                                           $prod_index->active,
-                                           1
-                                       ), 'syncdata');
-                         $prod_index->save();
-                     }
-                 } catch (Exception $e) {
-                     $this->debbug('## Error. ' . $product_id_val .
-                                   ' Set indexer to 0: ' .
-                                   $e->getMessage(), 'syncdata');
-                 }
-                 try {
-                     Shop::setContext(shop::CONTEXT_ALL);
-                     Search::indexation(false, $product_id_val);
-                     unset($this->for_index[$id_product]);
-                 } catch (Exception $e) {
-                     $this->debbug('## Error. ' . $product_id_val .
-                                   ' indexer error: ' .
-                                   $e->getMessage(), 'syncdata');
-                 }
-             }
-         }
-     }*/
 
     /**
      * Function that will verify if there is need to call the synchronization again in case the frequency of cron
@@ -3077,91 +2799,117 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             return false;
         }
 
-        $this->debbug('Entry to retry call ', 'syncdata');
+        $this->debbug('Entry to retry call ', 'balancer');
         $result = $this->testSlcronExist();
 
         $register_forProcess = $this->checkRegistersForProccess();
 
         if (isset($this->load_cron_time_status[0]['updated_at']) &&
             ((count($result) && $register_forProcess) || $force)) {
-            $updated_time = strtotime($this->load_cron_time_status[0]['updated_at']);
+            //$updated_time = strtotime($this->load_cron_time_status[0]['updated_at']);
+            //$updated_time = strtotime($result[0]['updated_at']);
+            $updated_time = $this->getConfiguration('LATEST_CRON_EXECUTION');
             $now_is = strtotime($result[0]['timeBD']);
-
-            $execution_frequency_cron = $this->getConfiguration('CRON_MINUTES_FREQUENCY');
-
             $this->debbug(
-                'Execution time of cron is  ' . $updated_time . ' and time limit-> ' . $execution_frequency_cron . ' ',
-                'syncdata'
+                'now is ->' . print_r($result[0]['timeBD'], 1) .
+                ' last update ->' .
+                date('d-m-Y H:i:s', $updated_time),
+                'balancer'
+            );
+            $execution_frequency_cron = $this->getConfiguration('CRON_MINUTES_FREQUENCY');
+            $this->debbug(
+                'Last execution time of cron is  ' . date('d-m-Y H:i:s', $updated_time) .
+                ' and time limit-> ' . $execution_frequency_cron . ' ',
+                'balancer'
             );
             $next_sync = round($updated_time + $execution_frequency_cron);
+            $this->debbug(
+                'calculated next sync is at ->' . date('d-m-Y H:i:s', $next_sync),
+                'balancer'
+            );
             $duration_of_this_process = microtime(1) - $this->sl_time_ini_sync_data_process; //53
+            $this->debbug(
+                'Duration of this process->' . print_r($duration_of_this_process, 1),
+                'balancer'
+            );
             $if_start_now = round($now_is + $duration_of_this_process);
-            $restant_seconds_for_next_sync = round($next_sync - $now_is - 10);
-            if ($restant_seconds_for_next_sync < - 10) {
+            $this->debbug(
+                'if start now terminate at->' . print_r(date('d-m-Y H:i:s', $if_start_now), 1),
+                'balancer'
+            );
+            $restant_seconds_for_next_sync = round($next_sync - $now_is);
+            $this->debbug(
+                'second for next sync->' . print_r($restant_seconds_for_next_sync, 1),
+                'balancer'
+            );
+
+            if ($restant_seconds_for_next_sync < 0 && $restant_seconds_for_next_sync > -7) {
                 $this->debbug(
                     'Execution cron has been lost,' .
                     ' to advance the wait by launching a call to cron. ',
-                    'syncdata'
+                    'balancer'
                 );
                 $force = true;
             }
 
-            if (($execution_frequency_cron > 0 && $next_sync > $if_start_now) || $force) {
+            if (($execution_frequency_cron > 0 && $restant_seconds_for_next_sync > 10) || $force) {
                 $this->debbug(
-                    'Execution of frequency execution of disponible_for_synchronization is ' .
+                    'Execution of frequency execution of seconds_for_synchronization is ' .
                     $restant_seconds_for_next_sync .
                     ' and time limit-> ' . $this->max_execution_time . ' next synchronization from
-                     cron espected at ' . date(
+                     cron expected at ' . date(
                         'd-m-Y H:i:s',
                         $next_sync
-                    ) . ' now with duration of this porocess if start terminate at ->' . date(
-                        'd-m-Y H:i:s',
-                        $next_sync
-                    ),
-                    'syncdata'
+                    ) . '  time for synchronization ->' . $restant_seconds_for_next_sync,
+                    'balancer'
                 );
-                //verify load of cpu
-                $load = sys_getloadavg();
-                if ($load[0] > $this->cpu_max_limit_for_retry_call) {
-                    $this->debbug(
-                        '## Warning. The call will not be executed to start the process because the ' .
-                         'cpu of the server is heavily loaded,' .
-                         'it will try to synchronize later when the cron resumes the synchronization. ' .
-                          'cpu loaded->' .
-                        print_r(
-                            $load[0],
-                            1
-                        ) .
-                        ' limit is ->' . $this->cpu_max_limit_for_retry_call,
-                        'syncdata'
-                    );
-                }
 
-                if ((($this->max_execution_time < $restant_seconds_for_next_sync ||
-                      $restant_seconds_for_next_sync < -10) || $force)
-                    && $load[0] < $this->cpu_max_limit_for_retry_call) {
-                    $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-                    $s = '';
-                    if (Tools::usingSecureMode()) {
-                        $s = 's';
+
+                if ((($this->max_execution_time < $restant_seconds_for_next_sync &&
+                      $restant_seconds_for_next_sync > 10) || $force)) {
+                    try {
+                        $default_shop = (int) Configuration::get('PS_SHOP_DEFAULT');
+                        $get_url_query = "SELECT * FROM  " . _DB_PREFIX_ .
+                                         "shop_url WHERE id_shop = '" . $default_shop . "' ";
+                        $url_query = Db::getInstance()->executeS($get_url_query);
+
+                        if (!empty($url_query)) {
+                            $url_query = reset($url_query);
+                            $domain = $url_query['domain'];
+                            $baseUri = $url_query['physical_uri'];
+                        } else {
+                            $default_shop = new Shop($default_shop);
+                            $domain = $default_shop->domain;
+                            $baseUri = $default_shop->getBaseURI();
+                        }
+                        $s = '';
+                        if (Tools::usingSecureMode()) {
+                            $s = 's';
+                        }
+                        $url =  'http' . $s . '://' . $domain . $baseUri . 'modules/' .
+                                'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+                                    Tools::encrypt('saleslayerimport'),
+                                    0,
+                                    10
+                                ) .
+                                '&internal=1';
+
+                        $this->debbug(
+                            'Calling execution of this syncronization $restant_seconds_for_next_sync->' .
+                            $restant_seconds_for_next_sync . ' and time limit-> ' . $this->max_execution_time .
+                            ' force ->' . print_r(
+                                $force,
+                                1
+                            ) . 'Call RETRY to ' . $url,
+                            'syncdata'
+                        );
+                    } catch (Exception $e) {
+                        $this->debbug(
+                            '#Error. in generate url for retry call-> ' . $e->getMessage() .
+                            ' line->' . $e->getLine(),
+                            'syncdata'
+                        );
                     }
-                    $url =  'http' . $s . '://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
-                        'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
-                            Tools::encrypt('saleslayerimport'),
-                            0,
-                            10
-                        ) .
-                        '&internal=1';
-
-                    $this->debbug(
-                        'Calling execution of this syncronization $restant_seconds_for_next_sync->' .
-                        $restant_seconds_for_next_sync . ' and time limit-> ' . $this->max_execution_time .
-                        ' force ->' . print_r(
-                            $force,
-                            1
-                        ) . 'Call RETRY to ' . $url,
-                        'syncdata'
-                    );
 
                     $this->urlSendCustomJson('GET', $url, null, false);
                 } else {
@@ -3169,9 +2917,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         'Calling this process is not necessary if the prestashop calls to cron appear in
                          sufficient frequency for this process Or cpu is overloaded $restant_seconds_for_next_sync-> ' .
                         $restant_seconds_for_next_sync . ', time limit-> ' .
-                        $this->max_execution_time . ' load_cpu->' . $load[0] .
+                        $this->max_execution_time .
                         ' cpu limit stop config ->' . $this->cpu_max_limit_for_retry_call,
-                        'syncdata'
+                        'balancer'
                     );
                 }
             } else {
@@ -3184,39 +2932,61 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         date('d-m-Y H:i:s', $next_sync),
                         1
                     ) . ' $if_start_now terminate at->' . print_r(date('d-m-Y H:i:s', $if_start_now), 1),
-                    'syncdata'
+                    'balancer'
                 );
             }
         } else {
             if ($force) {
-                $this->debbug('Is a force retry call', 'syncdata');
-                $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-                $s = '';
-                if (Tools::usingSecureMode()) {
-                    $s = 's';
+                $this->debbug('Is a force retry call', 'balancer');
+                try {
+                    $default_shop = (int) Configuration::get('PS_SHOP_DEFAULT');
+                    $get_url_query = "SELECT * FROM  " . _DB_PREFIX_ .
+                                     "shop_url WHERE id_shop = '" . $default_shop . "' ";
+                    $url_query = Db::getInstance()->executeS($get_url_query);
+
+                    if (!empty($url_query)) {
+                        $url_query = reset($url_query);
+                        $domain = $url_query['domain'];
+                        $baseUri = $url_query['physical_uri'];
+                    } else {
+                        $default_shop = new Shop($default_shop);
+                        $domain = $default_shop->domain;
+                        $baseUri = $default_shop->getBaseURI();
+                    }
+
+                    $s = '';
+                    if (Tools::usingSecureMode()) {
+                        $s = 's';
+                    }
+                    $url =  'http' . $s . '://' . $domain  . $baseUri . 'modules/' .
+                            'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+                                Tools::encrypt('saleslayerimport'),
+                                0,
+                                10
+                            ) .
+                            '&internal=1';
+                    $this->debbug(
+                        'Calling execution of this synchronization  and time limit-> ' .
+                        $this->max_execution_time . ' force ->' . print_r(
+                            $force,
+                            1
+                        ) . 'Call RETRY to ' . $url,
+                        'balancer'
+                    );
+                } catch (Exception $e) {
+                    $this->debbug(
+                        '##Error. Connection load info store-> ' . $e->getMessage() .
+                        'line->' . $e->getLine() . ' trace ->' . $e->getTraceAsString(),
+                        'balancer'
+                    );
                 }
-                $url =  'http' . $s . '://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
-                       'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
-                           Tools::encrypt('saleslayerimport'),
-                           0,
-                           10
-                       ) .
-                       '&internal=1';
-                $this->debbug(
-                    'Calling execution of this synchronization  and time limit-> ' .
-                    $this->max_execution_time . ' force ->' . print_r(
-                        $force,
-                        1
-                    ) . 'Call RETRY to ' . $url,
-                    'syncdata'
-                );
                 try {
                     $this->urlSendCustomJson('GET', $url, null, false);
                 } catch (Exception $e) {
                     $this->debbug(
                         'Connection error-> ' . $e->getMessage() .
                         'Call RETRY to ' . $url,
-                        'syncdata'
+                        'balancer'
                     );
                 }
 
@@ -3230,7 +3000,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         $register_forProcess,
                         1
                     ),
-                    'syncdata'
+                    'balancer'
                 );
             }
         }
@@ -3305,7 +3075,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      * @throws PrestaShopDatabaseException
      */
 
-    protected function getConnectorShops(
+    public function getConnectorShops(
         $connector_id
     ) {
         $extra_info = $this->sl_updater->getConnectorExtraInfo($connector_id);
@@ -3331,26 +3101,35 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     private function deleteSlyrTables()
     {
-        /* from version 1.3 */
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_images');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_category_products');
-        /* from version 1.4.0 */
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_' .
-                                   $this->sl_updater->table_config);
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_catalogue');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_product_formats');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_products');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_category_product');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_category_products');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_syncdata');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . $this->saleslayer_syncdata_flag_table);
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_image');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . $this->saleslayer_aditional_config);
-        /*from version 1.4.7*/
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_attachment');
-        /*from version 1.4.20*/
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_indexer');
-        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_accessories');
+        $tables = [
+            /* from version 1.3 */
+            'slyr_image',
+            'slyr_category_products',
+            /* from version 1.4.0 */
+            'slyr_' . $this->sl_updater->table_config,
+            'slyr_catalogue',
+            'slyr_product_formats',
+            'slyr_products',
+            'slyr_category_product',
+            'slyr_category_products',
+            'slyr_syncdata',
+            $this->saleslayer_syncdata_flag_table,
+            $this->saleslayer_aditional_config,
+            /*from version 1.4.7*/
+            'slyr_attachment',
+            /*from version 1.4.20*/
+            'slyr_indexer',
+            'slyr_accessories',
+            /*from version 1.4.27*/
+            'slyr_input_compare',
+            'slyr_stock_update',
+            'slyr_image_preloader',
+            'slyr_process'
+        ];
+
+        foreach ($tables as $table) {
+            Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . $table);
+        }
     }
 
     /**
@@ -3359,17 +3138,17 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      */
 
 
-    private function stopIndexer()
+    public function stopIndexer()
     {
         $stat_indexer = Configuration::get('PS_SEARCH_INDEXATION');
-        $this->debbug('Indexer stat before stop ' . $stat_indexer, 'syncdata');
+        $this->debbug('Indexer stat before stop ' . $stat_indexer, 'balancer');
 
         if ($stat_indexer == 1) {
             $this->saveConfiguration(['STAT_INDEXER' => $stat_indexer]);
             Configuration::set('PS_SEARCH_INDEXATION', 0);
-            $this->debbug('Indexer Stoped', 'syncdata');
+            $this->debbug('Indexer Stoped', 'balancer');
         } else {
-            $this->debbug('indexer is already stopped', 'syncdata');
+            $this->debbug('indexer is already stopped', 'balancer');
         }
     }
 
@@ -3386,154 +3165,89 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if ($this->rewrite_execution_frequency) {
             $actual_execution_limit = 0;
             $actual_max_execution_limit = ini_get('max_execution_time');
-            $this->debbug('Reed max execution time before discount ->' . $actual_max_execution_limit, 'syncdata');
-            if ($actual_max_execution_limit > 0) { // no tiene limite
+            $this->debbug('Reed max execution time before discount ->' . $actual_max_execution_limit, 'balancer');
+            /*if ($actual_max_execution_limit > 0) { // no tiene limite
                 $actual_execution_limit = ($actual_max_execution_limit - 10);
                 // -10 seconds for the process to end before the other was executed and you have
                 // 10 seconds of reservation to finish any process you are doing.
-                $this->debbug('Rewrite max execution time to set  ' . $actual_execution_limit . ' -10', 'syncdata');
-            }
+                $this->debbug('Rewrite max execution time to set  ' . $actual_execution_limit . ' -10', 'balancer');
+            }*/
 
             $execution_time_cron = $this->getConfiguration('CRON_MINUTES_FREQUENCY');
             if (!$execution_time_cron) {
                 $execution_time_cron = 0;
             }
-
-            if ($actual_execution_limit > 0 && $actual_execution_limit <= $execution_time_cron) {
-                $transcured = round($actual_execution_limit - ($this->sl_time_ini_process - microtime(1)) - 5);
-                $this->debbug(
-                    'Set Max execution time from register of ini_get max_execution_time ' . $transcured,
-                    'syncdata'
-                );
-                $this->max_execution_time = $transcured;
-
-                return true;
+            if ($this->limit_max_reserved_execution < $execution_time_cron) {
+                $this->limit_max_reserved_execution = ($execution_time_cron + 20);
             }
 
+            if ($actual_execution_limit < $this->limit_max_reserved_execution) {
+                $actual_execution_limit = ($this->limit_max_reserved_execution - 10);
+                ini_set('max_execution_time', $this->limit_max_reserved_execution);
+            }
+            
             if ($execution_time_cron > 0 && $actual_execution_limit >= $execution_time_cron) {
-                if (!$result) {
-                    $result = $this->testSlcronExist();
-                }
-
-
+                $result = $this->testSlcronExist();
                 if (count($result)) {
-                    $updated_time = strtotime($result[0]['updated_at']);
-                    $now_is_from_BD = strtotime($result[0]['timeBD']);
-                    $next_run_at = $updated_time + $execution_time_cron;
+                    $updated_time = $this->getConfiguration('LATEST_CRON_EXECUTION');
+                    $now_is       = strtotime($result[0]['timeBD']);
+                    $this->debbug(
+                        'now()-> ' . print_r($result[0]['timeBD'], 1) .
+                        ' last update -> ' . print_r(date('d-m-Y H:i:s', $updated_time), 1),
+                        'balancer'
+                    );
+                    $next_sync    = $updated_time + $execution_time_cron;
+                    $restand_seconds_for = round($next_sync - $now_is) - 3;
 
-                    $restand_seconds_for = $next_run_at - $now_is_from_BD;
                     $this->debbug(
                         'It remains seconds until executing another cron ' . print_r($restand_seconds_for, 1),
-                        'syncdata'
+                        'balancer'
                     );
                 } else {
                     $restand_seconds_for = $actual_execution_limit - ($this->sl_time_ini_process - microtime(1));
                     $this->debbug(
                         'Limit from actual frequency  frequency  ' . print_r($restand_seconds_for, 1),
-                        'syncdata'
+                        'balancer'
                     );
                 }
-
+                if ($restand_seconds_for < 0) {
+                    /*  $this->debbug(
+                          '##Warning. Rest time is negative >' . print_r($restand_seconds_for, 1),
+                          'balancer'
+                      );*/
+                }
+                
                 $this->debbug(
                     'Set Max execution time from cron register limit ' . $restand_seconds_for,
-                    'syncdata'
+                    'balancer'
                 );
+
                 if ($restand_seconds_for > 0) {
                     $this->max_execution_time = round($restand_seconds_for - 5);
                 } else {
                     $this->debbug(
-                        'Set Max execution time from default-> ' .
-                        "because chron's frequency does not seem to be correct ->" . $restand_seconds_for,
-                        'syncdata'
+                        'Set Max execution as default ' .
+                        "because cron frequency does not seem to be correct ->" . $restand_seconds_for,
+                        'balancer'
                     );
+                    $this->max_execution_time = $this->limit_max_value_max_execution;
                 }
-            }
-        }
-    }
-
-    /**
-     * Function to check sync data pid flag in database and delete kill it if the process is stuck.
-     * @return void
-     */
-
-    private function checkSyncDataFlag()
-    {
-        if ($this->checkRegistersForProccess()) {
-            $current_flag = $this->slConnectionQuery( // slConnectionQuery
-                'read',
-                'SELECT * FROM ' . $this->saleslayer_syncdata_flag_table . ' ORDER BY id DESC LIMIT 1'
-            );
-
-            $now = time();
-            $date_now = $now;
-
-            if (!empty($current_flag)) {
-                $current_flag = $current_flag[0];
-                if ($current_flag['syncdata_pid'] == 0) {
-                    $sl_query_flag_to_update = " UPDATE " . $this->saleslayer_syncdata_flag_table .
-                        " SET syncdata_pid = " . $this->syncdata_pid . ", syncdata_last_date = '" . $date_now . "'" .
-                        " WHERE id = " . $current_flag['id'];
-
-                    $this->slConnectionQuery('-', $sl_query_flag_to_update);
-                } else {
-                    //$interval  = abs($now - strtotime($current_flag['syncdata_last_date']));
-                    $interval = abs($now - $current_flag['syncdata_last_date']);
-                    $minutes = round($interval / 60);
-
-                    if ($minutes < 10) {
-                        $this->debbug('Data is already being processed.' .
-                                      ' Go to terminate this process and wait ' .
-                                      'to run retry call if is needed.', 'syncdata');
-                        $this->end_process = true;
-                        $this->block_retry_call = true;
-                    } else {
-                        if ($this->syncdata_pid === $current_flag['syncdata_pid']) {
-                            $this->debbug('Pid is the same as current.', 'syncdata');
-                        }
-
-                        $flag_pid_is_alive = $this->hasPidAlive($current_flag['syncdata_pid']);
-
-                        if ($flag_pid_is_alive > 1) {
-                            try {
-                                $this->debbug('Killing pid: ' . $current_flag['syncdata_pid'], 'syncdata');
-
-                                $result_kill = posix_kill($current_flag['syncdata_pid'], 0);
-
-                                if (!$result_kill) {
-                                    $this->debbug(
-                                        '## Error. Could not kill pid ' . $current_flag['syncdata_pid'],
-                                        'syncdata'
-                                    );
-                                }
-                            } catch (Exception $e) {
-                                $this->debbug(
-                                    '## Error. Exception killing pid ' . $current_flag['syncdata_pid'] . ': ' . print_r(
-                                        $e->getMessage(),
-                                        1
-                                    ),
-                                    'syncdata'
-                                );
-                            }
-                        }
-
-                        $sl_query_flag_to_update = " UPDATE " . $this->saleslayer_syncdata_flag_table .
-                            " SET syncdata_pid = " . $this->syncdata_pid .
-                            ", syncdata_last_date = '" . $date_now . "'" .
-                            " WHERE id = " . $current_flag['id'];
-
-                        $this->slConnectionQuery('-', $sl_query_flag_to_update);
-                    }
-                }
+            } elseif ($actual_execution_limit > 0 && $actual_execution_limit <= $execution_time_cron) {
+                $duration = round($actual_execution_limit - ($this->sl_time_ini_process - microtime(1)) - 5);
+                $this->debbug(
+                    'Set Max execution time from register of ini_get max_execution_time ' . $duration .
+                    ' terminate at->' . date('d-m-Y H:i:s', (time() + $duration)),
+                    'balancer'
+                );
+                $this->max_execution_time = $duration;
+                return true;
             } else {
-                // $this->debbug('Insert data flag: '.$this->syncdata_pid, 'syncdata');
-                $sl_query_flag_to_insert = " INSERT INTO " . $this->saleslayer_syncdata_flag_table .
-                    " ( syncdata_pid, syncdata_last_date) VALUES " .
-                    "('" . $this->syncdata_pid . "', '" . $date_now . "')";
-
-                $this->slConnectionQuery('-', $sl_query_flag_to_insert);
+                $this->max_execution_time = $this->limit_max_value_max_execution;
             }
         }
     }
+
+
 
     /**
      * Function to check current process time to avoid exceding the limit.
@@ -3548,7 +3262,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->debbug(
                 'The predefined time for the synchronization has been exceeded in the next opportunity,
                 the synchronization will be calibrated and the synchronization will continue in its next process.->'
-                . $current_process_time . ' seconds max_execution_time:' . $this->max_execution_time
+                . $current_process_time . ' seconds max_execution_time:' . $this->max_execution_time,
+                'balancer'
             );
             $this->end_process = true;
         }
@@ -3559,7 +3274,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      * @return void
      */
 
-    private function checkSqlItemsDelete(
+    public function checkSqlItemsDelete(
         $force_delete = false
     ) {
         if (count($this->sql_items_delete) >= $this->sql_insert_limit
@@ -3584,67 +3299,60 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      * @return array
      */
 
-    private function updateItems(
+    public function updateItems(
         $items_to_update
     ) {
         $processed = array();
         foreach ($items_to_update as $item_to_update) {
-            $this->checkProcessTime();
-            $this->checkSqlItemsDelete();
+            $sync_tries = $item_to_update['sync_tries'];
 
-            if ($this->end_process) {
-                $this->debbug('Breaking syncdata process due to time limit.', 'syncdata');
-                break;
-            } else {
-                $sync_tries = $item_to_update['sync_tries'];
-
-                if (isset($item_to_update['sync_params']) &&
+            if (isset($item_to_update['sync_params']) &&
                     !empty($item_to_update['sync_params']) &&
                     $item_to_update['sync_params'] != '') {
-                    $sync_params = json_decode($item_to_update['sync_params'], 1);
-                    if (isset($sync_params['conn_params']) && !empty($sync_params['conn_params'])) {
-                        $this->processing_connector_id = $sync_params['conn_params']['connector_id'];
-                        $this->comp_id = $sync_params['conn_params']['comp_id'];
-                        $this->conector_shops_ids = $sync_params['conn_params']['shops'];
-                    }
+                $sync_params = json_decode($item_to_update['sync_params'], 1);
+                if (isset($sync_params['conn_params']) && !empty($sync_params['conn_params'])) {
+                    $this->processing_connector_id = $sync_params['conn_params']['connector_id'];
+                    $this->comp_id                 = $sync_params['conn_params']['comp_id'];
+                    $this->conector_shops_ids      = $sync_params['conn_params']['shops'];
                 }
+            }
 
-                $item_data = json_decode($item_to_update['item_data'], 1);
-                $result_update = 'item_not_updated';
-                if ($item_data == '') {
-                    $this->debbug(
-                        "## Error. Decoding item's data: " . print_r($item_to_update['item_data'], 1),
-                        'syncdata'
-                    );
-                } else {
-                    switch ($item_to_update['item_type']) {
-                        case 'category':
+            $item_data = json_decode($item_to_update['item_data'], 1);
+            $result_update = 'item_not_updated';
+            if ($item_data == '') {
+                $this->debbug(
+                    "## Error. Decoding item's data: " . print_r($item_to_update['item_data'], 1),
+                    'syncdata'
+                );
+            } else {
+                switch ($item_to_update['item_type']) {
+                    case 'category':
                             $this->sl_catalogues->loadCategoryImageSchema(
-                                $sync_params['conn_params']['data_schema']
+                                $sync_params['conn_params']['data_schema']['catalogue']
                             );
                             $this->default_category_id = $item_data['defaultCategory'];
 
                             $time_ini_sync_stored_category = microtime(1);
                             $this->debbug(' >> Category synchronization initialized << ', 'syncdata');
-                            try {
-                                $result_update = $this->sl_catalogues->syncOneCategory(
-                                    $item_data['sync_data'],
-                                    $sync_params['conn_params']['data_schema_info'],
-                                    $this->processing_connector_id,
-                                    $this->comp_id,
-                                    $sync_params['conn_params']['currentLanguage'],
-                                    $this->conector_shops_ids,
-                                    $item_data['defaultCategory']
-                                );
-                            } catch (Exception $e) {
-                                $result_update = 'item_not_updated';
-                                $this->debbug(
-                                    '## Error. Synchronizing category ' . print_r($e->getMessage(), 1) .
-                                    ' line->' . $e->getLine() .
-                                    ' trace->' . print_r($e->getTrace(), 1),
-                                    'syncdata'
-                                );
-                            }
+                        try {
+                            $result_update = $this->sl_catalogues->syncOneCategory(
+                                $item_data['sync_data'],
+                                $sync_params['conn_params']['data_schema_info'],
+                                $this->processing_connector_id,
+                                $this->comp_id,
+                                $sync_params['conn_params']['currentLanguage'],
+                                $this->conector_shops_ids,
+                                $item_data['defaultCategory']
+                            );
+                        } catch (Exception $e) {
+                            $result_update = 'item_not_updated';
+                            $this->debbug(
+                                '## Error. Synchronizing category ' . print_r($e->getMessage(), 1) .
+                                        ' line->' . $e->getLine() .
+                                        ' trace->' . print_r($e->getTrace(), 1),
+                                'syncdata'
+                            );
+                        }
 
                             // $result_update = $this->sync_stored_category($item_data);
                             $this->debbug(' >> Category synchronization finished << ', 'syncdata');
@@ -3658,50 +3366,79 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 ' seconds.',
                                 'timer'
                             );
-                            break;
+                        break;
 
-                        case 'product':
+                    case 'product':
                             $this->debbug(' >> Product start << ', 'syncdata');
-                            $this->sl_products->loadProductImageSchema($sync_params['conn_params']['data_schema']);
                            /* $this->loadConnectorAccesories('accessories', 'product_accessories');
                             $this->loadConnectorAccesories('index', 'for_index');*/
 
                             $time_ini_sync_stored_product = microtime(1);
                             $this->debbug(' >> Product synchronization initialized << ', 'syncdata');
 
-                            try {
-                                $this->debbug(' sync categories -> ' .
+                        try {
+                            $this->sl_products->loadProductImageSchema(
+                                $sync_params['conn_params']['data_schema']['products']
+                            );
+                            $this->debbug(' sync categories -> ' .
                                               print_r($this->sync_categories, 1), 'syncdata');
-                                $result_update_array = $this->sl_products->syncOneProduct(
-                                    $item_data['sync_data'],
-                                    $sync_params['conn_params']['data_schema_info'],
-                                    $this->comp_id,
-                                    $this->conector_shops_ids,
-                                    $sync_params['conn_params']['avoid_stock_update'],
-                                    $sync_params['conn_params']['sync_categories'],
-                                    $this->processing_connector_id
+                            $result_update_array = $this->sl_products->syncOneProduct(
+                                $item_data['sync_data'],
+                                $sync_params['conn_params']['data_schema_info'],
+                                $this->comp_id,
+                                $this->conector_shops_ids,
+                                $sync_params['conn_params']['avoid_stock_update'],
+                                $sync_params['conn_params']['sync_categories'],
+                                $this->processing_connector_id
+                            );
+                            $result_update = $result_update_array['stat'];
+
+                            if (isset($item_data['sync_data']['variants'])) {
+                                $this->sl_variants->loadVariantImageSchema(
+                                    $sync_params['conn_params']['data_schema']['product_formats']
                                 );
-                                $result_update = $result_update_array['stat'];
+                                foreach ($item_data['sync_data']['variants'] as $variant) {
+                                    try {
+                                        $result_update = $this->sl_variants->syncOneVariant(
+                                            $variant['item'],
+                                            $variant['schema'],
+                                            $this->processing_connector_id,
+                                            $this->comp_id,
+                                            $this->conector_shops_ids,
+                                            $sync_params['conn_params']['currentLanguage'],
+                                            $sync_params['conn_params']['avoid_stock_update']
+                                        );
+                                    } catch (Exception $e) {
+                                        $this->debbug(
+                                            '## Error. Synchronizing included Variant ' . print_r(
+                                                $e->getMessage(),
+                                                1
+                                            ) . ' trace->' . print_r(
+                                                $e->getTrace(),
+                                                1
+                                            ) . ' line->' . $e->getLine(),
+                                            'syncdata'
+                                        );
+                                    }
+                                }
+                            }
 
-
-
-
-                                /* $this->saveStatAccessories('accessories', 'product_accessories');
-                                 $this->saveStatAccessories('index', 'for_index');*/
-                            } catch (Exception $e) {
-                                $result_update = 'item_not_updated';
-                                $this->debbug(
-                                    '## Error. Synchronizing product ' . print_r(
-                                        $e->getMessage(),
-                                        1
-                                    ) . ' line->' . $e->getLine()
+                            /* $this->saveStatAccessories('accessories', 'product_accessories');
+                             $this->saveStatAccessories('index', 'for_index');*/
+                        } catch (Exception $e) {
+                            $result_update = 'item_not_updated';
+                            $this->debbug(
+                                '## Error. Synchronizing product ' . print_r(
+                                    $e->getMessage(),
+                                    1
+                                ) . ' line->' . $e->getLine()
                                     . ' trace->' . print_r(
-                                        $e->getTrace(),
+                                        $e->getTraceAsString(),
                                         1
                                     ),
-                                    'syncdata'
-                                );
-                            }
+                                'syncdata'
+                            );
+                        }
 
                             // $result_update = $this->sync_stored_product($item_data);
                             $this->debbug(' >> Product synchronization finished << ', 'syncdata');
@@ -3714,40 +3451,39 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 ' seconds.',
                                 'timer'
                             );
-                            break;
+                        break;
 
-                        case 'product_format':
-                            $this->sl_variants->loadVariantImageSchema($sync_params['conn_params']['data_schema']);
-                           // $this->loadConnectorAccesories('index', 'for_index');
-                            $time_ini_sync_stored_product_format = microtime(1);
+                    case 'product_format':
+                           $time_ini_sync_stored_product_format = microtime(1);
                             $this->debbug(' >> Format synchronization initialized << ', 'syncdata');
-                            try {
-                                $result_update = $this->sl_variants->syncOneVariant(
-                                    $item_data['sync_data'],
-                                    $sync_params['conn_params']['data_schema_info'],
-                                    $this->processing_connector_id,
-                                    $this->comp_id,
-                                    $this->conector_shops_ids,
-                                    $sync_params['conn_params']['currentLanguage'],
-                                    $sync_params['conn_params']['avoid_stock_update']
-                                );
+                        try {
+                            $this->sl_variants->loadVariantImageSchema(
+                                $sync_params['conn_params']['data_schema']['product_formats']
+                            );
+                            $result_update = $this->sl_variants->syncOneVariant(
+                                $item_data['sync_data'],
+                                $sync_params['conn_params']['data_schema_info'],
+                                $this->processing_connector_id,
+                                $this->comp_id,
+                                $this->conector_shops_ids,
+                                $sync_params['conn_params']['currentLanguage'],
+                                $sync_params['conn_params']['avoid_stock_update']
+                            );
 
-                                $result_update = $result_update['stat'];
-                                //  $this->saveStatAccessories('index', 'for_index');
-                            } catch (Exception $e) {
-                                $result_update = 'item_not_updated';
-                                $this->debbug(
-                                    '## Error. Synchronizing Variant ' . print_r(
-                                        $e->getMessage(),
-                                        1
-                                    ) . ' trace->' . print_r(
-                                        $e->getTrace(),
-                                        1
-                                    ) . ' line->' . $e->getLine(),
-                                    'syncdata'
-                                );
-                            }
-                            //$result_update = $this->sync_stored_product_format($item_data);
+                            $result_update = $result_update['stat'];
+                        } catch (Exception $e) {
+                            $result_update = 'item_not_updated';
+                            $this->debbug(
+                                '## Error. Synchronizing Variant ' . print_r(
+                                    $e->getMessage(),
+                                    1
+                                ) . ' trace->' . print_r(
+                                    $e->getTraceAsString(),
+                                    1
+                                ) . ' line->' . $e->getLine(),
+                                'syncdata'
+                            );
+                        }
                             $this->debbug(' >> Format synchronization finished << ', 'syncdata');
                             $this->debbug(
                                 '#### time_sync_stored_product_format: ' . $item_data['sync_data']['ID'] . '-> ' .
@@ -3759,24 +3495,23 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 ' seconds.',
                                 'timer'
                             );
-                            break;
+                        break;
 
-                        case 'accessories':
+                    case 'accessories':
                             $time_ini_sync_stored_product_accessories = microtime(1);
                             $this->debbug(' >> Product accessories << ');
-                          //  $this->loadConnectorAccesories('accessories', 'product_accessories');
-                            try {
-                                $this->syncAccesories();
-                                $result_update = 'item_updated';
-                            } catch (Exception $e) {
-                                $result_update = 'item_not_updated';
-                                $this->debbug(
-                                    '## Error. Synchronizing accessories ' . print_r(
-                                        $e->getMessage(),
-                                        1
-                                    ) . ' line->' . $e->getLine()
-                                );
-                            }
+                        try {
+                            $this->syncAccesories();
+                            $result_update = 'item_updated';
+                        } catch (Exception $e) {
+                            $result_update = 'item_not_updated';
+                            $this->debbug(
+                                '## Error. Synchronizing accessories ' . print_r(
+                                    $e->getMessage(),
+                                    1
+                                ) . ' line->' . $e->getLine()
+                            );
+                        }
 
                             $this->debbug(' >> Product Accessories END << ');
                             $this->debbug(
@@ -3789,16 +3524,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 ' seconds.',
                                 'timer'
                             );
-                            break;
-                        default:
+                        break;
+                    default:
                             $this->debbug('## Error. Incorrect item: : ' .
                                 print_r($item_to_update, 1), 'syncdata');
-                            break;
-                    }
+                        break;
                 }
+            }
 
-                switch ($result_update) {
-                    case 'item_not_updated':
+            switch ($result_update) {
+                case 'item_not_updated':
                         $this->debbug(
                             '## Error. item could not be synchronized: ' .
                             $item_to_update['item_type'] . ': ' . print_r(
@@ -3809,34 +3544,33 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         );
                         $sync_tries++;
 
-                        if ($sync_tries > 2) {
-                            if ($item_to_update['item_type'] == 'category') {
-                                $this->sl_catalogues->reorganizeCategories($this->conector_shops_ids);
-                            }
+                    if ($sync_tries > 2) {
+                        if ($item_to_update['item_type'] == 'category') {
+                            $this->sl_catalogues->reorganizeCategories($this->conector_shops_ids);
+                        }
 
-                            $this->sql_items_delete[] = $item_to_update['id'];
-                        } else {
-                            $this->debbug(
-                                '## Error. item_not_updated: : ' .
+                        $this->sql_items_delete[] = $item_to_update['id'];
+                    } else {
+                        $this->debbug(
+                            '## Error. item_not_updated: : ' .
                                 print_r($item_to_update, 1),
-                                'syncdata'
-                            );
-                            $sql_update = ' UPDATE ' . _DB_PREFIX_ . 'slyr_syncdata ' .
+                            'syncdata'
+                        );
+                        $sql_update = ' UPDATE ' . _DB_PREFIX_ . 'slyr_syncdata ' .
                                           " SET status = 'no' " .
                                           ' WHERE id = ' . $item_to_update['id'];
 
-                            $this->slConnectionQuery('-', $sql_update);
-                        }
+                        $this->slConnectionQuery('-', $sql_update);
+                    }
                         $this->clearDebugContent();
-                        break;
+                    break;
 
-                    default:
+                default:
                         $this->allocateMemory();
                         $this->clearDebugContent();
                         $processed[] = str_replace('_', ' ', $item_to_update['item_type']);
                         $this->sql_items_delete[] = $item_to_update['id'];
-                        break;
-                }
+                    break;
             }
         }
 
@@ -3857,67 +3591,24 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if ($before_start_status_indexer) {
             Configuration::set('PS_SEARCH_INDEXATION', $before_start_status_indexer);
             $this->debbug('Indexer Update ->' .
-                          print_r($before_start_status_indexer, 1), 'syncdata');
+                          print_r($before_start_status_indexer, 1));
         }
         $this->callIndexer();
     }
 
     /**
      * Call to indexers reindex all
-     * @throws PrestaShopException
      *
+     * @param string $to
+     * @param array $commands
+     *
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
      */
 
-    private function callIndexer()
+    public function callIndexer()
     {
-        /*
-          Deprecated! now indexes immediately with synchronization
-        */
-
-        // This is code for reindex all.
-        // But it makes too much use for the cpu in verision 1.7.6.0 version is deprecated.
-        /*  $admin_folder = $this->getConfiguration('ADMIN_DIR');
-          $contextShopID = Shop::getContextShopID();
-          Shop::setContext(Shop::CONTEXT_ALL);
-          $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-          $adminurl = 'http://' . $default_shop->domain . $default_shop->getBaseURI() .
-                          $admin_folder . '/searchcron.php?full=1&token=' .
-                  Tools::substr(
-                      _COOKIE_KEY_,
-                      34,
-                      8
-                  );
-          Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
-          $this->debbug('Calling indexer to start reindex all ', 'syncdata');
-          $this->urlSendCustomJson('GET', $adminurl, null, false);*/
-        $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-        $s = '';
-        if (Tools::usingSecureMode()) {
-            $s = 's';
-        }
-        $url =  'http' . $s . '://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
-                'saleslayerimport/saleslayerimport-indexer.php?token=' .
-                Tools::substr(
-                    Tools::encrypt('saleslayerimport'),
-                    0,
-                    10
-                );
-        $this->debbug(
-            'Calling execution of indexer and time limit-> '
-            . 'Call sales layer indexer to ' . $url,
-            'syncdata'
-        );
-        try {
-            $this->urlSendCustomJson('GET', $url, null, false);
-        } catch (Exception $e) {
-            $this->debbug(
-                'Connection error-> ' . $e->getMessage() .
-                'Call RETRY to ' . $url,
-                'syncdata'
-            );
-        }
-
-
+        $this->callProcess('indexer');
         /**
          * If you need to execute something after synchronization add the url here and uncomment the script
          */
@@ -3926,23 +3617,46 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->urlSendCustomJson('GET', $url_for_run, null, false);
 */
     }
-
-    /**
-     * Function to disable sync data pid flag in database.
-     * @return void
-     */
-    private function disableSyncDataFlag()
+    public function callProcess($to = 'indexer', $commands = [])
     {
-        $current_flag = $this->slConnectionQuery(
-            'read',
-            "SELECT * FROM " . $this->saleslayer_syncdata_flag_table . " ORDER BY id DESC LIMIT 1"
-        );
-
-        if (!empty($current_flag)) {
-            $sl_query_flag_to_update = "UPDATE " . $this->saleslayer_syncdata_flag_table .
-                " SET syncdata_pid = 0" .
-                " WHERE id = " . $current_flag[0]['id'];
-            $this->slConnectionQuery('-', $sl_query_flag_to_update);
+        try {
+            $default_store = Configuration::get('PS_SHOP_DEFAULT');
+            Shop::setContext(Shop::CONTEXT_SHOP, $default_store);
+            $default_shop = new Shop($default_store);
+            $s = '';
+            if (Tools::usingSecureMode()) {
+                $s = 's';
+            }
+            foreach ($commands as $command => $values) {
+                $commands[$command] = (is_array($values) ? implode(',', $values) : $values);
+            }
+            $url =  'http' . $s . '://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+                    'saleslayerimport/saleslayerimport-' . $to . '.php?token=' .
+                    Tools::substr(
+                        Tools::encrypt('saleslayerimport'),
+                        0,
+                        10
+                    ) . (!empty($commands) ? '&' . http_build_query($commands) : '');
+            $this->debbug(
+                'Calling execution of ' . $to . ' and time limit-> '
+                . 'Call to ' . $url,
+                'balancer'
+            );
+        } catch (Exception $e) {
+            $this->debbug(
+                '##Error. error-> ' . $e->getMessage() .
+                 ' generate url from comands ' . print_r($commands, 1),
+                'balancer'
+            );
+        }
+        try {
+            $this->urlSendCustomJson('GET', $url, null, false);
+        } catch (Exception $e) {
+            $this->debbug(
+                'Connection error-> ' . $e->getMessage() .
+                'Call RETRY to ' . $url,
+                'balancer'
+            );
         }
     }
 
@@ -4162,7 +3876,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         try {
             $ignoredirectories = array('logs','integrity','saleslayerimport.php');
             $files      = array();
-            $log_folder_files = array_slice(scandir($this->plugin_dir), 2);
+            $log_folder_files = [];
+            if ($handle = opendir($this->plugin_dir)) {
+                while (false !== ($entry = readdir($handle))) {
+                    if ($entry != "." && $entry != "..") {
+                        $log_folder_files[] = $entry;
+                    }
+                }
+                closedir($handle);
+            }
             foreach ($log_folder_files as $file) {
                 if (in_array($file, $ignoredirectories, false)) {
                     continue;
@@ -4209,7 +3931,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 }
             }
         }
-
         return $integrity_ok;
     }
 
@@ -4394,5 +4115,625 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                           print_r($valuetm, 1), 'syncdata');
         }
         return false;
+    }
+    public function checkChangesBeforeSave($sync_type, $item_type, $item_data, $avoid_stock_update = false, $shops = [])
+    {
+        if ($sync_type == 'delete') {
+            if ($item_type == 'category') {
+                $item_type = 'slCatalogue';
+            }
+
+            $query = "SELECT sl.id FROM "
+                      . _DB_PREFIX_ . "slyr_category_product sl" .
+                      " WHERE sl.ps_type = '" . $item_type . "' " .
+                       " AND sl.slyr_id = " . $item_data  ;
+            $cache_result  = Db::getInstance()->getValue($query);
+
+            if (!$cache_result) {
+                $this->debbug('Item ' . $item_type . ' sl_id->' . $item_data .
+                              ' for delete has never been synchronized!.');
+                return false;
+            }
+            return true;
+        } elseif ($sync_type == 'update') {
+            $stock = '';
+            if ($item_type == 'category') {
+                $data_clear = [];
+                $data_clear['ID_PARENT'] = $item_data['ID_PARENT'];
+                $data_clear['data']      = $item_data['data'];
+                $data = json_encode($data_clear);
+                $hash = hash($this->hash_algorithm_comparator, $data);
+                $images = (isset($item_data['data']['section_image']) ? $item_data['data']['section_image'] : []);
+            } else { //products and product_format
+                $data_clear = [];
+                $data_clear['data'] = $item_data['data'];
+                if ($item_type != 'product_format') {
+                    if (isset($item_data['ID_catalogue'])) {
+                        $data_clear['ID_catalogue'] = $item_data['ID_catalogue'];
+                    }
+                }
+                $data_clear['shops'] = $shops;
+
+                if ($avoid_stock_update) {
+                    if ($item_type == 'product_format') {
+                        $stock = (isset($item_data['data']['quantity']) &&
+                                  $item_data['data']['quantity'] !== null ?
+                            $item_data['data']['quantity'] : '');
+                        $this->debbug('Item ' . $item_type . '  array->' . print_r($item_data['data'], 1) .
+                                      ' sync type->' . $sync_type .
+                                      ' check if exist stock data of variant.' . print_r($stock, 1));
+                    } else {
+                        $stock = (isset($item_data['data']['product_quantity']) &&
+                                  $item_data['data']['product_quantity'] !== null ?
+                            $item_data['data']['product_quantity'] : '');
+                    }
+                }
+                if ($item_type == 'product_format') {
+                    $images = (isset($item_data['data']['frmt_image']) ? $item_data['data']['frmt_image'] : []);
+                } else {
+                    $images = (isset($item_data['data']['product_image']) ? $item_data['data']['product_image'] : []);
+                }
+                unset($data_clear['data']['product_quantity'], $data_clear['data']['quantity']);
+                $json = json_encode($data_clear);
+                $hash = hash($this->hash_algorithm_comparator, $json);
+            }
+            $sl_id = $item_data['ID'];
+            $query = "SELECT slic.hash, slic.ps_id FROM " . _DB_PREFIX_ . "slyr_input_compare slic " .
+                     " WHERE slic.ps_type = '" . $item_type . "' " .
+                     " AND slic.sl_id = '" . $sl_id . "' LIMIT 1 ";
+            $cache_result  = Db::getInstance()->executeS($query);
+
+            if (!$cache_result) {
+                $this->debbug('Item ' . $item_type . ' sl_id->' . $sl_id .
+                              ' sync type->' . $sync_type .
+                              ' register not has been founded.');
+                $this->setImagesPreload($images, $item_type);
+                return true;
+            } else {
+                $cache_result = reset($cache_result);
+                if ($stock !== null && $stock !== '') {
+                    foreach ($shops as $shop_id) {
+                        $this->debbug('Item ' . $item_type . ' sl_id->' . $sl_id .
+                                      ' sync type->' . $sync_type . ' shop_id->' . print_r($shop_id, 1) .
+                                      ' saving stock for update in another process.');
+
+                        $stock_update = [];
+                        $stock_update['ps_type'] = $item_type;
+                        $stock_update['ps_id']   = $cache_result['ps_id'];
+                        $stock_update['id_shop'] = $shop_id;
+                        $stock_update['stock']   = (int) $stock;
+                        SalesLayerImport::setRegisterInputCompare($stock_update, 'slyr_stock_update');
+                    }
+                }
+                if ($cache_result['hash'] == $hash) { //&& !$this->i_am_a_developer
+                    $this->debbug('Item ' . $item_type . ' sl_id->' . $sl_id .
+                                  ' sync type->' . $sync_type .
+                                  ' same content detected. Skip this item.');
+                    return false;
+                }
+                $this->setImagesPreload($images, $item_type);
+                $this->debbug('Item ' . $item_type . ' sl_id->' . $sl_id .
+                              ' sync type->' . $sync_type .
+                              ' different content detected->' .
+                              print_r($cache_result, 1) . '<->' . print_r($hash, 1) .
+                              ' and override_stock->' . print_r($avoid_stock_update, 1));
+
+                return true;
+            }
+        }
+        $this->debbug('Item ' . $item_type .
+                      ' ##Error. Undefined sync type ' . $sync_type .
+                      ' type or undefined item type.');
+        return true;
+    }
+    public static function setRegisterInputCompare($prepare_input_compare, $table = 'slyr_input_compare')
+    {
+        if (isset($prepare_input_compare['conn_id'])) {
+            $conn_id = explode('H', $prepare_input_compare['conn_id']);
+            $prepare_input_compare['conn_id'] = (int) filter_var(reset($conn_id), FILTER_SANITIZE_NUMBER_INT);
+        }
+        if ($table == 'slyr_input_compare') {
+            $prepare_input_compare['timestamp_modified'] = date('Y-m-d H:i:s');
+        }
+        $for_update = [];
+        foreach ($prepare_input_compare as $colum_name => $value) {
+            if (is_numeric($value)) {
+                $for_update[] = '`' . $colum_name . '` = ' . (int) $value . '';
+            } else {
+                $for_update[] = '`' . $colum_name . "` = '" . $value . "'";
+            }
+        }
+
+        try {
+            $query_input_compare = 'INSERT INTO ' . _DB_PREFIX_ . $table .
+                                   ' (`' . implode('`,`', array_keys($prepare_input_compare)) . '`)' .
+                                   ' VALUES ("' . implode('","', array_values($prepare_input_compare)) . '") ' .
+                                   " ON DUPLICATE KEY UPDATE  " . implode(', ', $for_update);
+
+            $result =    Db::getInstance()->execute($query_input_compare);
+
+            if ($result) {
+                return true;
+            }
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    public function clearDataHash($soft_clear = true)
+    {
+        if ($soft_clear) {
+            $tables = ['product','category'];
+            try {
+                foreach ($tables as $table) {
+                    $query = 'SELECT pg.id_' . $table . ' FROM ' . _DB_PREFIX_  . 'slyr_input_compare ic
+                           inner join ' . _DB_PREFIX_ . $table . ' pg ON pg.id_' . $table . ' = ic.ps_id ' .
+                             ' WHERE ic.ps_type ="' . $table . '" AND pg.date_upd > ic.timestamp_modified';
+                    $result =    Db::getInstance()->executeS($query);
+
+                    $this->debbug('Check if has been modified this product ->: ' .
+                                  print_r($query, 1));
+                    if (count($result)) {
+                        $result = array_column($result, 'id_' . $table);
+
+                        if ($table == 'product') {// delete variants hash if product has been modified
+                            foreach ($result as $id_product) {
+                                $this->debbug('Deleting from cache all variants of product ->: ' .
+                                              print_r($id_product, 1));
+                                $delete_variants_hash = 'DELETE FROM ' .  _DB_PREFIX_  . 'slyr_input_compare ' .
+                                                        ' WHERE ' .
+                                                        ' ps_type ="product_format" ' .
+                                                        'AND ps_id IN(' .
+                                                        'SELECT id_product_attribute FROM ' . _DB_PREFIX_ .
+                                                        'product_attribute ' .
+                                                        ' WHERE ' .
+                                                        ' id_product = "' . $id_product . '" 
+							                         ) ';
+                                Db::getInstance()->execute($delete_variants_hash);
+                            }
+                        }
+                        $this->debbug('Deleting from cache input compare ' . $table . ' ->: ' . print_r($result, 1));
+                        $delete_query = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ' .
+                                        ' WHERE ' .
+                                        'ps_type ="' . $table .
+                                        '" AND ps_id IN(' . implode(',', $result) . ') ';
+                        Db::getInstance()->execute($delete_query);
+                    }
+                }
+            } catch (Exception $e) {
+                $this->debbug('## Error. cleaning data hash: ' . $e->getMessage() .
+                              ' line ->' . print_r($e->getLine(), 1));
+            }
+        } else {
+            try {
+                $delete_query = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ';
+                Db::getInstance()->execute($delete_query);
+            } catch (Exception $e) {
+                $this->debbug('## Error. Delete alll registers form input_compare table: ' . $e->getMessage() .
+                              ' line ->' . print_r($e->getLine(), 1));
+            }
+        }
+    }
+    private function setImagesPreload($images, $ps_type)
+    {
+        $this->debbug('Saving images->' . print_r($images, 1));
+        if (!empty($images)) {
+            if (!is_array($images)) {
+                $images = explode(',', $images);
+            }
+            $urls = [];
+            if (is_array($images)) {
+                $this->debbug('Array urls->' . print_r($images, 1));
+                foreach ($images as $image) {
+                    if (is_string($image) && filter_var($image, FILTER_VALIDATE_URL)) {
+                        $urls[] = $image;
+                    } elseif (is_array($image) && filter_var(reset($image), FILTER_VALIDATE_URL)) {
+                        $urls[] = reset($image);
+                    }
+                }
+            }
+            if (!empty($urls)) {
+                $item_urls = "INSERT INTO " . _DB_PREFIX_ .
+                             "slyr_image_preloader (url,ps_type) VALUES ";
+                $values = [];
+                foreach ($urls as $url) {
+                    $values[] = '("' . addslashes($url) . '","' . $ps_type . '")';
+                }
+                $item_urls .= implode(',', $values);
+                try {
+                    Db::getInstance()->execute($item_urls);
+                } catch (Exception $e) {
+                    $this->debbug('## Error. set images for preload: ' . $e->getMessage() .
+                                  ' line ->' . print_r($e->getLine(), 1) .
+                                  ' query->' . print_r($item_urls, 1));
+                }
+            } else {
+                $this->debbug('Empty images url->' . print_r($images, 1));
+            }
+        }
+    }
+    public static function getPreloadedImage($url)
+    {
+        $query = 'SELECT * FROM ' .  _DB_PREFIX_ .
+                 "slyr_image_preloader WHERE status ='co' AND url='" . addslashes($url) . "'  LIMIT 1" ;
+        $response = Db::getInstance()->executeS($query);
+        if (!empty($response)) {
+            return reset($response);
+        }
+        return false;
+    }
+    public static function deletePreloadImage($url)
+    {
+        $query = 'SELECT * FROM ' .  _DB_PREFIX_ .
+                 "slyr_image_preloader WHERE status ='co' AND url='" . addslashes($url) . "'  LIMIT 1" ;
+        $response = Db::getInstance()->executeS($query);
+        if (!empty($response)) {
+            $response = reset($response);
+            if (isset($response['local_path'])) {
+                $response['local_path'] = Tools::stripslashes($response['local_path']);
+                if (file_exists($response['local_path'])) {
+                    unlink($response['local_path']);
+                }
+            }
+            Db::getInstance()->execute('DELETE FROM ' .  _DB_PREFIX_ .
+                                       "slyr_image_preloader WHERE id='" . $response['id']  . "'");
+            return reset($response);
+        }
+        return false;
+    }
+    public function clearPreloadCache()
+    {
+        do {
+            try {
+                $query = "SELECT * FROM " . _DB_PREFIX_ . 'slyr_image_preloader LIMIT 250 ';
+                $registers = Db::getInstance()->executeS($query);
+                if (count($registers)) {
+                    foreach ($registers as $reg) {
+                        if (file_exists($reg['local_path'])) {
+                            unlink($reg['local_path']);
+                        }
+                        Db::getInstance()->execute('DELETE FROM ' .  _DB_PREFIX_ .
+                                                   "slyr_image_preloader WHERE id='" . $reg['id'] . "'");
+                    }
+                } else {
+                    break;
+                }
+            } catch (Exception $e) {
+                $this->debbug('## Error. Clear preload cache : ' . $e->getMessage() .
+                                      ' line->' . $e->getLine(), 'syncdata');
+            }
+            $this->clearDebugContent();
+        } while (count($registers) > 0);
+    }
+    public function getCountProcess($process_name)
+    {
+        $sql_read = "SELECT COUNT(*) as count FROM " . _DB_PREFIX_ .
+                    'slyr_process WHERE prc_type="' . $process_name . '"';
+        $result_count = Db::getInstance()->getValue($sql_read);
+        /* $this->debbug('warning counter  : ' .
+                       print_r($result_count, 1), 'balancer');*/
+        return $result_count;
+    }
+    public function registerWorkProcess($process_name)
+    {
+        try {
+            $sql = "INSERT INTO " . _DB_PREFIX_ . 'slyr_process ' .
+                  ' (prc_type,prc_time,pid) VALUES ' .
+                  '("' . $process_name . '","' . date('Y-m-d H:i:s') . '","' . getmypid() . '")';
+            Db::getInstance()->execute($sql);
+        } catch (Exception $e) {
+            $this->debbug('## Error. register process  : ' . $e->getMessage() .
+                          ' line->' . $e->getLine() . ' query->' .
+                          print_r($sql, 1), 'syncdata');
+        }
+    }
+    public function clearWorkProcess($process_name = null)
+    {
+        $sql = "DELETE FROM " . _DB_PREFIX_ . 'slyr_process ' .
+               ($process_name ? ' WHERE  prc_type = "' . $process_name . '" AND pid="' . getmypid() . '" ' : '');
+        try {
+            Db::getInstance()->execute($sql);
+        } catch (Exception $e) {
+            $this->debbug('## Error. Clear register process  : ' . $e->getMessage() .
+                          ' line->' . $e->getLine() . ' query->' .
+                          print_r($sql, 1), 'syncdata');
+        }
+    }
+
+    /**
+     * @throws PrestaShopException
+     * @throws PrestaShopDatabaseException
+     */
+    public function runWorkProcess($type_process, $commands = [])
+    {
+        try {
+            $performance_limit = $this->getConfiguration('PERFORMANCE_LIMIT');
+            if (!$performance_limit) {
+                $performance_limit = 4.00;
+            }
+            $count_proceses = $this->getCountProcess($type_process);
+            $performance_limit = $performance_limit - $count_proceses;
+            for ($i = 0; $i <= $performance_limit; $i++) {
+                $load = sys_getloadavg();
+                if ($load[0] <= $performance_limit) {
+                    $this->callProcess($type_process, $commands);
+                    sleep(1);
+                }
+            }
+        } catch (Exception $e) {
+            $this->debbug('## Error. run proceses of ' . $type_process . ' images : ' . $e->getMessage() .
+                          ' line->' . $e->getLine(), $type_process);
+        }
+    }
+    public function clearTempImages()
+    {
+        $log_folder_files = array_slice(scandir(_PS_TMP_IMG_DIR_), 2);
+        foreach ($log_folder_files as $file) {
+            if (strpos($file, 'ps_sl_import') !== false) {
+                if (file_exists(_PS_TMP_IMG_DIR_ . $file)) {
+                    unlink(_PS_TMP_IMG_DIR_ . $file);
+                }
+            }
+        }
+    }
+    public function getRunProceses($process_name)
+    {
+        try {
+            $performance_limit = $this->getConfiguration('PERFORMANCE_LIMIT');
+            $num_processes     = $this->getCountProcess($process_name);
+            if (!$performance_limit) {// default
+                $performance_limit = 4.00;
+            }
+            if ((float) $num_processes >= (float) $performance_limit) {
+                return false;
+            }
+        } catch (Exception $e) {
+            $this->debbug('## Error. check processes of ' . $process_name . '  : ' . $e->getMessage() .
+                          ' line->' . $e->getLine(), $process_name);
+        }
+        $this->registerWorkProcess($process_name);
+        return true;
+    }
+
+    /**
+     * @throws PrestaShopException
+     * @throws PrestaShopDatabaseException
+     */
+    public function runBalancer()
+    {
+        $this->debbug("==== Sync Data INIT " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . "  ====", 'balancer');
+        if (!$this->testDownloadingBlock('BALANCER')) {
+            $this->debbug(
+                "Balancer is already in progress. Try to run after 15 minutes.",
+                'balancer'
+            );
+            $this->debbug("==== Sync Data END " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . " ====", 'balancer');
+            return false;
+        }
+        $this->runWorkProcess('image-preloader');
+        $result = $this->testSlcronExist();
+        $this->load_cron_time_status = $result;
+        $this->sl_time_ini_sync_data_process = microtime(1);
+        $this->syncdata_pid = getmypid();
+        $this->end_process = false;
+        $this->recalculateDurationOfSyncronizationProcess($result);
+        /**
+         * Check if have incomplete synchronization
+         */
+
+        try {
+            $sql_test = "SELECT * FROM " . _DB_PREFIX_ . "slyr_syncdata WHERE sync_tries >= 3 AND status = 'pr' ";
+            $result_test = $this->slConnectionQuery('read', $sql_test);
+
+            if (!empty($result_test)) {
+                //Print errors that have occurred due to php processes
+                $this->debbug('## Error. Processes have been detected that could not be completed' .
+                              ' and it is possible that this is due to a PHP error, please check the' .
+                              ' php / apache / nginx error log to find a solution to this problem.' .
+                              ' Stored information is:', 'balancer');
+                foreach ($result_test as $item_err) {
+                    $item_data = json_decode($item_err['item_data'], 1);
+                    $this->debbug('## Error. item_type:' . $item_err['item_type'] .
+                                  ' ID:' . print_r($item_data['sync_data']['ID'], 1) .
+                                  ' Item_data_pack->' . print_r($item_err, 1), 'balancer', true);
+                }
+                $this->debbug('Server information ================================================ ', 'balancer', true);
+                $this->debbug('PS VERSION: ' . print_r(_PS_VERSION_, 1), 'balancer', true);
+                $this->debbug('php Version: ' . print_r(phpversion(), 1), 'balancer', true);
+                $this->debbug('Plugin Version: ' . print_r($this->version, 1), 'balancer', true);
+                $this->debbug('max execution time: ' . print_r(ini_get('max_execution_time'), 1), 'balancer', true);
+                $this->debbug('SERVER_SOFTWARE: ' . print_r($_SERVER["SERVER_SOFTWARE"], 1), 'balancer', true);
+                $this->debbug('display_errors: ' . ini_get('display_errors'), 'balancer', true);
+                $this->debbug(
+                    'ignore_repeated_errors: ' . print_r(ini_get('ignore_repeated_errors'), 1),
+                    'balancer',
+                    true
+                );
+                $this->debbug(
+                    'intl.error_level: ' . print_r(ini_get('intl.error_level'), 1),
+                    'balancer',
+                    true
+                );
+                $this->debbug(
+                    'cron frequency: ' . print_r($this->getConfiguration('CRON_MINUTES_FREQUENCY'), 1),
+                    'balancer',
+                    true
+                );
+                $this->debbug(
+                    'loaded extensions: ' . print_r(get_loaded_extensions(), 1),
+                    'balancer',
+                    true
+                );
+            }
+
+            //Clear exceeded attemps
+            $sql_delete = " DELETE FROM " . _DB_PREFIX_ . "slyr_syncdata WHERE sync_tries >= 3";
+            $this->slConnectionQuery('-', $sql_delete);
+        } catch (Exception $e) {
+            $this->debbug('## Error. Data cleaning has exceeded the maximum number of attempts: '
+                          . $e->getMessage(), 'balancer');
+        }
+
+        $performance_limit = $this->cpu_max_limit_for_retry_call;
+
+        $actual_process = '';
+        $processes = ['delete','update'];
+        $item_types = ['category','product','product_format','accessories'];
+        foreach ($processes as $process) {
+            foreach ($item_types as $item_type) {
+                $sql_count = "SELECT COUNT(*) as total FROM " . _DB_PREFIX_ .
+                             "slyr_syncdata WHERE sync_type = '" . $process .
+                             "' AND item_type = '" . $item_type . "'";
+                $result_count = Db::getInstance()->getValue($sql_count);
+                if ($result_count == 0) {
+                    $this->debbug('continue but not have item for process ' . $item_type .
+                                  ' sync type->' . $process . ' result->' . print_r($result_count, 1), 'balancer');
+                    continue;
+                }
+                if ($actual_process != $process . '_' . $item_type) {
+                    $this->saveConfiguration(['SYNC_STATUS' => $process . '_' . $item_type]);
+                }
+                /**
+                 * process same type of items to complete time or work
+                 */
+                $count_every = 10;
+                $counter = 0;
+                do {
+                    if ($counter >= $count_every) {
+                        $sql_count = "SELECT COUNT(*) as total FROM " . _DB_PREFIX_ .
+                                             "slyr_syncdata WHERE sync_type = '" . $process .
+                                             "' AND item_type = '" . $item_type . "'";
+
+                        $result_count = Db::getInstance()->getValue($sql_count);
+                        $counter = 0;
+                        if ($result_count == 0) {
+                            $this->debbug(
+                                'continue but not have item for process ' . $item_type .
+                                               ' sync type->' . $process . ' result->' . print_r($result_count, 1),
+                                'balancer'
+                            );
+                            break;
+                        }
+                    }
+                    $counter++;
+                    $max_number_of_processes = $this->process_definition[ $process ][ $item_type ];
+
+                    /**
+                     * Waiting for free slots or wait for the cpu free
+                     */
+                    $progress_now = false;
+                    do {
+                        try {
+                            $count_proceses    = $this->getCountProcess('synchronizer');
+                            $load              = sys_getloadavg();
+                            $this->debbug('before compare load->' .
+                                          print_r($load[0], 1) . '>=' . print_r($performance_limit, 1) .
+                                          ' count_processes ->' .
+                                          print_r($count_proceses, 1) . '>=' . $max_number_of_processes, 'balancer');
+                            if (($load[0] >= $performance_limit ||
+                                $count_proceses >= $max_number_of_processes) && $count_proceses > 0) {
+                                sleep(4);
+                                $this->checkProcessTime();
+                                if ($this->end_process) {
+                                    $this->debbug('stop processing by end time for process ' . $item_type . '->' .
+                                                  print_r($this->end_process, 1), 'balancer');
+                                    break 4;
+                                }
+                                $this->debbug('Keep waiting for free slot or load cpu ' . $process .
+                                           ' : ' . $item_type, 'balancer');
+                                $progress_now = true;
+                            } else {
+                                $this->debbug('run one process for item ' .
+                                              $item_type . ' type->' . $process, 'balancer');
+                                $progress_now = false;
+                            }
+                        } catch (Exception $e) {
+                            $this->debbug('## Error. in balancer ' . $process .
+                                       ' : ' . $item_type .
+                                       ' ' . $e->getMessage() .
+                                       ' line->' . $e->getLine(), 'balancer');
+                            break 3;
+                        }
+                        $this->checkProcessTime();
+                        if ($this->end_process) {
+                            $this->debbug('stop processing by end time for process ' . $item_type . '->' .
+                                          print_r($this->end_process, 1), 'balancer');
+                            break 4;
+                        }
+                    } while ($progress_now == true);
+
+                    $this->checkProcessTime();
+                    if ($this->end_process) {
+                        $this->debbug('stop processing by end time ' . $item_type . '->' .
+                                      print_r($this->end_process, 1), 'balancer');
+                        break 3;
+                    }
+
+                    if ($process == 'delete') {
+                        $sql             = " SELECT id FROM " . _DB_PREFIX_ . "slyr_syncdata
+                            WHERE sync_type = 'delete' AND item_type = '" . $item_type . "'" .
+                                       "  ORDER BY  sync_tries ASC, id ASC LIMIT 250";
+                        $items_to_delete = $this->slConnectionQuery(
+                            'read',
+                            $sql
+                        );
+                        $this->debbug('after select item for delete-> ' .
+                                      print_r($items_to_delete, 1), 'balancer');
+                        if (!empty($items_to_delete)) {
+                            $this->debbug('call process for delete ids-> ' .
+                                          print_r($items_to_delete, 1), 'balancer');
+                            $this->callProcess(
+                                'delete',
+                                [ 'type' => $item_type, 'ids' => array_column($items_to_delete, 'id') ]
+                            );
+                        }
+                    } elseif ($process == 'update') {
+                        if (($this->cpu_max_limit_for_retry_call / 2) < $load[0]) {
+                            $this->limit_per_process = 1;
+                        } elseif ($load[0] > ($this->cpu_max_limit_for_retry_call  / 4)) {
+                            $this->limit_per_process = 3;
+                        } else {
+                            $this->limit_per_process = 5;
+                        }
+
+                        $this->checkProcessTime();
+                        $this->callProcess(
+                            'synchronizer',
+                            ['type' => $item_type, 'limit' => $this->limit_per_process]
+                        );
+                    }
+                } while (!$this->end_process);
+            }
+        }
+
+        if (!$this->checkRegistersForProccess()) {
+            $this->deleteConfiguration('SYNC_STATUS');
+            $this->deleteConfiguration('LAST_CONNECTOR');
+            $this->startIndexer();
+        }
+        $this->removeDownloadingBlock('BALANCER');
+        $this->debbug(
+            '### time_all_syncdata_process: ' . (microtime(1) - $this->sl_time_ini_sync_data_process) . ' seconds.',
+            'balancer'
+        );
+
+        $this->debbug("==== Sync Data END " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . " ====", 'balancer');
+        try {
+            $this->verifyRetryCall();
+        } catch (Exception $e) {
+            $this->debbug('## Error. Deleting sync_data_flag: ' . $e->getMessage(), 'balancer');
+        }
+        return true;
+    }
+    public function loadDebugVariables()
+    {
+        if (!$this->start_sync_connector) {
+            $register = $this->getConfiguration('LAST_CONNECTOR');
+            if ($register) {
+                $register = explode('_', $register);
+                $conn_id = explode('H', $register[0]);
+                $this->start_sync_connector =  $conn_id[0];
+                $this->start_sync_timestamp =  $register[1];
+            }
+        }
     }
 }

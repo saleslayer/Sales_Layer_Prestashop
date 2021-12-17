@@ -44,6 +44,12 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
             case 'showlogfiles':
                 $response_function = $this->checkFilesLogs();
                 break;
+            case 'cleardatahash':
+                $this->SLimport->cleardatahash(false);
+                $response_function[0] = 1;
+                $response_function[1] = '';
+                $response_function['function'] = 'debugmode';
+                break;
             case 'debugmode':
                 $value = Tools::getValue('value');
                 if ($value != null) {
@@ -81,7 +87,7 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
             $array_return['function'] = $response_function['function'];
             $array_return['content'] = $response_function[1];
             unset($response_function[1]);
-            if ($command != 'showlogfiles' && $command != 'debugmode' && $command != 'performance') {
+            if (!in_array($command, ['showlogfiles','debugmode','performance','cleardatahash'], false)) {
                 $array_return['lines'] = $response_function[2];
                 //  $array_return['warnings'] = $response_function[3];
                 //  $array_return['errors'] = $response_function[4];

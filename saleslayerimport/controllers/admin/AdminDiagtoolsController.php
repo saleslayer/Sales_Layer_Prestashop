@@ -423,6 +423,11 @@ class AdminDiagtoolsController extends ModuleAdminController
             $this->downloadLogFile($download_log_filename);
             return true;
         }
+        $clear_data_hash = Tools::getValue('cleardatahash_val');
+        if ($clear_data_hash != '') {
+            $this->SLimport->cleardatahash(false);
+            return true;
+        }
         $deletefiles = Tools::getValue('fordelete');
         if (!empty($deletefiles)) {
             foreach ($deletefiles as $filefordelete) {
