@@ -50,6 +50,7 @@ class SlStockUpdater extends SalesLayerPimUpdate
                                         "' where id_product IN('" .
                                         implode("','", $ps_id) .
                                         "') AND id_shop = '" . $store_id . "' AND  id_product_attribute = 0";
+                $this->debbug('update product query -> ' . print_r($query_update_product, 1), 'update-stock');
                 try {
                     Db::getInstance()->execute($query_update_product);
                 } catch (Exception $e) {
@@ -80,6 +81,7 @@ class SlStockUpdater extends SalesLayerPimUpdate
                                              . _DB_PREFIX_ .
                                              "product_attribute.id_product_attribute IN( '" .
                                              implode("','", $ps_id) . "')";
+                $this->debbug('update variants query -> ' . print_r($query_update_cambinations, 1), 'update-stock');
                 try {
                     Db::getInstance()->execute($query_update_cambinations);
 

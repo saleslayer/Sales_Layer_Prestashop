@@ -13,6 +13,8 @@
  * @license   License: GPLv3  License URI: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
+use PrestaShop\PrestaShop\Core\Domain\Shop\ValueObject\ShopConstraint;
+
 class AdminDiagtoolsController extends ModuleAdminController
 {
     public $SLimport;
@@ -90,7 +92,9 @@ class AdminDiagtoolsController extends ModuleAdminController
 
         $array_toshow = ['Prestashop base url',_PS_BASE_URL_ . __PS_BASE_URI__];
         $this->formatTable($array_toshow);
-
+        $shop = new Shop(Context::getContext()->shop->id);
+        Shop::setContext(Shop::CONTEXT_SHOP, $shop->id);
+        ShopConstraint::shop($shop->id);
         $array_toshow = ['Prestashop getModuleLink',
             $this->context->link->getModuleLink(
                 'saleslayerimport',
@@ -98,20 +102,17 @@ class AdminDiagtoolsController extends ModuleAdminController
                 [],
                 Configuration::get('PS_SSL_ENABLED'),
                 null,
-                $this->SLimport->shop_loaded_id
+                $shop->id
             )];
+
         $this->formatTable($array_toshow);
 
-        /* $array_toshow = ['Prestashop overwriteOrigin Url',$this->SLimport->overwriteOriginDomain(
-             $this->context->link->getModuleLink('saleslayerimport', 'ajax',
-                        [],
-                        null,
-                        null,
-                        $this->SLimport->shop_loaded_id
-         )];
-         $this->formatTable($array_toshow);*/
-
-        $array_toshow = ['Prestashop getAdminLink',$this->context->link->getAdminLink('AllConnectors')];
+        $array_toshow = ['Prestashop getAdminLink',$this->context->link->getAdminLink(
+            'AllConnectors',
+            true,
+            array(),
+            array( 'id_shop' => $this->context->shop->id)
+        )];
         $this->formatTable($array_toshow);
 
         if (!is_writable(DEBBUG_PATH_LOG)) {

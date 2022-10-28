@@ -241,6 +241,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
             $SLimport->clearPreloadCache();
             $SLimport->clearTempImages();
+            $SLimport->clearWorkProcess();
             $return['message_type'] = 'success';
             $return['message'] = 'Deleted all from synchronization';
 
@@ -267,12 +268,17 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $SLimport = new SalesLayerImport();
             if (in_array($field_name, $permited_fields, false)) {
                 try {
-                    if (($field_name == 'auto_sync[' . $connector_id . ']'
-                         && ($field_value >= 0 && $field_value <= 72)) ||
-                        ($field_name == 'auto_sync_hour[' . $connector_id . ']'
-                         && ($field_value >= 0 && $field_value <= 24)) ||
-                        ($field_name == 'avoid_stock_update[' . $connector_id . ']'
-                         && ($field_value == 1 || $field_value == 0))) {
+                    if (
+                        ($field_name == 'auto_sync[' . $connector_id . ']'
+                         && ($field_value >= 0
+                         && $field_value <= 72))
+                        || ($field_name == 'auto_sync_hour[' . $connector_id . ']'
+                         && ($field_value >= 0
+                         && $field_value <= 24))
+                        || ($field_name == 'avoid_stock_update[' . $connector_id . ']'
+                         && ($field_value == 1
+                         || $field_value == 0))
+                    ) {
                         $field_arr = explode('[', $field_name);
                         $field_name = reset($field_arr);
                         $shops_info = $SLimport->setConnectorData($connector_id, $field_name, $field_value);
@@ -393,8 +399,10 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                         if (isset($returnUpdate['products_to_delete']) && $returnUpdate['products_to_delete'] > 0) {
                             $createMessege .= $returnUpdate['products_to_delete'] . ' Products to hide <br>';
                         }
-                        if (isset($returnUpdate['product_formats_to_delete']) &&
-                            $returnUpdate['product_formats_to_delete'] > 0) {
+                        if (
+                            isset($returnUpdate['product_formats_to_delete']) &&
+                            $returnUpdate['product_formats_to_delete'] > 0
+                        ) {
                             $createMessege .= $returnUpdate['product_formats_to_delete'] . ' Variants to delete <br>';
                         }
                         if (isset($returnUpdate['categories_to_sync']) && $returnUpdate['categories_to_sync'] > 0) {
@@ -403,8 +411,10 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                         if (isset($returnUpdate['products_to_sync']) && $returnUpdate['products_to_sync'] > 0) {
                             $createMessege .= $returnUpdate['products_to_sync'] . ' Products to process <br>';
                         }
-                        if (isset($returnUpdate['product_formats_to_sync']) &&
-                            $returnUpdate['product_formats_to_sync'] > 0) {
+                        if (
+                            isset($returnUpdate['product_formats_to_sync']) &&
+                            $returnUpdate['product_formats_to_sync'] > 0
+                        ) {
                             $createMessege .= $returnUpdate['product_formats_to_sync'] . ' Variants to process <br>';
                         }
                     } else {
@@ -499,7 +509,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
         $res = Db::getInstance()->executeS(
             'SELECT `id_category` FROM `' . _DB_PREFIX_ . 'category`
-             WHERE id_category != "0" AND is_root_category = "0" '
+             WHERE is_root_category = "0" AND id_category != "1" AND id_category != "2" '
         );
         $SLimport->allocateMemory();
         if ($res) {

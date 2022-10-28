@@ -174,6 +174,13 @@
             document.getElementsByClassName('update_btt')[i].disabled = true;
           }
       }
+      if(command == 'purge_all'){
+        if (confirm('WARNING! Are you sure you want to remove everything from this prestashop installation? ' +
+          '(Products, categories, attributes,..... ) and have prestashop completely like new?')) {
+        } else {
+          return false;
+        }
+      }
 
       jQuery.ajax({
         type: 'POST',

@@ -4,11 +4,13 @@
  *
  * Mini mySQL class
  *
- * @modified  2015-04-23
- * @version   1.0
+ *
+ *
  * @author    Sales Layer
  * @copyright 2019 Sales Layer
  * @license   License: GPLv3  License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * @modified  2015-04-23
+ * @version   1.0
  *
  */
 

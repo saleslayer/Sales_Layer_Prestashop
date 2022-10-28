@@ -55,21 +55,32 @@ if ($SLimport->checkRegistersForProccess(false, 'stock_update')) {
                                               _DB_PREFIX_ .
                                               "slyr_stock_update group by id_shop ");
 
-        foreach ($ps_type as $items_type) {
+        foreach ($ps_type as $item_type) {
             foreach ($shops as $shop) {
                 $registers = [];
-                $num = 0;
                 do {
                     try {
-                        $query = "SELECT * , MAX(stock) as max_stock  FROM " . _DB_PREFIX_ .
-                                 'slyr_stock_update WHERE ' .
-                                 ' ps_type = "' . $items_type .
-                                 '" AND id_shop = "' . $shop['id_shop'] .
-                                 '" group by ps_id, id_shop, stock LIMIT 1000 ';
+                        $query = "SELECT * FROM " . _DB_PREFIX_ .
+                                 "slyr_stock_update st ,
+                                 (SELECT MAX(stock) as max_stock FROM " .
+                                 _DB_PREFIX_ . "slyr_stock_update  
+                                 WHERE " .
+                                 " ps_type = '" . $item_type . "'
+                                  AND id_shop = " . $shop['id_shop'] .
+                                 "   LIMIT 1) mx_stck WHERE  " .
+                                 " ps_type = '" . $item_type . "' " .
+                                 "AND id_shop = " . $shop['id_shop'] . " " .
+                                 "AND st.stock = mx_stck.max_stock " .
+                                 "GROUP BY ps_id, id_shop, stock LIMIT 1000";
 
                         $registers = Db::getInstance()->executeS($query);
                         if (count($registers) > 0) {
-                            $response = $stock_updater->updateStock($registers, $shop['id_shop'], $items_type);
+                            $SLimport->debbug(
+                                'Petition to update stock ->' . print_r(reset($registers), 1) .
+                                ' query ->' . print_r($query, 1),
+                                'stock_update'
+                            );
+                            $response = $stock_updater->updateStock($registers, $shop['id_shop'], $item_type);
                             if (count($response)) {
                                 Db::getInstance()->execute('DELETE FROM ' . _DB_PREFIX_ .
                                                              'slyr_stock_update WHERE id IN(' .
@@ -77,7 +88,8 @@ if ($SLimport->checkRegistersForProccess(false, 'stock_update')) {
                                                              ')');
                                 $SLimport->debbug(
                                     'Petition to update stock ->' . print_r(reset($registers), 1) .
-                                    ' After executed stock update return ->' . print_r($response, 1),
+                                    ' After executed stock update return ->' . print_r($response, 1) .
+                                    ' query ->' . print_r($query, 1),
                                     'stock_update'
                                 );
                             }
@@ -89,20 +101,10 @@ if ($SLimport->checkRegistersForProccess(false, 'stock_update')) {
                                                   ' line->' . $e->getLine(), 'update-stock');
                         break;
                     }
-                    /* if ($num >  10000) {
-                         $SLimport->debbug('## Error. Indexer error : ' .
-                                           ' stopped by limit 50 ->', 'update-stock');
-                         break;
-                     }*/
-                    $num++;
                     $SLimport->clearDebugContent();
                 } while (count($registers) > 0);
             }
         }
-
-        /* $sql_query_to_insert = "DELETE FROM " . _DB_PREFIX_ . "slyr_syncdata" .
-                                                " WHERE item_type = 'index' ";
-         $SLimport->slConnectionQuery('-', $sql_query_to_insert);*/
     } catch (Exception $e) {
         $SLimport->debbug(
             '## Error. in load stock_updater file ->' . print_r($e->getMessage(), 1),

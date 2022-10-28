@@ -306,7 +306,12 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                 'SLY_TABLE' => $this->generateTable(),
                 'SLY_DEVELOPMENT' => $developmentButton,
                 'messages' => $messages,
-                'link_all_connectors' => $this->context->link->getAdminLink('AddConnectors'),
+                'link_all_connectors' => $this->context->link->getAdminLink(
+                    'AddConnectors',
+                    true,
+                    array(),
+                    array( 'id_shop' => $this->context->shop->id)
+                ),
                 'purge_button' => $this->purgeAllButton(),
                 'stop_syncronization' => $this->stopSyncronizacionButton(),
             )

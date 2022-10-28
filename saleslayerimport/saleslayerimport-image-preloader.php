@@ -18,7 +18,8 @@ include(dirname(__FILE__) . '/../../init.php');
 $process_name = 'image-preloader';
 /* Check security token */
 
-if (!Module::isInstalled('saleslayerimport')
+if (
+    !Module::isInstalled('saleslayerimport')
     || Tools::substr(
         Tools::encrypt('saleslayerimport'),
         0,
@@ -76,11 +77,11 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
             try {
                 $sqlpre = ' SET @id = null,@url = null';
                 $sqlpre2 =  'UPDATE ' . _DB_PREFIX_ .
-                            'slyr_image_preloader dest, (SELECT MIN(A.id) ,A.id,@id := A.id,' .
+                            'slyr_image_preloader dest, (SELECT MIN(A.id) AS id ,@id := A.id,' .
                             '@url := A.url ' .
                             ' FROM ' . _DB_PREFIX_ . 'slyr_image_preloader A ' .
                             " WHERE " .
-                            " " . $query_ps_type . "  status ='no' LIMIT 1 ) src " .
+                            " " . $query_ps_type . "  status ='no' GROUP BY id LIMIT 1 ) src " .
                             " SET " .
                             " dest.status = 'pr'  WHERE   dest.id = src.id  ";
                 $sqlpre3 = ' SELECT @id AS id,@url AS url  ';
@@ -90,9 +91,11 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
                 $image = $SLimport->slConnectionQuery('read', $sqlpre3);
 
 
-                if (!empty($image)
+                if (
+                    !empty($image)
                     && isset($image[0]['id'])
-                    && $image[0]['id'] != null) {
+                    && $image[0]['id'] != null
+                ) {
                     $response = $preloader->preloadImage(Tools::stripslashes($image[0]['url']));
                     if ($SLimport->debugmode > 2) {
                         $SLimport->debbug(

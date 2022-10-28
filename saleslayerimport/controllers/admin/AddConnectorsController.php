@@ -63,7 +63,12 @@ class AddConnectorsController extends ModuleAdminController
                 ),
                 'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                 'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/img/',
-                'link_all_conectors' => $this->context->link->getAdminLink('AllConnectors'),
+                'link_all_conectors' => $this->context->link->getAdminLink(
+                    'AllConnectors',
+                    true,
+                    array(),
+                    array( 'id_shop' => $this->context->shop->id)
+                ),
                 'api_client' => $conn_code,
                 'api_key' => $conn_secret,
             )
@@ -129,7 +134,12 @@ class AddConnectorsController extends ModuleAdminController
                         ),
                         'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                         'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/logos/',
-                        'link_all_conectors' => $this->context->link->getAdminLink('AllConnectors'),
+                        'link_all_conectors' => $this->context->link->getAdminLink(
+                            'AllConnectors',
+                            true,
+                            array(),
+                            array( 'id_shop' => $this->context->shop->id)
+                        )
                     )
                 );
 
@@ -185,7 +195,12 @@ class AddConnectorsController extends ModuleAdminController
                             ),
                             'SLY_ASSETS_PATH' => $this->SLimport->module_path,
                             'SLY_LOGOS_PATH' => $this->SLimport->module_path . 'views/img/',
-                            'link_all_conectors' => $this->context->link->getAdminLink('AllConnectors'),
+                            'link_all_conectors' => $this->context->link->getAdminLink(
+                                'AllConnectors',
+                                true,
+                                array(),
+                                array( 'id_shop' => $this->context->shop->id)
+                            )
                         )
                     );
 
@@ -215,7 +230,12 @@ class AddConnectorsController extends ModuleAdminController
                         $this->SLimport->debbug('## Error. track->' . print_r($e->getTrace(), 1));
                     }
 
-                    Tools::redirectAdmin($this->context->link->getAdminLink('AllConnectors'));
+                    Tools::redirectAdmin($this->context->link->getAdminLink(
+                        'AllConnectors',
+                        true,
+                        array(),
+                        array( 'id_shop' => $this->context->shop->id)
+                    ));
                 }
             }
         }

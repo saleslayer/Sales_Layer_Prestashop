@@ -13,6 +13,8 @@
  * @license   License: GPLv3  License URI: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
+use PrestaShop\PrestaShop\Core\Domain\Shop\ValueObject\ShopConstraint;
+
 class HowToUseController extends ModuleAdminController
 {
     public function __construct()
@@ -116,17 +118,24 @@ class HowToUseController extends ModuleAdminController
 
         $culr_link = $SLimport->globalUrlToRunPrestashopCronJobs();
 
+        $shop_id = (Shop::getContextShopID() ? Shop::getContextShopID() : Configuration::get('PS_SHOP_DEFAULT'));
+        Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
 
         $this->context->smarty->assign(
             array(
                 'SLY_LOGOS_PATH' => $SLimport->module_path . 'views/img/',
                 'SLY_ASSETS_PATH' => $SLimport->module_path,
-                'link_all_connectors' => $this->context->link->getAdminLink('AllConnectors'),
-                'add_connectors' => $this->context->link->getAdminLink('AddConnectors'),
-                'link_how_to_use' => $this->context->link->getAdminLink('HowToUse'),
-                'link_diagnostics' => $this->context->link->getAdminLink('AdminDiagtools'),
+                'link_all_connectors' => $this->context->link->getAdminLink('AllConnectors',
+	                true, array(), array( 'id_shop' => $this->context->shop->id)),
+                'add_connectors' => $this->context->link->getAdminLink('AddConnectors',
+	                true, array(), array( 'id_shop' => $this->context->shop->id)),
+                'link_how_to_use' => $this->context->link->getAdminLink('HowToUse',
+	                true, array(), array( 'id_shop' => $this->context->shop->id)),
+                'link_diagnostics' => $this->context->link->getAdminLink('AdminDiagtools',
+	                true, array(), array( 'id_shop' => $this->context->shop->id)),
                 'plugin_name' => Tools::ucfirst($SLimport->name),
-                'admin_attributes' => $this->context->link->getAdminLink('AdminAttributesGroups'),
+                'admin_attributes' => $this->context->link->getAdminLink('AdminAttributesGroups',
+	                true, array(), array( 'id_shop' => $this->context->shop->id)),
                 'culr_link' =>  $culr_link,
                 'message' => $message,
                 'validation_table' => $create_validation_table,
