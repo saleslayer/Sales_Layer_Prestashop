@@ -204,6 +204,10 @@ V 1.5.1
 <li> Parent category select for first category: Shop category id if not exist-> PS_HOME_CATEGORY if not exist -> PS_ROOT_CATEGORY </li>
 </ul>
 
-
+V 1.5.2
+<ul>
+<li> Compatibility fix with older version of Prestashop 1.7.7.x >= </li>
+<li> Change plugin tables engine to MyISAM for plugin installed before 1.4.x versions for better performance</li>
+</ul>
 
 </div>

@@ -12,6 +12,7 @@
  * @copyright 2019 Sales Layer
  * @license   License: GPLv3  License URI: https://www.gnu.org/licenses/gpl-3.0.html
  */
+use PrestaShop\PrestaShop\Core\Domain\Shop\ValueObject\ShopConstraint;
 
 class AddConnectorsController extends ModuleAdminController
 {
@@ -42,6 +43,9 @@ class AddConnectorsController extends ModuleAdminController
     {
         $conn_code = Tools::getValue('api_client');
         $conn_secret = Tools::getValue('api_key');
+        if (Tools::version_compare(_PS_VERSION_, '1.7.7.5', '>=') == true) {
+            ShopConstraint::shop($this->SLimport->shop_loaded_id);
+        }
         $this->context->smarty->assign(
             array(
                 'ajax_link' => $this->context->link->getModuleLink(

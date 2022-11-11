@@ -94,7 +94,10 @@ class AdminDiagtoolsController extends ModuleAdminController
         $this->formatTable($array_toshow);
         $shop = new Shop(Context::getContext()->shop->id);
         Shop::setContext(Shop::CONTEXT_SHOP, $shop->id);
-        ShopConstraint::shop($shop->id);
+
+        if (Tools::version_compare(_PS_VERSION_, '1.7.7.5', '>=') == true) {
+            ShopConstraint::shop($shop->id);
+        }
         $array_toshow = ['Prestashop getModuleLink',
             $this->context->link->getModuleLink(
                 'saleslayerimport',

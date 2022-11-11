@@ -166,8 +166,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         break;
                     }
                 }
-            } elseif (
-                isset($data_returned['schema']['default_language'])
+            } elseif (isset($data_returned['schema']['default_language'])
                 && $data_returned['schema']['default_language']
             ) {
                 $id_lang = Language::getIdByIso($data_returned['schema']['default_language']);
@@ -269,8 +268,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->connector_shops = $shops;
 
-        if (
-            !empty($product_formats_items) && isset($data_returned['data_schema_info']['product_formats'])
+        if (!empty($product_formats_items) && isset($data_returned['data_schema_info']['product_formats'])
             && !empty($data_returned['data_schema_info']['product_formats'])
         ) {
             try {
@@ -301,8 +299,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             $timer_delete_data = microtime(1);
 
             $sync_type = 'delete';
-            if (
-                count($catalogue_items_del) > 0 || count($product_items_del) > 0
+            if (count($catalogue_items_del) > 0 || count($product_items_del) > 0
                 || count(
                     $product_formats_items_del
                 ) > 0
@@ -481,32 +478,29 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_insert              = [];
                         $data_insert['sync_data'] = $product;
 
-                        if (
-                            $this->checkChangesBeforeSave(
-                                $sync_type,
-                                $item_type,
-                                $product,
-                                $avoid_stock_update,
-                                $shops
-                            )
+                        if ($this->checkChangesBeforeSave(
+                            $sync_type,
+                            $item_type,
+                            $product,
+                            $avoid_stock_update,
+                            $shops
+                        )
                         ) {
                             if (isset($product['variants']) && count($product['variants'])) {
                                 foreach ($product['variants'] as $variant_id => $variant) {
-                                    if (
-                                        !$this->checkChangesBeforeSave(
-                                            $sync_type,
-                                            'product_format',
-                                            $variant['item'],
-                                            $avoid_stock_update,
-                                            $shops
-                                        )
+                                    if (!$this->checkChangesBeforeSave(
+                                        $sync_type,
+                                        'product_format',
+                                        $variant['item'],
+                                        $avoid_stock_update,
+                                        $shops
+                                    )
                                     ) {//variant without changes
                                         unset($data_insert['sync_data']['variants'][$variant_id]);
                                     }
                                 }
                             }
-                            if (
-                                isset($data_insert['sync_data']['variants']) &&
+                            if (isset($data_insert['sync_data']['variants']) &&
                                 empty($data_insert['sync_data']['variants'])
                             ) {
                                 unset($data_insert['sync_data']['variants']);
@@ -525,14 +519,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 foreach ($product['variants'] as $variant) {
                                     $data_insert              = [];
                                     $data_insert['sync_data'] = $variant['item'];
-                                    if (
-                                        $this->checkChangesBeforeSave(
-                                            $sync_type,
-                                            $item_type,
-                                            $variant['item'],
-                                            $avoid_stock_update,
-                                            $shops
-                                        )
+                                    if ($this->checkChangesBeforeSave(
+                                        $sync_type,
+                                        $item_type,
+                                        $variant['item'],
+                                        $avoid_stock_update,
+                                        $shops
+                                    )
                                     ) {
                                         $sync_params['conn_params']['data_schema_info'] =
                                             $data_returned['data_schema_info']['product_formats'];
@@ -585,14 +578,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $data_insert = array();
                         $data_insert['sync_data'] = $product_format;
 
-                        if (
-                            $this->checkChangesBeforeSave(
-                                $sync_type,
-                                $item_type,
-                                $product_format,
-                                $avoid_stock_update,
-                                $shops
-                            )
+                        if ($this->checkChangesBeforeSave(
+                            $sync_type,
+                            $item_type,
+                            $product_format,
+                            $avoid_stock_update,
+                            $shops
+                        )
                         ) {
                             $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
                             $sync_params_to_insert = json_encode($sync_params);
@@ -649,8 +641,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
 
 
-        if (
-            count($catalogue_items) > 0 || count($catalogue_items_del) > 0 || count($product_items) > 0
+        if (count($catalogue_items) > 0 || count($catalogue_items_del) > 0 || count($product_items) > 0
             || count(
                 $product_items_del
             ) > 0
@@ -1378,8 +1369,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return $value;
         }
 
-        if (
-            (is_numeric($value) && $value === 0)
+        if ((is_numeric($value) && $value === 0)
             || (is_string($value)
                 && in_array(
                     Tools::strtolower((string) trim($value)),
@@ -1395,8 +1385,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return  false;
         }
 
-        if (
-            (is_numeric($value) && $value === 1)
+        if ((is_numeric($value) && $value === 1)
             || (is_string($value)
                 && in_array(
                     Tools::strtolower((string) trim($value)),
@@ -1567,8 +1556,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $fieldName = $keyStruct;
             }
 
-            if (
-                in_array($fieldName, $this->product_format_base_fields, false)
+            if (in_array($fieldName, $this->product_format_base_fields, false)
                 || preg_match(
                     '/format_supplier_\+?\d+$/',
                     $fieldName
@@ -1627,15 +1615,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             $fieldName = $tablaStructure[$attribute_search_index]['basename'];
                             $fieldNamePublic = $tablaStructure[$attribute_search_index]['basename'];
 
-                            if (
-                                !isset($attGroup->name[$lang_sub['id_lang']]) ||
+                            if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
                                 $attGroup->name[$lang_sub['id_lang']] == null ||
                                 $attGroup->name[$lang_sub['id_lang']] == ''
                             ) {
                                 $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                             }
-                            if (
-                                !isset($attGroup->public_name[$lang_sub['id_lang']]) ||
+                            if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
                                 $attGroup->public_name[$lang_sub['id_lang']] == null ||
                                 $attGroup->public_name[$lang_sub['id_lang']] == ''
                             ) {
@@ -1644,15 +1630,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
 
                             if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                if (
-                                    !isset($attGroup->name[$this->defaultLanguage]) ||
+                                if (!isset($attGroup->name[$this->defaultLanguage]) ||
                                     $attGroup->name[$this->defaultLanguage] == null ||
                                     $attGroup->name[$this->defaultLanguage] == ''
                                 ) {
                                     $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
                                 }
-                                if (
-                                    !isset($attGroup->public_name[$this->defaultLanguage]) ||
+                                if (!isset($attGroup->public_name[$this->defaultLanguage]) ||
                                     $attGroup->public_name[$this->defaultLanguage] == null ||
                                     $attGroup->public_name[$this->defaultLanguage] == ''
                                 ) {
@@ -1672,15 +1656,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                                 $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
                             } else {
-                                if (
-                                    !isset($attGroup->name[$lang_sub['id_lang']]) ||
+                                if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
                                     $attGroup->name[$lang_sub['id_lang']] == null ||
                                     $attGroup->name[$lang_sub['id_lang']] == ''
                                 ) {
                                     $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                                 }
-                                if (
-                                    !isset($attGroup->public_name[$lang_sub['id_lang']]) ||
+                                if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
                                     $attGroup->public_name[$lang_sub['id_lang']] == null ||
                                     $attGroup->public_name[$lang_sub['id_lang']] == ''
                                 ) {
@@ -1689,15 +1671,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             }
 
                             if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                if (
-                                    !isset($attGroup->name[$this->defaultLanguage]) ||
+                                if (!isset($attGroup->name[$this->defaultLanguage]) ||
                                     $attGroup->name[$this->defaultLanguage] == null ||
                                     $attGroup->name[$this->defaultLanguage] == ''
                                 ) {
                                     $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
                                 }
-                                if (
-                                    !isset($attGroup->public_name[$this->defaultLanguage]) ||
+                                if (!isset($attGroup->public_name[$this->defaultLanguage]) ||
                                     $attGroup->public_name[$this->defaultLanguage] == null ||
                                     $attGroup->public_name[$this->defaultLanguage] == ''
                                 ) {
@@ -1709,30 +1689,26 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         }
                     } else {
                         foreach ($this->shop_languages as $lang_sub) {
-                            if (
-                                !isset($attGroup->name[$lang_sub['id_lang']]) ||
+                            if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
                                 $attGroup->name[$lang_sub['id_lang']] == null ||
                                 $attGroup->name[$lang_sub['id_lang']] == ''
                             ) {
                                 $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                             }
-                            if (
-                                !isset($attGroup->public_name[$lang_sub['id_lang']]) ||
+                            if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
                                 $attGroup->public_name[$lang_sub['id_lang']] == null ||
                                 $attGroup->public_name[$lang_sub['id_lang']] == ''
                             ) {
                                 $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
                             }
                             if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                if (
-                                    !isset($attGroup->name[$this->defaultLanguage]) ||
+                                if (!isset($attGroup->name[$this->defaultLanguage]) ||
                                     $attGroup->name[$this->defaultLanguage] == null ||
                                     $attGroup->name[$this->defaultLanguage] == ''
                                 ) {
                                     $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
                                 }
-                                if (
-                                    !isset($attGroup->public_name[$this->defaultLanguage]) ||
+                                if (!isset($attGroup->public_name[$this->defaultLanguage]) ||
                                     $attGroup->public_name[$this->defaultLanguage] == null ||
                                     $attGroup->public_name[$this->defaultLanguage] == ''
                                 ) {
@@ -1779,8 +1755,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 $replaced_original_ucfirst,
                             );
 
-                            if (
-                                in_array($regAttrGroup['name'], $alternatives, false)
+                            if (in_array($regAttrGroup['name'], $alternatives, false)
                                 || in_array(
                                     $regAttrGroup['public_name'],
                                     $alternatives,
@@ -1831,8 +1806,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         foreach ($this->shop_languages as $lang_sub) {
                             $attribute_search_index = $fieldName . '_' . $lang_sub['iso_code'];
                             if (isset($tablaStructure[$attribute_search_index]['language_code'])) {
-                                if (
-                                    isset($tablaStructure[$attribute_search_index]['title']) &&
+                                if (isset($tablaStructure[$attribute_search_index]['title']) &&
                                     !empty($tablaStructure[$attribute_search_index]['title'])
                                 ) {
                                     $fieldName = $tablaStructure[$attribute_search_index]['title'];
@@ -1847,14 +1821,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
 
                                 if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                    if (
-                                        $attGroup->name[$this->defaultLanguage] == null ||
+                                    if ($attGroup->name[$this->defaultLanguage] == null ||
                                         $attGroup->name[$this->defaultLanguage] == ''
                                     ) {
                                         $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
                                     }
-                                    if (
-                                        $attGroup->public_name[$this->defaultLanguage] == null ||
+                                    if ($attGroup->public_name[$this->defaultLanguage] == null ||
                                         $attGroup->public_name[$this->defaultLanguage] == ''
                                     ) {
                                         $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
@@ -1880,14 +1852,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 }
 
                                 if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                    if (
-                                        $attGroup->name[$this->defaultLanguage] == null ||
+                                    if ($attGroup->name[$this->defaultLanguage] == null ||
                                         $attGroup->name[$this->defaultLanguage] == ''
                                     ) {
                                         $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
                                     }
-                                    if (
-                                        $attGroup->public_name[$this->defaultLanguage] == null ||
+                                    if ($attGroup->public_name[$this->defaultLanguage] == null ||
                                         $attGroup->public_name[$this->defaultLanguage] == ''
                                     ) {
                                         $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
@@ -1906,14 +1876,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 }
 
                                 if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                    if (
-                                        $attGroup->name[$this->defaultLanguage] == null ||
+                                    if ($attGroup->name[$this->defaultLanguage] == null ||
                                         $attGroup->name[$this->defaultLanguage] == ''
                                     ) {
                                         $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
                                     }
-                                    if (
-                                        $attGroup->public_name[$this->defaultLanguage] == null ||
+                                    if ($attGroup->public_name[$this->defaultLanguage] == null ||
                                         $attGroup->public_name[$this->defaultLanguage] == ''
                                     ) {
                                         $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
@@ -2064,8 +2032,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                         if (count($shopsOtherComps) > 0) {
                             foreach ($shopsOtherComps as $conn_id => $shopsOtherComp) {
-                                if (
-                                    $connector_id != $conn_id
+                                if ($connector_id != $conn_id
                                     && in_array(
                                         $format_shop['id_shop'],
                                         $shopsOtherComp,
@@ -2528,8 +2495,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             $replaced_original_ucfirst,
                         );
 
-                        if (
-                            in_array($regAttrGroup['name'], $alternatives, false)
+                        if (in_array($regAttrGroup['name'], $alternatives, false)
                             || in_array(
                                 $regAttrGroup['public_name'],
                                 $alternatives,

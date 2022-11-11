@@ -120,22 +120,45 @@ class HowToUseController extends ModuleAdminController
 
         $shop_id = (Shop::getContextShopID() ? Shop::getContextShopID() : Configuration::get('PS_SHOP_DEFAULT'));
         Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
+        if (Tools::version_compare(_PS_VERSION_, '1.7.7.5', '>=') == true) {
+            ShopConstraint::shop($shop_id);
+        }
 
         $this->context->smarty->assign(
             array(
                 'SLY_LOGOS_PATH' => $SLimport->module_path . 'views/img/',
                 'SLY_ASSETS_PATH' => $SLimport->module_path,
-                'link_all_connectors' => $this->context->link->getAdminLink('AllConnectors',
-	                true, array(), array( 'id_shop' => $this->context->shop->id)),
-                'add_connectors' => $this->context->link->getAdminLink('AddConnectors',
-	                true, array(), array( 'id_shop' => $this->context->shop->id)),
-                'link_how_to_use' => $this->context->link->getAdminLink('HowToUse',
-	                true, array(), array( 'id_shop' => $this->context->shop->id)),
-                'link_diagnostics' => $this->context->link->getAdminLink('AdminDiagtools',
-	                true, array(), array( 'id_shop' => $this->context->shop->id)),
+                'link_all_connectors' => $this->context->link->getAdminLink(
+                    'AllConnectors',
+                    true,
+                    array(),
+                    array( 'id_shop' => $this->context->shop->id)
+                ),
+                'add_connectors' => $this->context->link->getAdminLink(
+                    'AddConnectors',
+                    true,
+                    array(),
+                    array( 'id_shop' => $this->context->shop->id)
+                ),
+                'link_how_to_use' => $this->context->link->getAdminLink(
+                    'HowToUse',
+                    true,
+                    array(),
+                    array( 'id_shop' => $this->context->shop->id)
+                ),
+                'link_diagnostics' => $this->context->link->getAdminLink(
+                    'AdminDiagtools',
+                    true,
+                    array(),
+                    array( 'id_shop' => $this->context->shop->id)
+                ),
                 'plugin_name' => Tools::ucfirst($SLimport->name),
-                'admin_attributes' => $this->context->link->getAdminLink('AdminAttributesGroups',
-	                true, array(), array( 'id_shop' => $this->context->shop->id)),
+                'admin_attributes' => $this->context->link->getAdminLink(
+                    'AdminAttributesGroups',
+                    true,
+                    array(),
+                    array( 'id_shop' => $this->context->shop->id)
+                ),
                 'culr_link' =>  $culr_link,
                 'message' => $message,
                 'validation_table' => $create_validation_table,
