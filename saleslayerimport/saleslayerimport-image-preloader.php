@@ -18,8 +18,7 @@ include(dirname(__FILE__) . '/../../init.php');
 $process_name = 'image-preloader';
 /* Check security token */
 
-if (
-    !Module::isInstalled('saleslayerimport')
+if (!Module::isInstalled('saleslayerimport')
     || Tools::substr(
         Tools::encrypt('saleslayerimport'),
         0,
@@ -32,12 +31,13 @@ if (
 try {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
     $SLimport = new SalesLayerImport();
+    $SLimport->errorSetup();
 } catch (Exception $e) {
     die('Exception in load plugin file->' . $e->getMessage());
 }
  $ps_type = Tools::getValue('ps_type');
 
-
+$get = getmypid();
 if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
     ini_set('max_execution_time', 144000);
     $query_ps_type = '';
@@ -62,14 +62,14 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
     if ($count_result >= $death_limit_images) {// default
         exit();
     }
-    if (!$SLimport->getRunProceses($process_name)) {
+    if (!$SLimport->getRunProceses($process_name, $get)) {
         exit();
     }
 
     try {
         $performance_limit = $SLimport->getConfiguration('PERFORMANCE_LIMIT');
         if (!$performance_limit) {
-            $performance_limit = 4.00;
+            $performance_limit = 3.00;
         }
         $registers = [];
         $counter = 0;
@@ -91,8 +91,7 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
                 $image = $SLimport->slConnectionQuery('read', $sqlpre3);
 
 
-                if (
-                    !empty($image)
+                if (!empty($image)
                     && isset($image[0]['id'])
                     && $image[0]['id'] != null
                 ) {
@@ -111,9 +110,10 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
                                                    ' WHERE id =' . $image[0]['id']);
                     } else {
                         Db::getInstance()->execute('UPDATE ' . _DB_PREFIX_ . 'slyr_image_preloader  SET ' .
-                                                   ', status = "er" ' .
+                                                   ' status = "er" ' .
                                                    ' WHERE id =' . $image[0]['id']);
                     }
+                    $SLimport->clearDebugContent();
                 } else {
                     $SLimport->debbug('Break 2 from but is end the process', 'image_preloader');
                     unset($image);
@@ -135,8 +135,9 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
                                 break;
                             }
                             $load = sys_getloadavg();
-                            if ($load[0] <= $performance_limit) {
+                            if ($load[0] <= ($performance_limit - 1)) {
                                 sleep($sleep_interval);
+                                $SLimport->loadDebugMode();
                             } else {
                                 $SLimport->debbug('Break but is overloaded->' . $load[0], 'image_preloader');
                                 break;

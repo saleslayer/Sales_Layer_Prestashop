@@ -45,17 +45,38 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['server_time'] = 'Server time: ' . date('H:i');
             $SLimport = new SalesLayerImport();
 
-            $sql_processing = ' SELECT count(*) as sl_cuenta_registros  FROM '
+            $sql_processing = ' SELECT count(*) as sl_cuenta_registros, SUM(num_variants) as sl_cuenta_variants FROM '
                               . _DB_PREFIX_ . 'slyr_syncdata ';
             $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
 
+            $post_work = false;
+            $Work_in_message = '';
+            if (!isset($items_processing['sl_cuenta_registros']) || $items_processing['sl_cuenta_registros'] == 0) {
+                $sql_processing = ' SELECT count(*) as sl_cuenta_registros FROM '
+                                  . _DB_PREFIX_ . 'slyr_process ';
+                $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
+                $items_processing['sl_cuenta_variants'] = 0;
+                $Work_in_message = 'Waiting for processes to finish';
+                $post_work = true;
+            }
+
+
             if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
+                $actual_stat = $items_processing['sl_cuenta_registros'] + $items_processing['sl_cuenta_variants'];
+                $total_stat = $SLimport->getConfiguration('TOTAL_STAT');
+                if (!$total_stat) {
+                    $SLimport->saveConfiguration(['TOTAL_STAT'=>$actual_stat]);
+                } elseif ($actual_stat > $total_stat) {
+                    $SLimport->saveConfiguration(['TOTAL_STAT'=>$actual_stat]);
+                }
+
                 $return['status'] = 'processing';
-                $return['actual_stat'] = $items_processing['sl_cuenta_registros'];
-                $return['total_stat']  = null;
+                $return['actual_stat'] = $actual_stat;
+                $return['total_stat']  = ($total_stat?$total_stat:$actual_stat);
+
                 //work_stat
 
-                $balancer_runned = $SLimport->getConfiguration('BALANCER');
+
                 $working_stat =  $SLimport->getConfiguration('SYNC_STATUS');
                 //work_stat
                 $parse_work = '';
@@ -67,33 +88,37 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                     $item_type = $parse_work[1];
                 }
 
-                $Work_in_message = '';
-                if ($process == 'update') {
-                    $Work_in_message .= 'Updating ';
-                } else {
-                    if ($item_type == 'product_format') {
-                        $Work_in_message .= 'Removing ';
+                if (!$post_work) {
+                    if ($process == 'update') {
+                        $Work_in_message .= 'Updating ';
                     } else {
-                        $Work_in_message .= 'Deactivating ';
+                        if ($item_type == 'product_format') {
+                            $Work_in_message .= 'Removing ';
+                        } else {
+                            $Work_in_message .= 'Deactivating ';
+                        }
+                    }
+                    if ($item_type == 'category') {
+                        $Work_in_message .= 'categories';
+                    } elseif ($item_type == 'product') {
+                        $Work_in_message .= 'products';
+                    } elseif ($item_type == 'product_format') {
+                        $Work_in_message .= 'variants';
+                    } elseif ($item_type == 'accessories') {
+                        $Work_in_message .= 'accessories';
+                    } elseif ($item_type == 'index') {
+                        $Work_in_message = 'Indexing';
+                    }
+
+                    $balancer_runned = $SLimport->getConfiguration('BALANCER');
+                    if (!$balancer_runned) {
+                        $Work_in_message = 'Waiting for cron';
                     }
                 }
-                if ($item_type == 'category') {
-                    $Work_in_message .= 'categories';
-                } elseif ($item_type == 'product') {
-                    $Work_in_message .= 'products';
-                } elseif ($item_type == 'product_format') {
-                    $Work_in_message .= 'variants';
-                } elseif ($item_type == 'accessories') {
-                    $Work_in_message .= 'accessories';
-                } elseif ($item_type == 'index') {
-                    $Work_in_message = 'Indexing';
-                }
-                if (!$balancer_runned) {
-                    $Work_in_message = 'Waiting for cron';
-                }
+
                 $Work_in_message .= '&nbsp;';
                 $return['work_stat'] = $Work_in_message ;
-                $return['speed']     = $SLimport->getCountProcess('synchronizer');
+                $return['speed']     = $SLimport->getCountProcess();
 
                 $result = $SLimport->testSlcronExist();
                 $register_forProcess = $SLimport->checkRegistersForProccess();
@@ -238,10 +263,9 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $SLimport = new SalesLayerImport();
             $sql_processing = "DELETE FROM " . _DB_PREFIX_ . 'slyr_syncdata';
             $SLimport->slConnectionQuery('-', $sql_processing);
-
             $SLimport->clearPreloadCache();
             $SLimport->clearTempImages();
-            $SLimport->clearWorkProcess();
+            $SLimport->deleteConfiguration('TOTAL_STAT');
             $return['message_type'] = 'success';
             $return['message'] = 'Deleted all from synchronization';
 
@@ -268,8 +292,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $SLimport = new SalesLayerImport();
             if (in_array($field_name, $permited_fields, false)) {
                 try {
-                    if (
-                        ($field_name == 'auto_sync[' . $connector_id . ']'
+                    if (($field_name == 'auto_sync[' . $connector_id . ']'
                          && ($field_value >= 0
                          && $field_value <= 72))
                         || ($field_name == 'auto_sync_hour[' . $connector_id . ']'
@@ -372,7 +395,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
         $sync_libs = new SalesLayerPimUpdate();
 
 
-        if ($SLimport->checkRegistersForProccess()) {
+        if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
             try {
                 $SLimport->callProcess('cron', ['internal' => 1]);
                 $return = 'Synchronization executed';
@@ -399,8 +422,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                         if (isset($returnUpdate['products_to_delete']) && $returnUpdate['products_to_delete'] > 0) {
                             $createMessege .= $returnUpdate['products_to_delete'] . ' Products to hide <br>';
                         }
-                        if (
-                            isset($returnUpdate['product_formats_to_delete']) &&
+                        if (isset($returnUpdate['product_formats_to_delete']) &&
                             $returnUpdate['product_formats_to_delete'] > 0
                         ) {
                             $createMessege .= $returnUpdate['product_formats_to_delete'] . ' Variants to delete <br>';
@@ -411,8 +433,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                         if (isset($returnUpdate['products_to_sync']) && $returnUpdate['products_to_sync'] > 0) {
                             $createMessege .= $returnUpdate['products_to_sync'] . ' Products to process <br>';
                         }
-                        if (
-                            isset($returnUpdate['product_formats_to_sync']) &&
+                        if (isset($returnUpdate['product_formats_to_sync']) &&
                             $returnUpdate['product_formats_to_sync'] > 0
                         ) {
                             $createMessege .= $returnUpdate['product_formats_to_sync'] . ' Variants to process <br>';

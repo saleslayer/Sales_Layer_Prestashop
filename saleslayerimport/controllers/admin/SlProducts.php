@@ -15,6 +15,8 @@
 
 class SlProducts extends SalesLayerPimUpdate
 {
+    private $general_error = false;
+
     public function __construct()
     {
         parent::__construct();
@@ -163,6 +165,7 @@ class SlProducts extends SalesLayerPimUpdate
                 $product_exists = $this->syncProduct($product, $comp_id, $schema, $shops, $connector_id);
                 $is_new_product = true;
             } catch (Exception $e) {
+                $this->general_error = true;
                 $this->debbug(
                     '## Error. Synchronizing product syncProduct-> ' . print_r($e->getMessage(), 1)
                     . ' line->' . $e->getLine(),
@@ -173,6 +176,7 @@ class SlProducts extends SalesLayerPimUpdate
 
 
         if (!$product_exists) {
+            $this->general_error = true;
             $this->debbug('## Error. When creating the product with ' . $occurence, 'syncdata');
 
             //continue;
@@ -207,6 +211,7 @@ class SlProducts extends SalesLayerPimUpdate
                         );
 
                         if (!$product_category_id) {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurence . ' The catalog with ID :' .
                                 $sl_product_parent_id . ' for the company with ID: '
@@ -304,6 +309,7 @@ class SlProducts extends SalesLayerPimUpdate
                     }
                 }
             } catch (Exception $e) {
+                $this->general_error = true;
                 $this->debbug(
                     '## Error. ' . $occurence . ' In create product in selected store->' .
                     print_r($e->getMessage(), 1) .
@@ -430,6 +436,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 );
                                 $productObject->setWsType('simple');
                             } catch (Exception $e) {
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' In changing type of product->' .
                                         print_r($e->getMessage(), 1) .
@@ -513,6 +520,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     $pack_quantity = 1;
                                 }
                                 if (Pack::isPack((int) $pack_product_id)) {
+                                    $this->general_error = true;
                                     $this->debbug(
                                         '## Error. ' . $occurence . ' product type pack->' .
                                         print_r('You can\'t add product packs into a pack. Reference of Variant: ' .
@@ -527,6 +535,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         'pack_quantity' => $pack_quantity,
                                 );
                             } else {
+                                $this->general_error = true;
                                 $this->debbug(
                                     $occurence . ' product type pack. ## Error. ' .
                                     'Variant reference to link does not yet exist ->' .
@@ -600,6 +609,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     $pack_quantity = 1;
                                 }
                                 if (Pack::isPack((int) $pack_product_id)) {
+                                    $this->general_error = true;
                                     $this->debbug(
                                         '## Error. ' . $occurence . ' product type pack->' .
                                         print_r('You can\'t add product packs into a pack. Reference: ' .
@@ -614,6 +624,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         'pack_quantity' => $pack_quantity,
                                     );
                             } else {
+                                $this->general_error = true;
                                 $this->debbug(
                                     $occurence . ' product type pack. ## Error. ' .
                                     'Product reference to link does not yet exist   ->' .
@@ -655,6 +666,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             'id_product = ' . (int) $product_exists
                                         )
                                         ) {
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurence .
                                                 ' product type pack set cache_is_pack to true.',
@@ -668,12 +680,14 @@ class SlProducts extends SalesLayerPimUpdate
                                             'quantity' => (int) $product_pack_item['pack_quantity'],
                                             ])
                                         ) {
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurence . ' product type pack set register to pack->',
                                                 'syncdata'
                                             );
                                         }
                                         if (!Configuration::updateGlobalValue('PS_PACK_FEATURE_ACTIVE', '1')) {
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurence .
                                                 ' product type pack set register to PS_PACK_FEATURE_ACTIVE = 1->',
@@ -681,6 +695,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             );
                                         }
                                     } catch (Exception $e) {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '## Error. ' . $occurence . ' product type pack->' . $e->getMessage() .
                                             'line->' . print_r($e->getLine(), 1) .
@@ -690,6 +705,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     }
                                 }
                             } catch (Exception $e) {
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' product type pack->' . $e->getMessage() .
                                     'line->' . print_r($e->getLine(), 1) .
@@ -714,6 +730,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 'syncdata'
                             );
                         } else {
+                            $this->general_error = true;
                             $this->debbug(
                                 '##Error. Product is not valid virtual value ' . print_r(
                                     $product_type,
@@ -723,6 +740,7 @@ class SlProducts extends SalesLayerPimUpdate
                             );
                         }
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. ' . $occurence . ' product type virtual->' . $e->getMessage() .
                                 'line->' . print_r($e->getLine(), 1) .
@@ -809,6 +827,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         /**
                                          *  id_tax_rules_group not founded
                                          */
+                                        $this->general_error = true;
                                         $this->debbug('## Error. ' . $occurence . ' There is no tax rule for' .
                                                       ' this store and this rate.' .
                                                   'Please first create a rule create a rule for that tax.' .
@@ -817,6 +836,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                   print_r($shop_id, 1), 'syncdata');
                                     }
                                 } catch (Exception $e) {
+                                    $this->general_error = true;
                                     $this->debbug('## Error. ' . $occurence .
                                                   ' in seach tax rule group in query ' . $e->getMessage() .
                                               ' ->' . print_r($query_for_search_tax, 1), 'syncdata');
@@ -846,6 +866,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $tax_updated = true;
                             } else {
                                 if (!$is_percentage) {
+                                    $this->general_error = true;
                                     $this->debbug(
                                         '## Error. ' . $occurence . ' id of tax rule not founded ->' . print_r(
                                             $product['data']['product_id_tax_rules_group'],
@@ -856,6 +877,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 }
                             }
                         } else {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurence . ' tax rules is not a numeric value ->' . print_r(
                                     $product['data']['product_id_tax_rules_group'],
@@ -896,6 +918,7 @@ class SlProducts extends SalesLayerPimUpdate
                             $productObject->save();
                         } catch (Exception $e) {
                             $syncProduct = false;
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurence . ' When saving changes to product ->' . print_r(
                                     $e->getMessage(),
@@ -1048,6 +1071,7 @@ class SlProducts extends SalesLayerPimUpdate
                         if (Validate::isCleanHtml($product_description)) {
                             $productObject->description[$lang['id_lang']] = $product_description;
                         } else {
+                            $this->general_error = true;
                             $this->debbug(
                                 '##Error. invalid-html content-> ' . $occurence .
                                 ' ->' .
@@ -1354,7 +1378,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 'syncdata'
                             );
                             $schema_db = 'SELECT id_category,meta_keywords FROM ' . $this->category_lang_table .
-                                " WHERE meta_keywords like '%" . $category_default_value . "%' 
+                                " WHERE meta_keywords like '%" . addslashes($category_default_value) . "%' 
                                 AND id_lang = " . $lang['id_lang']
                                 . " AND id_shop = " . $shop_id . " GROUP BY id_category";
 
@@ -1727,6 +1751,7 @@ class SlProducts extends SalesLayerPimUpdate
                         );
                         $test_after_update['condition'] = $productObject->condition;
                     } else {
+                        $this->general_error = true;
                         $this->debbug(
                             '##Error. Condition value is invalid in ' . $occurence .
                             '  value->' .
@@ -1794,6 +1819,7 @@ class SlProducts extends SalesLayerPimUpdate
                     ) {
                         $productObject->visibility = trim($product['data']['product_visibility']);
                     } else {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. Invalid value for visibility  -> ' .
                             print_r(implode(' ,', $permitted), 1),
@@ -1826,11 +1852,13 @@ class SlProducts extends SalesLayerPimUpdate
                                 $lang['id_lang'],
                                 $productObject->id,
                                 $alt_images,
-                                $shops
+                                $shops,
+                                $product['ID']
                             );
                         }
                         unset($product['data']['product_image']);
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. ' . $occurence . ' In Synchronization of images :' . print_r(
                                 $e->getMessage(),
@@ -1948,6 +1976,7 @@ class SlProducts extends SalesLayerPimUpdate
                             }
                         }
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. In updating Category tree ' . $occurence . ' ->' . print_r(
                                 $e->getMessage(),
@@ -2258,6 +2287,7 @@ class SlProducts extends SalesLayerPimUpdate
                             (int) $productObject->text_fields
                         )
                         ) {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. An error occurred while creating customization fields.',
                                 'syncdata'
@@ -2603,7 +2633,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                        1
                                                    ), 'syncdata');
                                 $query = 'UPDATE `' . _DB_PREFIX_ . 'customization_field_lang`
-                                            SET `name` = "' . pSQL(trim($name_for_save)) . '" ' .
+                                            SET `name` = "' . trim($name_for_save) . '" ' .
                                             'WHERE `id_customization_field` = "' .
                                          (int) $value_field['id_customization_field'] . '"' .
                                             ' AND `id_shop` = "' . (int) $shop_id . '" ' .
@@ -2637,6 +2667,7 @@ class SlProducts extends SalesLayerPimUpdate
                             );
                         }
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug('## Error. ' . $occurence . ' Some problems have been detected in ' .
                                            'custom field creation ->' . $e->getMessage() . ' and line->' .
                                            print_r($e->getLine(), 1) .
@@ -2742,6 +2773,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $shop_id
                             );
                         } catch (Exception $e) {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurence . ' Set new stock for product ID:'
                                 . $product['ID'] . ' ->' . print_r(
@@ -2800,6 +2832,7 @@ class SlProducts extends SalesLayerPimUpdate
                             try {
                                 $existing_out_of_stock = StockAvailable::outOfStock($productObject->id, $shop_id);
                             } catch (Exception $e) {
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' get product_out_of_stock for product ID:'
                                     . $product['ID'] . ' ->' . print_r(
@@ -2817,6 +2850,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         $shop_id
                                     );
                                 } catch (Exception $e) {
+                                    $this->general_error = true;
                                     $this->debbug(
                                         '## Error. ' . $occurence .
                                         ' Set product_out_of_stock for product ID:' .
@@ -2984,6 +3018,7 @@ class SlProducts extends SalesLayerPimUpdate
                             try {
                                 $id_manufacturer = Manufacturer::getIdByName($product_manufacturer);
                             } catch (Exception $e) {
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' get id by name-> ' .
                                     print_r(
@@ -3035,6 +3070,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 unset($manufacturer);
                             } catch (Exception $e) {
                                 $syncProduct = false;
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' In saving new Manufacturer ' . print_r(
                                         $e->getMessage(),
@@ -3121,6 +3157,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         }
                                     }
                                 } catch (Exception $e) {
+                                    $this->general_error = true;
                                     $this->debbug(
                                         '## Error. ' . $occurence . ': supplier management ->' .
                                             print_r($e->getMessage(), 1) .
@@ -3136,6 +3173,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         $supplier->add();
                                         $id_supplier =   $supplier->id;
                                     } catch (Exception $e) {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '## Error. ' . $occurence . ': in create new  supplier ->' .
                                                 print_r($e->getMessage(), 1) .
@@ -3170,6 +3208,7 @@ class SlProducts extends SalesLayerPimUpdate
                                              );*/
                                         }
                                     } catch (Exception $e) {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '## Error. ' . $occurence . ': in add supplier Reference ->' .
                                                 print_r($e->getMessage(), 1) .
@@ -3284,11 +3323,13 @@ class SlProducts extends SalesLayerPimUpdate
                                 )
                             );
                         } else {
+                            $this->general_error = true;
                             $this->debbug('## Error. ' . $occurence . ' Estimacion column does not exist! ');
                         }
                     }
                 } catch (Exception $e) {
                     $syncProduct = true;
+                    $this->general_error = true;
                     $this->debbug(
                         '## Error. ' . $occurence .
                         ' Saving changes to product problem ->' . print_r($e->getMessage(), 1),
@@ -3631,6 +3672,7 @@ class SlProducts extends SalesLayerPimUpdate
                             $context_store
                         );
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. ' . $occurence . ' Sync syncProductDiscount: ' . $e->getMessage() .
                             ' line-> ' . $e->getLine() . ' trace->' . print_r($e->getTrace(), 1),
@@ -3650,6 +3692,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 $shop_id
                             );
                         } catch (Exception $e) {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurence . ' Sync syncSeosaProductLabels: ' . $e->getMessage(),
                                 'syncdata'
@@ -3706,6 +3749,7 @@ class SlProducts extends SalesLayerPimUpdate
                             $product_row['id']
                         );
                         if (!Db::getInstance()->execute($update_query)) {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. in save changes to cache ' .
                                 $occurence .
@@ -3714,6 +3758,7 @@ class SlProducts extends SalesLayerPimUpdate
                             );
                         }
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. in update register of slyr_category_product ' .
                             $occurence . ' ->' . print_r(
@@ -3751,6 +3796,7 @@ class SlProducts extends SalesLayerPimUpdate
                 try {
                     $this->syncProductAttachment($attachments_files, $product_exists, $mulilanguage);
                 } catch (Exception $e) {
+                    $this->general_error = true;
                     $this->debbug(
                         '## Error. In syncProductAttachment ' . $occurence . ' ->' . print_r(
                             $e->getMessage(),
@@ -3764,6 +3810,7 @@ class SlProducts extends SalesLayerPimUpdate
             try {
                 $this->syncFeatures($product_exists, $product, $schema);
             } catch (Exception $e) {
+                $this->general_error = true;
                 $this->debbug('## Error. ' . $occurence . ' Sync Features: ' . $e->getMessage(), 'syncdata');
             }
 
@@ -3828,6 +3875,10 @@ class SlProducts extends SalesLayerPimUpdate
             'syncdata'
         );
         if ($syncProduct) {
+            if ($this->general_error) {
+                $data_hash = null;
+            }
+
             $prepare_input_compare = []; // ps_id, hash, timestamp_modified, sl_id, id_conn, ps_type
             $prepare_input_compare['sl_id']               = $product['ID'];
             $prepare_input_compare['ps_type']             = 'product';
@@ -3847,6 +3898,7 @@ class SlProducts extends SalesLayerPimUpdate
             return array('stat' => 'item_updated',
                          'additional_output' => $additional_output);
         } else {
+            $this->general_error = true;
             $this->debbug(
                 $occurence . '## Error. This product could not be synchronized for any reason  ',
                 'syncdata'
@@ -3965,6 +4017,7 @@ class SlProducts extends SalesLayerPimUpdate
                 Tag::updateTagCount($editedtids);
             }
         } catch (Exception $e) {
+            $this->general_error = true;
             $this->debbug('## Error. Occurred in sync tags ->' . $e->getMessage() .
                           ' line->' . $e->getLine() .
                            'trace->' . print_r($e->getTrace(), 1), 'syncdata');
@@ -4160,6 +4213,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             continue 2;
                                         }
                                     } else {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '## Error. File attachment not exist ->' . print_r(
                                                 $file_real_path,
@@ -4256,6 +4310,7 @@ class SlProducts extends SalesLayerPimUpdate
                         unset($attachment_delete);
                     }
                 } catch (Exception $e) {
+                    $this->general_error = true;
                     $this->debbug('## Error. ' . $occurence .
                                   ' Deleting old attachment ' .
                                   print_r($prod_attachment, 1), 'syncdata');
@@ -4322,6 +4377,7 @@ class SlProducts extends SalesLayerPimUpdate
 
             return (int) $attachment->id;
         } catch (Exception $e) {
+            $this->general_error = true;
             $this->debbug(
                 '## Error. ' . $occurence . ' Error in creating attachment 
                                     problem found->' . print_r(
@@ -4341,7 +4397,8 @@ class SlProducts extends SalesLayerPimUpdate
         $id_lang,
         $product_id,
         $mulilanguage,
-        $shops
+        $shops,
+        $sl_id
     ) {
         if (isset($mulilanguage) && !empty($mulilanguage)) {
             $first_name = reset($mulilanguage);
@@ -4568,9 +4625,17 @@ class SlProducts extends SalesLayerPimUpdate
                 $url = trim($image_url);
 
                 if (!empty($url)) {
-                    $cached = SalesLayerImport::getPreloadedImage($url);
+                    $cached = SalesLayerImport::getPreloadedImage($url, 'product', $sl_id, true);
+
                     if ($cached) {
                         $temp_image = Tools::stripslashes($cached['local_path']);
+                        $this->debbug(
+                            'Image has been preloaded ->' . print_r(
+                                $cached,
+                                1
+                            ),
+                            'syncdata'
+                        );
                     } else {
                         $temp_image = $this->downloadImageToTemp($url);
                     }
@@ -4660,6 +4725,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                 }
                                             }
                                         } catch (Exception $e) {
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurence . ' In updating names of Image->' . print_r(
                                                     $e->getMessage(),
@@ -4674,6 +4740,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                     $product_id
                                                 ); // delete cover image from this product
                                             } catch (Exception $e) {
+                                                $this->general_error = true;
                                                 $this->debbug(
                                                     '## Error. ' . $occurence . ' Delete cover ->' . print_r(
                                                         $e->getMessage(),
@@ -4726,6 +4793,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                                             $this->debbug('Saving changes to complete image', 'syncdata');
                                         } catch (Exception $e) {
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurence . ' Updating Image info ->' . print_r(
                                                     $e->getMessage(),
@@ -4738,6 +4806,11 @@ class SlProducts extends SalesLayerPimUpdate
                                             unlink($temp_image);
                                         }
                                         unset($image_cover);
+                                        if ($cached) {
+                                            SalesLayerImport::deletePreloadImageByCacheData($cached);
+                                        } else {
+                                            SalesLayerImport::deletePreloadImage($url, 'product', $sl_id);
+                                        }
 
                                         // exit from  second loop
                                         continue 2;
@@ -4809,6 +4882,7 @@ class SlProducts extends SalesLayerPimUpdate
                             try {
                                 Image::deleteCover($product_id); // delete cover image from this product
                             } catch (Exception $e) {
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' Delete cover ->' . print_r($e->getMessage(), 1),
                                     'syncdata'
@@ -4960,6 +5034,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 );
                             }
                         } else {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurence . '. Validating image problems in Product ID:'
                                 . $product_id . ' validate fields->' . print_r(
@@ -4982,7 +5057,11 @@ class SlProducts extends SalesLayerPimUpdate
                         if (file_exists($temp_image)) {
                             unlink($temp_image);
                         }
-                        SalesLayerImport::deletePreloadImage($url);
+                    }
+                    if ($cached) {
+                        SalesLayerImport::deletePreloadImageByCacheData($cached);
+                    } else {
+                        SalesLayerImport::deletePreloadImage($url, 'product', $sl_id);
                     }
                 }
                 $this->debbug('END processing this image Timing ->' . ($time_ini_image - microtime(1)), 'syncdata');
@@ -5207,6 +5286,7 @@ class SlProducts extends SalesLayerPimUpdate
                         );
                         $insert_return =  Db::getInstance()->execute($insert_query);
                         if (!$insert_return) {
+                            $this->general_error = true;
                             $this->debbug('insert register error ' .
                                           $occurence . ' return-> ' . print_r($insert_return, 1) .
                                           ' query->' . print_r($insert_query, 1), 'syncdata');
@@ -5215,6 +5295,7 @@ class SlProducts extends SalesLayerPimUpdate
                                           $occurence . ' return-> ' . print_r($insert_return, 1), 'syncdata');
                         }
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. ' . $occurence . ' in create register en table slyr_category_product ->' .
                             print_r($e->getMessage(), 1) .
@@ -5332,6 +5413,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         )
                                     );
                                 } catch (Exception $e) {
+                                    $this->general_error = true;
                                     $this->debbug(
                                         '## Error. ' . $occurence .
                                         ' in create register en table slyr_category_product ->' .
@@ -5469,6 +5551,7 @@ class SlProducts extends SalesLayerPimUpdate
             try {
                 $productObject->save();
             } catch (Exception $e) {
+                $this->general_error = true;
                 $this->debbug(
                     '## Error. Cannot Sync product ' . $occurence . ' ->' .
                     print_r($e->getMessage(), 1) .
@@ -5491,6 +5574,7 @@ class SlProducts extends SalesLayerPimUpdate
                         )
                     );
                 } catch (Exception $e) {
+                    $this->general_error = true;
                     $this->debbug(
                         '## Error. ' . $occurence .
                         ' in create register en table slyr_category_product ->' .
@@ -5816,6 +5900,7 @@ class SlProducts extends SalesLayerPimUpdate
         try {
             $product['data'] = $this->removePredefinedFieldsBeforeFeatures($product['data'], $schema);
         } catch (Exception $e) {
+            $this->general_error = true;
             $this->debbug(
                 '## Error. ' . $occurence . ' Removing element predefined. Problem found->' . $e->getMessage(),
                 'syncdata'
@@ -6174,6 +6259,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                 }
                                             }
                                         } catch (Exception $e) {
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurence . ' save Feature->' . print_r(
                                                     $e->getMessage(),
@@ -6261,6 +6347,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                         )
                                                     );
                                                 } catch (Exception $e) {
+                                                    $this->general_error = true;
                                                     $this->debbug(
                                                         '## Error. ' . $occurence . ' Updating feature value->'
                                                          . $e->getMessage(),
@@ -6384,6 +6471,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                 continue;
                                             }
                                         } catch (Exception $e) {
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurence . ' In existing feature 
                                                 $feature_name_index->' . print_r(
@@ -6494,6 +6582,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                     $create_as_custom
                                                 );
                                             } catch (Exception $e) {
+                                                $this->general_error = true;
                                                 $this->debbug(
                                                     '## Error. ' . $occurence . ' In existing feature
                                                      searchFeatureValue. ->' . $e->getMessage() . ' line->' . print_r(
@@ -6558,6 +6647,7 @@ class SlProducts extends SalesLayerPimUpdate
                                                         );
                                                     }
                                                 } catch (Exception $e) {
+                                                    $this->general_error = true;
                                                     $this->debbug(
                                                         '## Error. ' . $occurence . ' Inserting 
                                                         feature value ->' . $e->getMessage(),
@@ -6567,6 +6657,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             }
                                         }
                                     } catch (Exception $e) {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '## Error. ' . $occurence . ' In existing feature ' . $e->getMessage() .
                                             ' line->' . $e->getLine() .
@@ -6596,6 +6687,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     unset($product['data'][$feature_index_selected]);
                                 }
                             } catch (Exception $e) {
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurence . ' Cleaning this feature from product ' .
                                     $e->getMessage(),
@@ -6607,6 +6699,7 @@ class SlProducts extends SalesLayerPimUpdate
                 }
             }
         } catch (Exception $e) {
+            $this->general_error = true;
             $this->debbug(
                 '## Error. ' . $occurence . ' Recognizing existing feature.  problem found->' . print_r(
                     $e->getMessage() . ' line->' . $e->getLine(),
@@ -6667,13 +6760,11 @@ class SlProducts extends SalesLayerPimUpdate
                                 if (isset($schema[$index_another_language]['title']) &&
                                     !empty($schema[$index_another_language]['title'])
                                 ) {
-                                    $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst(
-                                        $schema[$index_another_language]['title']
-                                    );
+                                    $new_feature->name[$lang_sub['id_lang']] =
+                                        $schema[$index_another_language]['title'];
                                 } else {
-                                    $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst(
-                                        $schema[$index_another_language]['basename']
-                                    );
+                                    $new_feature->name[$lang_sub['id_lang']] =
+	                                    $schema[$index_another_language]['basename'];
                                 }
                             }
                         }
@@ -6698,7 +6789,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 } else {
                                     $first_basename = $first_index_name;
                                 }
-                                $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst($first_basename);
+                                $new_feature->name[$lang_sub['id_lang']] = $first_basename;
                             }
                             $this->debbug(
                                 'After setting names ->' . $first_index_name . ' -> ' . print_r(
@@ -6711,7 +6802,7 @@ class SlProducts extends SalesLayerPimUpdate
                             $first_basename = $first_index_name;
                             foreach ($this->shop_languages as $lang_sub) {
                                 // create name of feature in all languages needed for shop
-                                $new_feature->name[$lang_sub['id_lang']] = Tools::ucfirst($first_basename);
+                                $new_feature->name[$lang_sub['id_lang']] = $first_basename;
                             }
                             $this->debbug(
                                 'Setting for all languages ->' . $first_index_name . ' -> ' . print_r(
@@ -6740,7 +6831,7 @@ class SlProducts extends SalesLayerPimUpdate
                         );
                     } catch (Exception $e) {
                         unset($product['data'][$first_index_name]);
-
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. ' . $occurence . ' Saving new Feature  ->' . $first_index_name .
                             ' and value->' . $product['data'][$first_index_name] . '  problem found->' . print_r(
@@ -6873,6 +6964,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             $feature_value->save();
                                         }
                                     } catch (Exception $e) {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '##Error. In save changes to feature value ->' .
                                             print_r($e->getMessage(), 1) . ' values->' .
@@ -6906,6 +6998,7 @@ class SlProducts extends SalesLayerPimUpdate
                                             );
                                         }
                                     } catch (Exception $e) {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '## Error. ' . $occurence . ' Inserting feature value in ' .
                                             'unrecognized with another language  ->' . $e->getMessage(),
@@ -7009,6 +7102,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         }
                                         $features_founded[] = $id_feature_value;
                                     } catch (Exception $e) {
+                                        $this->general_error = true;
                                         $this->debbug(
                                             '## Error. ' . $occurence .
                                             ' The value of the insert function is not recognized
@@ -7035,6 +7129,7 @@ class SlProducts extends SalesLayerPimUpdate
                 Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
             }
         } catch (Exception $e) {
+            $this->general_error = true;
             $this->debbug(
                 '## Error.  Creating features that have not been recognized. ' .
                 $occurence . ' problem found->' . print_r(
@@ -7085,6 +7180,7 @@ class SlProducts extends SalesLayerPimUpdate
                 }
             }
         } catch (Exception $e) {
+            $this->general_error = true;
             $this->debbug(
                 '## Error.  Removing all features that have not been received in the
                  product. ' . $occurence . '  problem found->' . print_r(
@@ -7144,6 +7240,7 @@ class SlProducts extends SalesLayerPimUpdate
                 }
             }
         } catch (Exception $e) {
+            $this->general_error = true;
             $this->debbug(
                 '## Error. In searchFeatureValue in search values ->' . $e->getMessage() . ' line->' . print_r(
                     $e->getLine(),
@@ -7159,6 +7256,7 @@ class SlProducts extends SalesLayerPimUpdate
             try {
                 if ($id_product !== null && $id_product) {
                     if (!is_array($values)) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. Feature value is not array impossible' .
                             ' found any value in any lang' . print_r(
@@ -7179,15 +7277,15 @@ class SlProducts extends SalesLayerPimUpdate
 						AND fv.`custom` = ' . (int) $create_as_custom . '
 						AND fp.`id_product` = ' . (int) $id_product . '
 	                    AND fvl.`id_lang`   = ' . (int) $id_lang . '
-	                    AND fvl.`value`  LIKE \'' . pSQL(trim($value_to_add)) . '\''  ;
+	                    AND fvl.`value`  LIKE \'' . addslashes(trim($value_to_add)) . '\''  ;
 
                         $id_feature_value = Db::getInstance()->getValue($query);
                         if ($create_as_custom && $id_feature_value && $id_lang) {
                             Db::getInstance()->execute('
 							`UPDATE ' . _DB_PREFIX_ . 'feature_value_lang
-							SET `value` = \'' . pSQL($value_to_add) . '\'
+							SET `value` = \'' . addslashes($value_to_add) . '\'
 							WHERE `id_feature_value` = ' . (int) $id_feature_value . '
-							AND `value` != \'' . pSQL($value_to_add) . '\'
+							AND `value` != \'' . addslashes($value_to_add) . '\'
 							AND id_lang` = ' . (int) $id_lang);
                         }
                         if ($id_feature_value != null) {
@@ -7234,9 +7332,10 @@ class SlProducts extends SalesLayerPimUpdate
                     );
                 }
             } catch (Exception $e) {
+                $this->general_error = true;
                 $this->debbug(
                     '## Error. Saving new Feature addFeatureValueImport:' . print_r($e->getMessage(), 1)
-                    . 'Values ->' . print_r($feature_value->value, 1),
+                    . 'Values ->' . print_r($values, 1),
                     'syncdata'
                 );
             }

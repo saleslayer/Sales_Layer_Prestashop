@@ -31,6 +31,7 @@ echo ' ';
 require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
 
 $SLimport = new SalesLayerImport();
+$SLimport->errorSetup();
 $is_internal = Tools::getValue('internal');
 if (!$is_internal == 1) {
     // call from cron
@@ -53,7 +54,7 @@ if ($force_sync != '') {
     }
 }
 
-if ($SLimport->checkRegistersForProccess()) {
+if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
     $sync_libs = new SalesLayerPimUpdate();
     try {

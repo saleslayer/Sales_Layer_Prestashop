@@ -239,7 +239,7 @@
           if (data_return['status'] == 'processing') {
             var start = document.getElementById('allelements').value;
             if (start == 0) {
-              document.getElementById('allelements').value = parseInt(data_return['actual_stat']);
+              document.getElementById('allelements').value = parseInt(data_return['total_stat']);
               showProgressBarSL(0, start, data_return['next_cron_expected'],data_return['work_stat'],data_return['speed']);
               clearInterval(timerCheck);
               timerCheck = setInterval(function () {

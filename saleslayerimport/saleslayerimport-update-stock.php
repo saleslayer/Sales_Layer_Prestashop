@@ -15,7 +15,7 @@
 
 include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
-
+$process_name = 'stock_update';
 /* Check security token */
 
 if (!Module::isInstalled('saleslayerimport')
@@ -30,11 +30,13 @@ if (!Module::isInstalled('saleslayerimport')
 try {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
     $SLimport = new SalesLayerImport();
+    $SLimport->errorSetup();
 } catch (Exception $e) {
     die('Exception in load plugin file->' . $e->getMessage());
 }
 
 if ($SLimport->checkRegistersForProccess(false, 'stock_update')) {
+    $SLimport->registerWorkProcess($process_name);
     ini_set('max_execution_time', 144000);
 
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
@@ -111,5 +113,6 @@ if ($SLimport->checkRegistersForProccess(false, 'stock_update')) {
             'update-stock'
         );
     }
+    $SLimport->clearWorkProcess($process_name);
     $pimUpdate->removeDownloadingBlock('STOCK_UPDATER');
 }

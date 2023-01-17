@@ -199,7 +199,7 @@ V 1.5.1
 <ul>
 <li> Massive stock update fix.</li>
 <li> Category problem that has been caused by not maintaining the order of processing in categories. </li>
-<li> Small fixes. </li>
+
 <li> Better compatibility with 1.7.8.x Prestashop </li>
 <li> Parent category select for first category: Shop category id if not exist-> PS_HOME_CATEGORY if not exist -> PS_ROOT_CATEGORY </li>
 </ul>
@@ -208,6 +208,12 @@ V 1.5.2
 <ul>
 <li> Compatibility fix with older version of Prestashop 1.7.7.x >= </li>
 <li> Change plugin tables engine to MyISAM for plugin installed before 1.4.x versions for better performance</li>
+</ul>
+
+V 1.5.3
+<ul>
+<li> Minor fixes in multi-processes. </li>
+<li> Stability and performance improvements </li>
 </ul>
 
 </div>

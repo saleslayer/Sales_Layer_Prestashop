@@ -15,8 +15,9 @@
 
 include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
-
+$process_name = 'delete';
 /* Check security token */
+
 
 if (!Module::isInstalled('saleslayerimport')
     || Tools::substr(
@@ -31,11 +32,13 @@ if (!Module::isInstalled('saleslayerimport')
 try {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
     $SLimport = new SalesLayerImport();
+    $SLimport->errorSetup();
 } catch (Exception $e) {
     die('Exception in load plugin file->' . $e->getMessage());
 }
     ini_set('max_execution_time', 144000);
 try {
+    $SLimport->registerWorkProcess($process_name);
     $type = Tools::getValue('type');
     $ids = Tools::getValue('ids');
     if ($type != '' && !empty($ids)) {
@@ -176,9 +179,10 @@ try {
                           $e->getMessage(), 'delete');
         }
     }
+    $SLimport->clearWorkProcess($process_name);
 } catch (Exception $e) {
     $SLimport->debbug(
-        '## Error. in process command for sincronize->' . print_r($e->getMessage(), 1),
+        '## Error. in process command for delete->' . print_r($e->getMessage(), 1),
         'delete'
     );
 }

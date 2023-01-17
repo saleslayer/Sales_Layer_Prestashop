@@ -75,6 +75,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
     ) {
         $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " . _DB_PREFIX_ . "slyr_syncdata";
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
+
+        $items_processing['sl_cuenta_registros'] = $this->checkRegistersForProccess(true, 'syncdata', true);
         $this->saveConfiguration(['LAST_CONNECTOR' => $connector_id . '_' . time()]);
         $this->debbug(" reading from table  " . print_r($items_processing, 1));
         if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
@@ -123,6 +125,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->clearDeletedSlyrRegs();
         $this->clearDataHash();
         $this->clearWorkProcess();
+        $this->clearPreloadCache();
+        $this->clearTempImages();
+
 
 
         $api = new SalesLayerConn($connector_id, $secret_key);
@@ -316,7 +321,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             $item_data['sl_id'] = $catalog;
                             $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
                                 json_encode($item_data)
-                            ) . "', '" . addslashes(json_encode($sync_params)) . "')";
+                            ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
                             $this->insertSyncdataSql();
                         }
                     }
@@ -339,7 +344,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             $item_data['sl_id']    = $product;
                             $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
                                 json_encode($item_data)
-                            ) . "', '" . addslashes(json_encode($sync_params)) . "')";
+                            ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
                             $this->insertSyncdataSql();
                         }
                     }
@@ -365,7 +370,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             $item_data['sl_id']    = $product_format;
                             $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
                                 json_encode($item_data)
-                            ) . "', '" . addslashes(json_encode($sync_params)) . "')";
+                            ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
                             $this->insertSyncdataSql();
                         }
                     }
@@ -431,7 +436,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                             $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
                                 $item_data_to_insert
-                            ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                            ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
                             $this->insertSyncdataSql();
                         }
                     }
@@ -505,12 +510,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             ) {
                                 unset($data_insert['sync_data']['variants']);
                             }
-
+                            $num_variants = (isset($data_insert['sync_data']['variants'])?count($data_insert['sync_data']['variants']):0);
                             $item_data_to_insert   = json_encode($data_insert); //html_entity_decode
                             $sync_params_to_insert = json_encode($sync_params);
                             $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
                                 $item_data_to_insert
-                            ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                            ) . "', '" . addslashes($sync_params_to_insert) . "','".$num_variants."')";
                             $this->insertSyncdataSql();
                         } else {
                             //if product not have changes
@@ -537,7 +542,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                         $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" .
                                                                  addslashes(
                                                                      $item_data_to_insert
-                                                                 ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                                                                 ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
                                         $this->insertSyncdataSql();
                                     }
                                 }
@@ -591,7 +596,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                             $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
                                 $item_data_to_insert
-                            ) . "', '" . addslashes($sync_params_to_insert) . "')";
+                            ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
                             $this->insertSyncdataSql();
                         }
                     }
@@ -1156,7 +1161,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_sl_import' . rand(0, 99999) . '_' . uniqid(rand(0, 999)));
                 } catch (Exception $e) {
                     $this->debbug('## Error. in Create temporary file.->' .
-                                  $e->getMessage(), 'image_preloader');
+                                  $e->getMessage(), 'syncdata');
                 }
             }
             if (file_exists($tmpfile)) {
@@ -1168,29 +1173,29 @@ class SalesLayerPimUpdate extends SalesLayerImport
         // $extension =   $this->getExensionFile($url);
         if ($response[0]) {
             if (!$get_hash) {
-                $this->debbug('temporary file name generate fo image :' . ($tmpfile), 'image_preloader');
+                $this->debbug('temporary file name generate fo image :' . ($tmpfile), 'syncdata');
                 $response = file_put_contents($tmpfile, $response[1]);
                 if ($response) {
                     unset($response);
-                    $this->debbug('inject data to template file :' . $tmpfile, 'image_preloader');
+                    $this->debbug('inject data to template file :' . $tmpfile, 'syncdata');
 
                     return $tmpfile;
                 } else {
-                    $this->debbug('Image error, could not be saved on downloaded :' . $tmpfile, 'image_preloader');
+                    $this->debbug('Image error, could not be saved on downloaded :' . $tmpfile, 'syncdata');
                     unlink($tmpfile);
                     unset($response);
                     return false;
                 }
             } else {
                 if (!empty($response[1])) {
-                    $this->debbug('generating hash ', 'image_preloader');
+                    $this->debbug('generating hash ', 'syncdata');
                     return hash('md5', $response[1]);
                 } else {
                     return false;
                 }
             }
         } else {
-            $this->debbug('##Error. image could not be downloaded :' . print_r($response, 1), 'image_preloader');
+            $this->debbug('##Error. image could not be downloaded :' . print_r($response, 1), 'syncdata');
             if (!$get_hash) {
                 if (file_exists($tmpfile)) {
                     unlink($tmpfile);

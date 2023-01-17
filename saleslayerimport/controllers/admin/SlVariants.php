@@ -15,6 +15,9 @@
 
 class SlVariants extends SalesLayerPimUpdate
 {
+
+
+    private $general_error = false;
     public function __construct()
     {
         parent::__construct();
@@ -25,8 +28,7 @@ class SlVariants extends SalesLayerPimUpdate
     ) {
         if (empty($this->format_images_sizes)) {
             if (!empty($product_formats_schema)) {
-                if (
-                    isset($product_formats_schema['fields']['frmt_image'])
+                if (isset($product_formats_schema['fields']['frmt_image'])
                     && $product_formats_schema['fields']['frmt_image']['type'] == 'image'
                 ) {
                     $this->product_format_has_frmt_image = true;
@@ -102,25 +104,22 @@ class SlVariants extends SalesLayerPimUpdate
         foreach ($this->shop_languages as $leng) {
             $variant_alt_index = '';
             $variant_alt_images_search = 'format_alt_' . $leng['iso_code'];
-            if (
-                isset(
-                    $product_format['data'][$variant_alt_images_search],
-                    $schema[$variant_alt_images_search]['language_code']
-                ) &&
+            if (isset(
+                $product_format['data'][$variant_alt_images_search],
+                $schema[$variant_alt_images_search]['language_code']
+            ) &&
                 !empty($product_format['data'][$variant_alt_images_search]) &&
                 $schema[$variant_alt_images_search]['language_code'] == $leng['iso_code']
             ) {
                 $variant_alt_index = 'format_alt_' . $leng['iso_code'];
-            } elseif (
-                isset($product_format['data']['format_alt']) &&
+            } elseif (isset($product_format['data']['format_alt']) &&
                       !empty($product_format['data']['format_alt'])
             ) {
                 $variant_alt_index = 'format_alt';
             }
 
 
-            if (
-                $variant_alt_index != '' && isset($product_format['data'][$variant_alt_index]) &&
+            if ($variant_alt_index != '' && isset($product_format['data'][$variant_alt_index]) &&
                 !empty($product_format['data'][$variant_alt_index])
             ) {
                 $alt_images_arr = array();
@@ -246,8 +245,7 @@ class SlVariants extends SalesLayerPimUpdate
             )
         );
 
-        if (
-            isset($product_format['data']['enabled']) &&
+        if (isset($product_format['data']['enabled']) &&
             $product_format['data']['enabled'] !== '' &&
             $product_format['data']['enabled'] !== null
         ) {
@@ -323,8 +321,7 @@ class SlVariants extends SalesLayerPimUpdate
             );
             $product_type_data = $product_type_data[0];
 
-            if (
-                $product_count_pack > 0 || $product_type_data['cache_is_pack'] == 1
+            if ($product_count_pack > 0 || $product_type_data['cache_is_pack'] == 1
                 || $product_type_data['is_virtual'] == 1
             ) {
                 $this->debbug(
@@ -355,11 +352,10 @@ class SlVariants extends SalesLayerPimUpdate
                     }
                     unset($fieldsBase[$key]);
                 } else {
-                    if (
-                        array_key_exists(
-                            $key,
-                            $product_format['data']
-                        )
+                    if (array_key_exists(
+                        $key,
+                        $product_format['data']
+                    )
                         && $product_format['data'][$key] != ''
                         && $product_format['data'][$key] != null
                     ) {
@@ -398,16 +394,14 @@ class SlVariants extends SalesLayerPimUpdate
                 $currentLanguage_for_set = $currentLanguage;
                 $mulilanguage = array();
 
-                if (
-                    $attributeGroupName != '' && !empty($attributeValue)
+                if ($attributeGroupName != '' && !empty($attributeValue)
                     && !in_array(
                         $attributeGroupName,
                         $processed_Keys,
                         false
                     )
                 ) {
-                    if (
-                        isset($schema[$attributeGroupName]['language_code'])
+                    if (isset($schema[$attributeGroupName]['language_code'])
                         && !empty($schema[$attributeGroupName]['language_code'])
                     ) {
                         /**
@@ -445,8 +439,7 @@ class SlVariants extends SalesLayerPimUpdate
                              * installed in prestashop but comes from sales layer
                              */
                             foreach ($schema as $nameOfAttribute => $valuesOfAttribute) {
-                                if (
-                                    isset($schema[$attributeGroupName]['basename'], $valuesOfAttribute['basename'])
+                                if (isset($schema[$attributeGroupName]['basename'], $valuesOfAttribute['basename'])
                                     && $schema[$attributeGroupName]['basename'] == $valuesOfAttribute['basename']
                                 ) {
                                     unset($product_format['data'][$nameOfAttribute]);
@@ -529,6 +522,7 @@ class SlVariants extends SalesLayerPimUpdate
                                 }
                             } catch (Exception $e) {
                                 unset($product_format['data'][$attributeGroupName]);
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurrence . ' synchronizeAttribute ' . print_r(
                                         $e->getMessage(),
@@ -557,6 +551,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                             if ($attribute_id == null || $attribute_id == '') {
                                 unset($product_format['data'][$attributeGroupName]);
+                                $this->general_error = true;
                                 $this->debbug(
                                     '## Error. ' . $occurrence . ' When synchronizing the attribute ' .
                                      $attributeGroupName . ' for the variant with ID: ' . $product_format_id,
@@ -578,6 +573,7 @@ class SlVariants extends SalesLayerPimUpdate
                             }
                         } catch (Exception $e) {
                             unset($product_format['data'][$attributeGroupName]);
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurrence . ' synchronizeAttribute as string: ' . print_r(
                                     $e->getMessage(),
@@ -600,6 +596,7 @@ class SlVariants extends SalesLayerPimUpdate
             );
 
             if (empty($attributes)) {
+                $this->general_error = true;
                 $this->debbug(
                     '## Error. ' . $occurrence . ' There are no configurable attributes. ' .
                      'Please continue to the cloud of Sales Layer >> Channels ' .
@@ -1097,7 +1094,8 @@ class SlVariants extends SalesLayerPimUpdate
                                 $this->defaultLanguage,
                                 $comb->id_product,
                                 array(''),
-                                $id_product_attribute
+                                $id_product_attribute,
+                                $product_format_id
                             );
                         } catch (Exception $e) {
                             $this->debbug(
@@ -1291,8 +1289,7 @@ class SlVariants extends SalesLayerPimUpdate
                                             try {
                                                 $format_supplier_reference_index = 'format_supplier_reference_' .
                                                                               $number_field;
-                                                if (
-                                                    isset($fieldsBase[$format_supplier_reference_index])
+                                                if (isset($fieldsBase[$format_supplier_reference_index])
                                                     && $fieldsBase[$format_supplier_reference_index] != ''
                                                 ) {
                                                     $productObject = new Product($product_id, null, null, $shop_id);
@@ -1344,8 +1341,7 @@ class SlVariants extends SalesLayerPimUpdate
                                 if (is_array($value)) {
                                     $value = reset($value);
                                 }
-                                if (
-                                    $value != null && $value != '' &&
+                                if ($value != null && $value != '' &&
                                     $value != '0000-00-00 00:00:00'
                                 ) {
                                     $available_date = $value;
@@ -1442,7 +1438,8 @@ class SlVariants extends SalesLayerPimUpdate
                                                 $currentLanguage,
                                                 $product_id,
                                                 $alt_attribute_for_image,
-                                                $comb->id
+                                                $comb->id,
+                                                $product_format_id
                                             );
                                         } catch (Exception $e) {
                                             $syncVariant = true;
@@ -1546,8 +1543,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                     if ($supplier_processed) {
                         foreach ($current_supplier_collection as $current_supplier_item) {
-                            if (
-                                $current_supplier_item->id_product_attribute == $comb->id
+                            if ($current_supplier_item->id_product_attribute == $comb->id
                                 && !isset($processed_suppliers[$current_supplier_item->id_supplier])
                             ) {
                                 $current_supplier_item->delete();
@@ -1616,6 +1612,7 @@ class SlVariants extends SalesLayerPimUpdate
                     try {
                         $comb->setImages($format_img_ids);
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '##Error. ' . $occurrence . ' Variant image in set image ->'
                             . $comb->id . 'set images to variants $format_img_ids ->' .
@@ -1658,6 +1655,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                         $comb->associateTo($set_to_shops);
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '##Error. ' . $occurrence . ' Variant image in associate to ->'
                             . $comb->id . ' calling to set images to all active shops-> ' . print_r(
@@ -1722,6 +1720,9 @@ class SlVariants extends SalesLayerPimUpdate
         }
 
         if ($syncVariant) {
+            if ($this->general_error) {
+                $data_hash = null;
+            }
             $prepare_input_compare = [];
             $prepare_input_compare['sl_id']               = $product_format_id;
             $prepare_input_compare['ps_type']             = 'product_format';
@@ -1758,8 +1759,7 @@ class SlVariants extends SalesLayerPimUpdate
             )
         );
 
-        if (
-            !$format_ps_id && $reference != null &&
+        if (!$format_ps_id && $reference != null &&
             count($shops) == count(Shop::getShops(true, null, true)) &&
                                    $product_id != null
         ) {
@@ -1800,7 +1800,8 @@ class SlVariants extends SalesLayerPimUpdate
                         $this->defaultLanguage,
                         $ps_product_id,
                         array(''),
-                        $format_ps_id
+                        $format_ps_id,
+                        $product_format
                     );
                 } catch (Exception $e) {
                     $this->debbug(
@@ -1925,7 +1926,7 @@ class SlVariants extends SalesLayerPimUpdate
                     }
                 }
 
-                $left_group_value = " al.`name` LIKE '" . pSQL($att_value) . "'";
+                $left_group_value = " al.`name` LIKE '" . addslashes($att_value) . "'";
                 $this->debbug(
                     'Search attribute query from  L1 name LIKE ->' . print_r($left_group_value, 1),
                     'syncdata'
@@ -1958,10 +1959,10 @@ class SlVariants extends SalesLayerPimUpdate
                         }
 
                         if ($count_end == $counter) {
-                            $left_group_value .= " ( al.`name` LIKE '" . pSQL($att_value) .
+                            $left_group_value .= " ( al.`name` LIKE '" . addslashes($att_value) .
                                                  "' AND al.`id_lang` = '" . $id_lang . "' ) ";
                         } else {
-                            $left_group_value .= " ( al.`name` LIKE '" . pSQL($att_value) .
+                            $left_group_value .= " ( al.`name` LIKE '" . addslashes($att_value) .
                                                  "' AND al.`id_lang` = '" . $id_lang . "'  ) OR ";
                         }
                         $counter++;
@@ -1990,7 +1991,7 @@ class SlVariants extends SalesLayerPimUpdate
                         }
                     }
 
-                    $left_group_value = " al.`name` LIKE '" . pSQL($att_value) . "' ";
+                    $left_group_value = " al.`name` LIKE '" . addslashes($att_value) . "' ";
                     $this->debbug(
                         'Search attribute query from  L3 name LIKE ->' . print_r($left_group_value, 1),
                         'syncdata'
@@ -2150,13 +2151,12 @@ class SlVariants extends SalesLayerPimUpdate
                                     $att_value = reset($separate);
                                 }
                             }
-                            $attribute->name[$id_lang] = Tools::ucfirst($att_value);
+                            $attribute->name[$id_lang] = $att_value;
                             if ($id_lang != $this->defaultLanguage) {
-                                if (
-                                    $attribute->name[$this->defaultLanguage] == null
+                                if ($attribute->name[$this->defaultLanguage] == null
                                     || $attribute->name[$this->defaultLanguage] == ''
                                 ) {
-                                    $attribute->name[$this->defaultLanguage] = Tools::ucfirst($att_value);
+                                    $attribute->name[$this->defaultLanguage] = $att_value;
                                 }
                             }
                         }
@@ -2191,18 +2191,18 @@ class SlVariants extends SalesLayerPimUpdate
                                 $attributeValue = reset($separate);
                             }
                         }
-                        $attribute->name[$currentLanguage] = Tools::ucfirst($attributeValue);
+                        $attribute->name[$currentLanguage] = $attributeValue;
                         if ($currentLanguage != $this->defaultLanguage) {
-                            if (
-                                !isset($attribute->name[$this->defaultLanguage])
+                            if (!isset($attribute->name[$this->defaultLanguage])
                                 || $attribute->name[$this->defaultLanguage] == null
                                 || $attribute->name[$this->defaultLanguage] == ''
                             ) {
-                                $attribute->name[$this->defaultLanguage] = Tools::ucfirst($attributeValue);
+                                $attribute->name[$this->defaultLanguage] = $attributeValue;
                             }
                         }
                     }
                 } catch (Exception $e) {
+                    $this->general_error = true;
                     $this->debbug(
                         '## Error. ' . print_r($multilanguage, 1) . ' Creating attribute->' . print_r(
                             $e->getMessage(),
@@ -2230,6 +2230,7 @@ class SlVariants extends SalesLayerPimUpdate
                 try {
                     $attribute->add();
                 } catch (Exception $e) {
+                    $this->general_error = true;
                     $this->debbug(
                         '## Error. ' . print_r($multilanguage, 1) . '  Creating New attribute ->' . print_r(
                             $e->getMessage(),
@@ -2241,6 +2242,7 @@ class SlVariants extends SalesLayerPimUpdate
                 }
                 $attribute_value_id = $attribute->id;
             } else {
+                $this->general_error = true;
                 $this->debbug('## Error. The attribute not found and ' .
                               'creation of new attributes is disabled. ->' .
                               print_r($multilanguage, 1) . print_r($attributeValue, 1), 'syncdata');
@@ -2271,8 +2273,7 @@ class SlVariants extends SalesLayerPimUpdate
                 $attribute = new AttributeCore($attribute_value_id);
 
                 foreach ($multilanguage as $id_lang => $Value) {
-                    if (
-                        ($attribute->name[$id_lang] == null
+                    if (($attribute->name[$id_lang] == null
                             || $attribute->name[$id_lang] == '') && $Value != '' && $Value != null
                     ) {
                         $this->debbug('set name of $Value->' . print_r($Value, 1), 'syncdata');
@@ -2295,7 +2296,7 @@ class SlVariants extends SalesLayerPimUpdate
                             }
                         }
 
-                        $attribute->name[$id_lang] = Tools::ucfirst($Value);
+                        $attribute->name[$id_lang] = $Value;
 
                         $update_needed = true;
                         $this->debbug(
@@ -2311,6 +2312,7 @@ class SlVariants extends SalesLayerPimUpdate
                     try {
                         $attribute->save();
                     } catch (Exception $e) {
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. ' . print_r($multilanguage, 1) . ' Save changes to Attribute->' . print_r(
                                 $e->getMessage(),
@@ -2418,6 +2420,7 @@ class SlVariants extends SalesLayerPimUpdate
                         $update_cache_query
                     );
                 } catch (Exception $e) {
+                    $this->general_error = true;
                     $this->debbug(
                         'Error in change id of attribute value in cache $attribute_exists_id != $attribute_value_id,' .
                         '  $attribute_exists_id ->' . print_r(
@@ -2541,12 +2544,11 @@ class SlVariants extends SalesLayerPimUpdate
 
                             if (count($shopsConnectors) > 0) {
                                 foreach ($shopsConnectors as $conn_id => $shopsConnector) {
-                                    if (
-                                        $connector_id != $conn_id && in_array(
-                                            $attr_shop['id_shop'],
-                                            $shopsConnector,
-                                            false
-                                        )
+                                    if ($connector_id != $conn_id && in_array(
+                                        $attr_shop['id_shop'],
+                                        $shopsConnector,
+                                        false
+                                    )
                                     ) {
                                         //  $found = true;
                                     }
@@ -2696,7 +2698,8 @@ class SlVariants extends SalesLayerPimUpdate
         $id_lang,
         $product_id,
         $product_name,
-        $variant_id
+        $variant_id,
+        $sl_id
     ) {
         if (isset($product_name) && !empty($product_name)) {
             $first_name = reset($product_name);
@@ -2708,9 +2711,7 @@ class SlVariants extends SalesLayerPimUpdate
             $occurence = ' ID :' . $product_id;
         }
         $all_shops_image = Shop::getShops(true, null, true);
-
         $counter_images = 0;
-        $position_image = 1;
 
         $this->debbug(
             '$multilanguage array->' . print_r(
@@ -2867,7 +2868,8 @@ class SlVariants extends SalesLayerPimUpdate
                 $url = trim($image_url);
 
                 if (!empty($url)) {
-                    $cached = SalesLayerImport::getPreloadedImage($url);
+                    $cached = SalesLayerImport::getPreloadedImage($url, 'product_format', $sl_id, true);
+
                     if ($cached) {
                         $temp_image = Tools::stripslashes($cached['local_path']);
                     } else {
@@ -2875,6 +2877,13 @@ class SlVariants extends SalesLayerPimUpdate
                     }
                     if ($temp_image) {
                         if ($cached) {
+                            $this->debbug(
+                                'Image has been preloaded ->' . print_r(
+                                    $cached,
+                                    1
+                                ),
+                                'syncdata'
+                            );
                             $md5_image = $cached['md5_image'];
                         } else {
                             $md5_image = md5_file($temp_image);
@@ -2892,8 +2901,7 @@ class SlVariants extends SalesLayerPimUpdate
                                     ),
                                     'syncdata'
                                 );
-                                if (
-                                    $slyr_image['image_reference'] == $image_reference &&
+                                if ($slyr_image['image_reference'] == $image_reference &&
                                     $slyr_image['md5_image'] !== ''
                                 ) {
                                     /**
@@ -3000,12 +3008,11 @@ class SlVariants extends SalesLayerPimUpdate
                                         /**
                                          * aqui continuar con editcion de imagen
                                          */
-                                        if (
-                                            !in_array(
-                                                (string) $variant_id,
-                                                $variant_ids,
-                                                false
-                                            )
+                                        if (!in_array(
+                                            (string) $variant_id,
+                                            $variant_ids,
+                                            false
+                                        )
                                         ) {
                                             $variant_ids[] = (string) $variant_id;
                                         } else {
@@ -3038,8 +3045,7 @@ class SlVariants extends SalesLayerPimUpdate
                                                 }
                                             }
 
-                                            if (
-                                                $name_of_product_save != '' &&
+                                            if ($name_of_product_save != '' &&
                                                          trim(
                                                              $image_cover->legend[$shop_language['id_lang']]
                                                          ) != trim($name_of_product_save)
@@ -3080,8 +3086,7 @@ class SlVariants extends SalesLayerPimUpdate
                                             $cover = true;
                                             $position_image = 1;
                                         }
-                                        if (
-                                            $cover
+                                        if ($cover
                                                 && (count(
                                                     $ps_images
                                                 ) == 1 || ($image_cover->cover && $old_position == 1))
@@ -3094,6 +3099,7 @@ class SlVariants extends SalesLayerPimUpdate
                                                     ); // delete cover image from this product
                                                 }
                                             } catch (Exception $e) {
+                                                $this->general_error = true;
                                                 $this->debbug(
                                                     '## Error. ' . $occurence . ' Delete cover ->' . print_r(
                                                         $e->getMessage(),
@@ -3130,6 +3136,7 @@ class SlVariants extends SalesLayerPimUpdate
                                                 $image_cover->updatePosition($old_position, $image_cover->position);
                                                 $image_cover->associateTo($all_shops_image);
                                             } catch (Exception $e) {
+                                                $this->general_error = true;
                                                 $this->debbug(
                                                     '## Error. ' . $occurence . ' Updating Image info product->' .
                                                         print_r(
@@ -3149,7 +3156,6 @@ class SlVariants extends SalesLayerPimUpdate
                                                 "' WHERE id_image = '" . $image_cover->id . "' "
                                         );
 
-
                                         $image_ids[] = $image_cover->id;
 
                                         //  }
@@ -3158,6 +3164,17 @@ class SlVariants extends SalesLayerPimUpdate
                                         }
                                         unset($image_cover);
                                         $this->debbug('Before continue to level 2', 'syncdata');
+
+                                        if ($cached) {
+                                            $this->debbug('send delete form cache preload->'.
+                                                          print_r($cached, 1), 'syncdata');
+                                            SalesLayerImport::deletePreloadImageByCacheData($cached);
+                                        } else {
+                                            $this->debbug('send delete form cache preload->' .
+                                                          print_r($url, 1), 'syncdata');
+                                            SalesLayerImport::deletePreloadImage($url, 'product_format', $sl_id);
+                                        }
+
                                         // exit from  second loop
                                         continue 2;
                                     }
@@ -3190,8 +3207,7 @@ class SlVariants extends SalesLayerPimUpdate
                                                 ' (' . $counter_images . ')';
                                         }
                                     }
-                                    if (
-                                        $name_of_product_save != ''
+                                    if ($name_of_product_save != ''
                                         && (!isset($image->legend[$shop_language['id_lang']])
                                             && (empty($image->legend[$shop_language['id_lang']])
                                                 || trim(
@@ -3222,6 +3238,7 @@ class SlVariants extends SalesLayerPimUpdate
                                 try {
                                     Image::deleteCover($product_id); // delete cover image from this product
                                 } catch (Exception $e) {
+                                    $this->general_error = true;
                                     $this->debbug(
                                         '## Error. ' . $occurence . ' Deleting cover ->' . print_r(
                                             $e->getMessage(),
@@ -3322,10 +3339,12 @@ class SlVariants extends SalesLayerPimUpdate
                                     $image_ids[] = $image->id;
                                 }
                             } else {
+                                $this->general_error = true;
                                 unlink($temp_image);
                                 $this->debbug('## Warning. Image of Variant not accepted as Valid ', 'syncdata');
                             }
                         } catch (Exception $e) {
+                            $this->general_error = true;
                             $this->debbug(
                                 '## Error. ' . $occurence . ' Error in creating new format
                                 image problem found->' . print_r(
@@ -3342,12 +3361,22 @@ class SlVariants extends SalesLayerPimUpdate
                     if (file_exists($temp_image)) {
                         unlink($temp_image);
                     }
-                    SalesLayerImport::deletePreloadImage($url);
+
+                    if ($cached) {
+                        $this->debbug('send delete form cache preload ->' .
+                                      print_r($cached, 1), 'syncdata');
+                        SalesLayerImport::deletePreloadImageByCacheData($cached);
+                    } else {
+                        $this->debbug('send delete form cache preload url->' .
+                                      print_r($url, 1), 'syncdata');
+                        SalesLayerImport::deletePreloadImage($url, 'product_format', $sl_id);
+                    }
                 }
                 $this->debbug('END processing this image. Timing ->' . ($time_ini_image - microtime(1)), 'syncdata');
             }
             unset($image);
         }
+
         // el formato ya no tiene imagenes debemos eliminar si tiene en prestashop asignada alguna imagen
         $this->debbug(
             'We will check if any of the images have been imported in the past with this variant',
@@ -3368,7 +3397,7 @@ class SlVariants extends SalesLayerPimUpdate
                 $variant_ids = array();
                 if ($slyr_image['ps_variant_id'] != null) {
                     $variant_ids_ch = json_decode((string) $slyr_image['ps_variant_id'], 1);
-	                $variant_ids = (is_array($variant_ids_ch) ? $variant_ids_ch : []);
+                    $variant_ids = (is_array($variant_ids_ch) ? $variant_ids_ch : []);
                 }
 
                 if (in_array((string) $variant_id, $variant_ids, false)) {
@@ -3386,8 +3415,7 @@ class SlVariants extends SalesLayerPimUpdate
 
                     $new_array = array();
                     foreach ($variant_ids as $variant_id_in_search) {
-                        if (
-                            $variant_id_in_search != $variant_id ||
+                        if ($variant_id_in_search != $variant_id ||
                             in_array($slyr_image['id_image'], $image_ids, false)
                         ) {
                             $new_array[] = (string) $variant_id_in_search;
@@ -3411,8 +3439,7 @@ class SlVariants extends SalesLayerPimUpdate
                                           print_r($variant_ids, 1),
                             'syncdata'
                         );
-                        if (
-                            ($slyr_image['origin'] == 'frmt' || empty($slyr_image['origin'])) &&
+                        if (($slyr_image['origin'] == 'frmt' || empty($slyr_image['origin'])) &&
                             !in_array($slyr_image['id_image'], $image_ids, false)
                         ) {
                             //if origin if the image is this variant delete it  from product

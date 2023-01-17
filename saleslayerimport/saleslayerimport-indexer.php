@@ -15,8 +15,10 @@
 
 include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
-
+$process_name = 'indexer';
 /* Check security token */
+
+
 
 if (!Module::isInstalled('saleslayerimport')
     || Tools::substr(
@@ -31,13 +33,14 @@ if (!Module::isInstalled('saleslayerimport')
 try {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'saleslayerimport.php';
     $SLimport = new SalesLayerImport();
+    $SLimport->errorSetup();
 } catch (Exception $e) {
     die('Exception in load plugin file->' . $e->getMessage());
 }
 
 if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
     ini_set('max_execution_time', 144000);
-
+    $SLimport->registerWorkProcess($process_name);
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
     $pimUpdate = new SalesLayerPimUpdate();
     if (!$pimUpdate->testDownloadingBlock('INDEXER')) {
@@ -68,6 +71,7 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
                             'indexer'
                         );
                     }
+                    $SLimport->registerWorkProcess($process_name);
                 }
             } catch (Exception $e) {
                 $SLimport->debbug('## Error. Indexer error : ' . $e->getMessage() .
@@ -82,5 +86,6 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
             'indexer'
         );
     }
+    $SLimport->clearWorkProcess($process_name);
     $pimUpdate->removeDownloadingBlock('INDEXER');
 }

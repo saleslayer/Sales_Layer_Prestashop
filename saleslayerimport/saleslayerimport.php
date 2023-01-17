@@ -99,7 +99,7 @@ class SalesLayerImport extends Module
     public $plugin_dir                          = _PS_MODULE_DIR_  . 'saleslayerimport/';
     public $integrityFile                       = 'integrity.json';
     public $integrityPathDirectory              = '';
-    public $cpu_max_limit_for_retry_call        = 4.00;
+    public $cpu_max_limit_for_retry_call        = 3.00;
     public $timeout_for_run_process_connections = 5000;
     private $max_execution_time                 = 290;
     private $memory_min_limit                   = 300;
@@ -147,7 +147,6 @@ class SalesLayerImport extends Module
     public $sync_categories                 = true;
     public $sql_items_delete               = array();
     private $debug_occurence                = array();
-    private $updated_elements               = array();
     private $syncdata_pid;
     private $end_process;
     private $block_retry_call               = false;
@@ -156,10 +155,15 @@ class SalesLayerImport extends Module
     private $load_cron_time_status;
     public $shop_loaded_id;
     public $hash_algorithm_comparator      = 'md5';
-    private $limit_min_value_max_execution = 100;
     private $limit_max_value_max_execution = 290;
     private $limit_max_reserved_execution  = 400;
     private $limit_per_process              = 5;
+
+    private $load_multiplier                = 12; // manual overload defauld value 12 overload (12->max)
+    // raising this number can cause your server to be heavily loaded and crash, change carefully and responsibly.
+
+    public $product_time_limit_reload_minutes = 50; // default 50 minutes
+
     public $start_sync_connector          = false;
     public $start_sync_timestamp          = false;
     private $process_definition = [//max number of processes for default
@@ -303,7 +307,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.5.2';
+        $this->version = '1.5.3';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -363,21 +367,22 @@ class SalesLayerImport extends Module
      */
     public function loadDebugMode()
     {
-        $schemaSQL_PS_SL_configdata = 'CREATE TABLE IF NOT EXISTS ' . $this->saleslayer_aditional_config . " (
-                                     `id_config` INT NOT NULL AUTO_INCREMENT,
-                                      `configname` VARCHAR(100) NOT NULL,
-                                      `save_value` VARCHAR(500) NULL,
-                                    PRIMARY KEY (`id_config`),
-                                    UNIQUE INDEX `configname_UNIQUE` (`configname` ASC))
-                                    COMMENT = 'Sales Layer additional configuration' ";
-        Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
-
         $debugmode = $this->getConfiguration('DEBUGMODE');
         if ($debugmode === false) {
             $debugmode = 0;
             $this->saveConfiguration(['DEBUGMODE' => $debugmode]);
         }
+
         $this->debugmode = $debugmode;
+    }
+    public function errorSetup()
+    {
+        ini_set('ignore_repeated_errors', 1);
+        ini_set('display_errors', 0);
+        ini_set('display_startup_errors', 1);
+        error_reporting(E_ALL);
+        ini_set('log_errors', 1);
+        ini_set('error_log', DEBBUG_PATH_LOG . '_error_log_' . date('d-m') . '.log');
     }
 
     /**
@@ -548,8 +553,7 @@ class SalesLayerImport extends Module
             //$loc_funcs = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $GLOBALS['FCONF_local_server']);
             $func = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
             $methods = ['debbug', 'debbug_error', 'include', 'require', 'query_db', 'halt'];
-            if (
-                isset($func[1]['function']) and !in_array($func[1]['function'], $methods, false)
+            if (isset($func[1]['function']) and !in_array($func[1]['function'], $methods, false)
             ) {
                 // alineacion de linias
                 $line_chars = 5;
@@ -911,8 +915,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function install()
     {
         try {
-            if (
-                !$this->registerHook('actionCronJob')
+            if (!$this->registerHook('actionCronJob')
                   && !parent::install()
             ) {
                 if (!empty($this->_errors)) {
@@ -975,15 +978,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                '`conn_extra` mediumtext ,' .
                                '`updater_version` varchar(10) NOT NULL, ' .
                                'PRIMARY KEY (`cnf_id`)' .
-                               ') ENGINE=' . $this->sl_updater->table_engine . '
-            ROW_FORMAT=' . $this->sl_updater->table_row_format . ' DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ';
+                               ') ENGINE=MyISAM
+                                 ROW_FORMAT=' . $this->sl_updater->table_row_format .
+                               ' DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ';
 
         Db::getInstance()->execute($schemaSQL_PS_Config);
 
         $schemaSQL_PS_SL_C_P = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ .
                                "slyr_category_product`  (
-								`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-								`ps_id` int(11) NOT NULL
+								`id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+								`ps_id` bigint(20) NOT NULL
 								COMMENT '(prestashop_id| attribute_id if ps_type = product_format_value)',
 								`slyr_id` bigint(20) NOT NULL COMMENT '(sales_layer_id)',
 								`ps_type` varchar(32) NOT NULL
@@ -994,7 +998,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 								`comp_id` int(11) NOT NULL COMMENT '(company_id)',
 								`id_lang` int(11) DEFAULT NULL COMMENT 'Prestashop id_language',
 								`shops_info` text COMMENT 'Sales Layer connectors shops',
-								PRIMARY KEY (`id`)
+								PRIMARY KEY (`id`),
+								INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),								
+								INDEX `indice_2` (`ps_id` ASC, `comp_id` ASC, `ps_type` ASC,`ps_attribute_group_id` ASC)								
 								) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 
         Db::getInstance()->execute($schemaSQL_PS_SL_C_P);
@@ -1307,7 +1313,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     `prc_type` varchar(30) NOT NULL, 
                                     `prc_time` datetime DEFAULT NULL, 
                                     `pid` int(15) DEFAULT 0,
-                                    INDEX `prc_type` (`prc_type` ASC)                                  
+                                    UNIQUE  (`pid`,`prc_type`),
+                                    UNIQUE INDEX `prc_type` (`pid` ASC ,`prc_type` ASC)
                                     )                                    
                                     ENGINE=MyISAM DEFAULT CHARSET=utf8; 
                                     COMMENT = 'Sales Layer table for control process' ";
@@ -1325,6 +1332,33 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                            'ENGINE = MyISAM ,' .
                            "ADD COLUMN `date_start` datetime DEFAULT NULL AFTER `status`, " .
                            'ADD INDEX `date_start` (`date_start` ASC) ';
+
+            Db::getInstance()->execute(sprintf($query_alter));
+        }
+        /*1.5.3 */
+        $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
+                      " WHERE table_schema = '" . _DB_NAME_ . "' " .
+                      " AND table_name = '" . _DB_PREFIX_ . "slyr_image_preloader' " .
+                      " AND column_name = 'sl_id' ";
+
+        $shops_info = Db::getInstance()->executeS($query_read);
+
+        if (empty($shops_info)) {
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_image_preloader" .
+                           " ADD COLUMN `sl_id` bigint(20) NOT NULL ,".
+                           " ADD INDEX `sl_id` (`sl_id` ASC) ";
+            Db::getInstance()->execute($query_alter);
+        }
+        $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
+                      " WHERE table_schema = '" . _DB_NAME_ . "' " .
+                      " AND table_name = '" . _DB_PREFIX_ . "slyr_syncdata' " .
+                      " AND column_name = 'num_variants'";
+
+        $shops_info = Db::getInstance()->executeS($query_read);
+
+        if (empty($shops_info)) {
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_syncdata ' .
+                           "ADD COLUMN `num_variants` int(4) DEFAULT 0 AFTER `item_data` ";
 
             Db::getInstance()->execute(sprintf($query_alter));
         }
@@ -1407,8 +1441,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->deleteSlcronRegister();
             $this->deleteSlyrTables();
             $this->unregisterHook('displayBackOfficeHeader');
-            if (
-                !parent::uninstall()
+            if (!parent::uninstall()
             ) {
                 $this->_errors[] = 'Error uninstall module';
                 $this->debbug('## Error. Ocurred errors on uninstalling ' . print_r($this->_errors, 1));
@@ -1980,8 +2013,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function insertSyncdataSql(
         $force_insert = false
     ) {
-        if (
-            !empty($this->sql_to_insert)
+        if (!empty($this->sql_to_insert)
             && (count($this->sql_to_insert)
                 >= $this->sql_insert_limit
                 || $force_insert)
@@ -1989,7 +2021,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $sql_to_insert = implode(',', $this->sql_to_insert);
             try {
                 $sql_query_to_insert = 'INSERT INTO ' . _DB_PREFIX_ . 'slyr_syncdata' .
-                    ' ( sync_type, item_type, item_data, sync_params ) VALUES ' .
+                    ' ( sync_type, item_type, item_data, sync_params, num_variants ) VALUES ' .
                     $sql_to_insert;
                 $this->slConnectionQuery('insert', $sql_query_to_insert);
             } catch (Exception $e) {
@@ -2398,8 +2430,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             $updated_shops[$keyUS]['checked'] = false;
 
                             foreach ($conn_extra_info['shops'] as $connector_shop) {
-                                if (
-                                    $connector_shop['checked'] == true
+                                if ($connector_shop['checked'] == true
                                     && $connector_shop['id_shop'] == $updated_shop['id_shop']
                                 ) {
                                     $updated_shops[$keyUS]['checked'] = true;
@@ -2411,8 +2442,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                 $connectors[$conn_key]['shops'] = $updated_shops;
 
-                if (
-                    !empty($connectors[$conn_key]['shops']) || (isset($conn_extra_info['shops'])
+                if (!empty($connectors[$conn_key]['shops']) || (isset($conn_extra_info['shops'])
                         && !empty($connectors[$conn_key]['shops'])
                         && $connectors[$conn_key]['shops'] != $conn_extra_info['shops'])
                 ) {
@@ -2527,17 +2557,39 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function checkRegistersForProccess(
         $return_num = false,
-        $table = 'syncdata'
+        $table = 'syncdata',
+        $test_process = false
     ) {
         $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " .
                           _DB_PREFIX_ . "slyr_" . $table;
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
 
         if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
+            $this->debbug('returned registers from '.$table.' ->' . print_r($items_processing['sl_cuenta_registros'], 1));
             if ($return_num) {
                 return $items_processing['sl_cuenta_registros'];
             } else {
                 return true;
+            }
+        }
+        if ($test_process && (!isset($items_processing['sl_cuenta_registros']) ||
+                              $items_processing['sl_cuenta_registros'] == 0) && $table == 'syncdata') {
+            $sql_processing = ' SELECT count(*) as sl_cuenta_registros FROM '
+                              . _DB_PREFIX_ . 'slyr_process ';
+            $items_processing = $this->slConnectionQuery('read', $sql_processing);
+
+            if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
+                $this->debbug('returned registers from process ->' . print_r($items_processing['sl_cuenta_registros'], 1));
+                if ($return_num) {
+                    $this->debbug('returned registers from ' . $table . ' ->' . print_r(
+                        $items_processing['sl_cuenta_registros'],
+                        1
+                    ));
+
+                    return $items_processing['sl_cuenta_registros'];
+                } else {
+                    return true;
+                }
             }
         }
 
@@ -2812,8 +2864,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         $register_forProcess = $this->checkRegistersForProccess();
 
-        if (
-            isset($this->load_cron_time_status[0]['updated_at']) &&
+        if (isset($this->load_cron_time_status[0]['updated_at']) &&
             ((count($result) && $register_forProcess) || $force)
         ) {
             //$updated_time = strtotime($this->load_cron_time_status[0]['updated_at']);
@@ -2875,8 +2926,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
 
 
-                if (
-                    (($this->max_execution_time < $restant_seconds_for_next_sync &&
+                if ((($this->max_execution_time < $restant_seconds_for_next_sync &&
                       $restant_seconds_for_next_sync > 10) || $force)
                 ) {
                     try {
@@ -3289,8 +3339,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function checkSqlItemsDelete(
         $force_delete = false
     ) {
-        if (
-            count($this->sql_items_delete) >= $this->sql_insert_limit
+        if (count($this->sql_items_delete) >= $this->sql_insert_limit
             || ($force_delete
                 && count(
                     $this->sql_items_delete
@@ -3313,14 +3362,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      */
 
     public function updateItems(
-        $items_to_update
+        $items_to_update,
+        $id_for_refresh,
+        $pid
     ) {
         $processed = array();
         foreach ($items_to_update as $item_to_update) {
             $sync_tries = $item_to_update['sync_tries'];
 
-            if (
-                isset($item_to_update['sync_params']) &&
+            if (isset($item_to_update['sync_params']) &&
                     !empty($item_to_update['sync_params']) &&
                     $item_to_update['sync_params'] != ''
             ) {
@@ -3412,7 +3462,14 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 $this->sl_variants->loadVariantImageSchema(
                                     $sync_params['conn_params']['data_schema']['product_formats']
                                 );
-                                foreach ($item_data['sync_data']['variants'] as $variant) {
+                                foreach ($item_data['sync_data']['variants'] as $key_var => $variant) {
+                                    $sql_up = "UPDATE " . _DB_PREFIX_ .
+                                              "slyr_syncdata SET date_start = '" . date("Y-m-d H:i:s") .
+                                              "', num_variants = '".count($item_data['sync_data']['variants']).
+                                              "'  WHERE  id = '".$id_for_refresh."';";
+
+                                    $this->slConnectionQuery('-', $sql_up);
+                                    $this->registerWorkProcess('synchronizer', $pid);
                                     try {
                                         $result_update = $this->sl_variants->syncOneVariant(
                                             $variant['item'],
@@ -3435,6 +3492,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                             'syncdata'
                                         );
                                     }
+                                    unset($item_data['sync_data']['variants'][$key_var]);
                                 }
                             }
 
@@ -4115,8 +4173,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 }
             }
 
-            if (
-                ($already_month && $already_day && $already_year) ||
+            if (($already_month && $already_day && $already_year) ||
                 ($already_month && $already_day && !$already_year)
             ) {
                 $timestamp = mktime($hour, $minutes, $seconds, $month, $day, $year);
@@ -4204,7 +4261,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $this->debbug('Item ' . $item_type . ' sl_id->' . $sl_id .
                               ' sync type->' . $sync_type .
                               ' register not has been founded.');
-                $this->setImagesPreload($images, $item_type);
+                $this->setImagesPreload($images, $item_type, $sl_id);
                 return true;
             } else {
                 $cache_result = reset($cache_result);
@@ -4228,7 +4285,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                   ' same content detected. Skip this item.');
                     return false;
                 }
-                $this->setImagesPreload($images, $item_type);
+                $this->setImagesPreload($images, $item_type, $sl_id);
                 $this->debbug('Item ' . $item_type . ' sl_id->' . $sl_id .
                               ' sync type->' . $sync_type .
                               ' different content detected->' .
@@ -4330,7 +4387,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
     }
-    private function setImagesPreload($images, $ps_type)
+    private function setImagesPreload($images, $ps_type, $sl_id)
     {
         $this->debbug('Saving images->' . print_r($images, 1));
         if (!empty($images)) {
@@ -4350,10 +4407,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
             if (!empty($urls)) {
                 $item_urls = "INSERT INTO " . _DB_PREFIX_ .
-                             "slyr_image_preloader (url,ps_type) VALUES ";
+                             "slyr_image_preloader (url,ps_type,sl_id) VALUES ";
                 $values = [];
                 foreach ($urls as $url) {
-                    $values[] = '("' . addslashes($url) . '","' . $ps_type . '")';
+                    $values[] = '("' . addslashes($url) . '","' . $ps_type . '","' . $sl_id . '")';
                 }
                 $item_urls .= implode(',', $values);
                 try {
@@ -4368,23 +4425,29 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
     }
-    public static function getPreloadedImage($url)
+    public static function getPreloadedImage($url, $ps_type, $sl_id, $preloaded = false)
     {
-        $query = 'SELECT * FROM ' .  _DB_PREFIX_ .
-                 "slyr_image_preloader WHERE status ='co' AND url='" . addslashes($url) . "'  LIMIT 1" ;
-        $response = Db::getInstance()->executeS($query);
-        if (!empty($response)) {
-            return reset($response);
+        $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'slyr_image_preloader ' .
+                 ' WHERE url = "' . addslashes($url) . '" AND ps_type = "' . $ps_type . '" AND sl_id = "' . $sl_id .
+                 '" '.($preloaded? ' AND status = "co" ' : '');
+        try {
+            $result = Db::getInstance()->executeS($query);
+            if (count($result)) {
+                return $result[0];
+            }
+        } catch (Exception $e) {
+            return false;
         }
-        return false;
     }
-    public static function deletePreloadImage($url)
+
+    public static function deletePreloadImage($url, $ps_type, $sl_id)
     {
-        $query = 'SELECT * FROM ' .  _DB_PREFIX_ .
+       /* $query = 'SELECT * FROM ' .  _DB_PREFIX_ .
                  "slyr_image_preloader WHERE status ='co' AND url='" . addslashes($url) . "'  LIMIT 1" ;
         $response = Db::getInstance()->executeS($query);
-        if (!empty($response)) {
-            $response = reset($response);
+        if (!empty($response)) {*/
+            $response = self::getPreloadedImage($url, $ps_type, $sl_id);
+        if ($response) {
             if (isset($response['local_path'])) {
                 $response['local_path'] = Tools::stripslashes($response['local_path']);
                 if (file_exists($response['local_path'])) {
@@ -4393,9 +4456,27 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
             Db::getInstance()->execute('DELETE FROM ' .  _DB_PREFIX_ .
                                        "slyr_image_preloader WHERE id='" . $response['id']  . "'");
-            return reset($response);
         }
-        return false;
+
+
+            return $response;
+      /*  }
+        return false;*/
+    }
+    public static function deletePreloadImageByCacheData($cached)
+    {
+        if ($cached) {
+            if (isset($cached['local_path'])) {
+                $cached['local_path'] = Tools::stripslashes($cached['local_path']);
+                if (file_exists($cached['local_path'])) {
+                    unlink($cached['local_path']);
+                }
+            }
+            Db::getInstance()->execute('DELETE FROM ' .  _DB_PREFIX_ .
+                                      "slyr_image_preloader WHERE id='" . $cached['id']  . "'");
+        }
+
+            return $cached;
     }
     public function clearPreloadCache()
     {
@@ -4421,45 +4502,85 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->clearDebugContent();
         } while (count($registers) > 0);
     }
-    public function getCountProcess($process_name)
+    public function getCountProcess($process_name = null)
     {
+        $where = '';
+        if ($process_name != null) {
+            $where = ' WHERE prc_type="' . $process_name . '"';
+        }
         $sql_read = "SELECT COUNT(*) as count FROM " . _DB_PREFIX_ .
-                    'slyr_process WHERE prc_type="' . $process_name . '"';
+                    'slyr_process '.$where;
         $result_count = Db::getInstance()->getValue($sql_read);
-        /* $this->debbug('warning counter  : ' .
-                       print_r($result_count, 1), 'balancer');*/
+
         return $result_count;
     }
-    public function registerWorkProcess($process_name)
+    public function registerWorkProcess($process_name, $pid = null)
     {
+        if ($pid == null) {
+            $pid = getmypid();
+        }
+
         try {
-            $sql = "INSERT INTO " . _DB_PREFIX_ . 'slyr_process ' .
-                  ' (prc_type,prc_time,pid) VALUES ' .
-                  '("' . $process_name . '","' . date('Y-m-d H:i:s') . '","' . getmypid() . '")';
-            Db::getInstance()->execute($sql);
+            $data = ['prc_type'=>$process_name,'prc_time'=>date('Y-m-d H:i:s'),'pid'=>$pid];
+            $this->debbug(
+                'Rewrite this process register process  : ' .
+                print_r($data, 1),
+                'syncdata'
+            );
+            SalesLayerImport::setRegisterInputCompare($data, 'slyr_process');
         } catch (Exception $e) {
             $this->debbug('## Error. register process  : ' . $e->getMessage() .
-                          ' line->' . $e->getLine() . ' query->' .
-                          print_r($sql, 1), 'syncdata');
+                          ' line->' . $e->getLine() . ' query data->' .
+                          print_r($data, 1), 'syncdata');
         }
     }
-    public function clearWorkProcess($process_name = null)
+    public function clearWorkProcess($process_name = null, $pid = null)
     {
         $num_frequency = (int) gmdate(
             "i",
             $this->getConfiguration('CRON_MINUTES_FREQUENCY')
         );
-        $num_frequency = $num_frequency > 0 ? $num_frequency * 4 : 20;
+        if ($pid == null) {
+            $pid = getmypid();
+        }
+        $num_frequency = $num_frequency > 0 ? $num_frequency * 4 : 60;
         $skip_duration =  date("Y-m-d H:i:s", strtotime("-" . $num_frequency . " minutes"));
         $sql = "DELETE FROM " . _DB_PREFIX_ . 'slyr_process  ' .
                ($process_name ? ' WHERE ( prc_type = "' . $process_name . '" AND pid="' .
-                                getmypid() . '" ) OR  prc_time <= "' . $skip_duration . '" ' : '') ;
+                                $pid . '" ) OR  prc_time <= "' . $skip_duration . '" ' : '') ;
+        $this->debbug(
+            'Unlock this process register process  : ' . print_r($sql, 1),
+            ($process_name?'syncdata':false)
+        );
         try {
             Db::getInstance()->execute($sql);
         } catch (Exception $e) {
             $this->debbug('## Error. Clear register process  : ' . $e->getMessage() .
                           ' line->' . $e->getLine() . ' query->' .
-                          print_r($sql, 1), 'syncdata');
+                          print_r($sql, 1), ($process_name?'syncdata':false));
+        }
+    }
+    public function clearWorkProcessBalancer($process_name = null)
+    {
+        $num_frequency = (int) gmdate(
+            "i",
+            $this->getConfiguration('CRON_MINUTES_FREQUENCY')
+        );
+
+        $num_frequency = $num_frequency > 0 ? $num_frequency * 4 : 20;
+        $skip_duration =  date("Y-m-d H:i:s", strtotime("-" . $num_frequency . " minutes"));
+        $sql = "DELETE FROM " . _DB_PREFIX_ . 'slyr_process  ' .
+               ($process_name ? ' WHERE   prc_time <= "' . $skip_duration . '" ' : '') ;
+        $this->debbug(
+            'Unlock this process register process  : ' . print_r($sql, 1),
+            'balancer'
+        );
+        try {
+            Db::getInstance()->execute($sql);
+        } catch (Exception $e) {
+            $this->debbug('## Error. Clear register process  : ' . $e->getMessage() .
+                          ' line->' . $e->getLine() . ' query->' .
+                          print_r($sql, 1), 'balancer');
         }
     }
 
@@ -4499,8 +4620,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
     }
-    public function getRunProceses($process_name)
+    public function getRunProceses($process_name, $pid = null)
     {
+        if ($pid == null) {
+            $pid = getmypid();
+        }
         try {
             $performance_limit = $this->getConfiguration('PERFORMANCE_LIMIT');
             $num_processes     = $this->getCountProcess($process_name);
@@ -4514,7 +4638,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->debbug('## Error. check processes of ' . $process_name . '  : ' . $e->getMessage() .
                           ' line->' . $e->getLine(), $process_name);
         }
-        $this->registerWorkProcess($process_name);
+        $this->registerWorkProcess($process_name, $pid);
         return true;
     }
 
@@ -4524,6 +4648,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      */
     public function runBalancer()
     {
+
         $this->debbug("==== Sync Data INIT " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . "  ====", 'balancer');
         if (!$this->testDownloadingBlock('BALANCER')) {
             $this->debbug(
@@ -4540,7 +4665,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->syncdata_pid = getmypid();
         $this->end_process = false;
         $this->recalculateDurationOfSyncronizationProcess($result);
-        $this->clearWorkProcess('synchronizer');
+        $this->clearWorkProcessBalancer('synchronizer');
 
 
         /**
@@ -4643,6 +4768,24 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     }
                     $counter++;
                     $max_number_of_processes = $this->process_definition[ $process ][ $item_type ];
+                    $multiplier = $this->load_multiplier;
+                    $load       = sys_getloadavg();
+                    $multiplier = round($multiplier - (float) $load[1]);
+                    $max_proceses_sugestion = ($performance_limit * $multiplier);
+                    $this->debbug(
+                        'load config ->' . $performance_limit.
+                        ' $multiplier->' . $multiplier . ' $max_proceses_sugestion->' .
+                        $max_proceses_sugestion . ' prod_type->' . $item_type,
+                        'balancer'
+                    );
+                    if ($item_type == 'product' && $max_number_of_processes > $max_proceses_sugestion) {
+                        $this->debbug(
+                            'overwrite max number of proceses by load $performance_limit->' . $performance_limit .
+                            ' $multiplier->' . $multiplier . ' $max_proceses_sugestion->' . $max_proceses_sugestion,
+                            'balancer'
+                        );
+                        $max_number_of_processes = $max_proceses_sugestion;
+                    }
 
                     /**
                      * Waiting for free slots or wait for the cpu free
@@ -4656,8 +4799,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                           print_r($load[0], 1) . '>=' . print_r($performance_limit, 1) .
                                           ' count_processes ->' .
                                           print_r($count_proceses, 1) . '>=' . $max_number_of_processes, 'balancer');
-                            if (
-                                ($load[0] >= $performance_limit ||
+                            if (($load[0] >= ($performance_limit - 1) ||
                                 $count_proceses >= $max_number_of_processes) && $count_proceses > 0
                             ) {
                                 sleep(4);
@@ -4737,7 +4879,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if (!$this->checkRegistersForProccess()) {
             $this->deleteConfiguration('SYNC_STATUS');
             $this->deleteConfiguration('LAST_CONNECTOR');
+            $this->deleteConfiguration('TOTAL_STAT');
             $this->startIndexer();
+            sleep(10);
+            $this->clearPreloadCache();
+            $this->clearTempImages();
         }
         $this->removeDownloadingBlock('BALANCER');
         $this->debbug(

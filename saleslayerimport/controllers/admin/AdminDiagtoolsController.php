@@ -254,15 +254,13 @@ class AdminDiagtoolsController extends ModuleAdminController
                 ' >' . $option_key . '</option>';
         }
         $option_performance = array(
-                'max' => 10,
-                '9' => 9,
-                '8' => 8,
-                '7' => 7,
-                '6' => 6,
-                '5' => 5,
-                '4 default' => 4,
-                '3' => 3,
-                'low' => 2
+                'max' => 7,
+                '60%' => 6,
+                '50%' => 5,
+                '40%' => 4,
+                '30% default' => 3,
+                '20%' => 2,
+                'low' => 1,
         );
 
         $option_performance_output = '';
