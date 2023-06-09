@@ -31,7 +31,7 @@ class SaleslayerimportdeletelogsModuleFrontController extends ModuleFrontControl
             $return = array();
             $return['message_type'] = 'error';
             $return['message'] = 'Invalid Token.';
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
 
 
@@ -46,8 +46,7 @@ class SaleslayerimportdeletelogsModuleFrontController extends ModuleFrontControl
         } else {
             $array_return['message_type'] = 'error';
         }
-
-        die(Tools::jsonEncode($array_return));
+        die(json_encode($array_return));
     }
 
     /**

@@ -508,7 +508,7 @@ class SalesLayerUpdater extends SalesLayerConn
 
                 foreach ($list as &$v) {
                     foreach ($v as &$w) {
-                        if (Tools::substr($w, 0, 1) == '{') {
+                        if ($w != null && Tools::substr($w, 0, 1) == '{') {
                             $w = json_decode($w, 1);
                         }
                     }
@@ -2575,7 +2575,7 @@ class SalesLayerUpdater extends SalesLayerConn
     private function getDbTableFromKey(
         $field
     ) {
-        if (Tools::substr($field, 0, 3) == '___') {
+        if ($field && Tools::substr($field, 0, 3) == '___') {
             return preg_replace('/^___(.+)?(_parent)?_id$/u', '\\1', $field);
         }
 

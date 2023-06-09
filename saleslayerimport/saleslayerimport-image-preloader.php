@@ -95,7 +95,7 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
                     && isset($image[0]['id'])
                     && $image[0]['id'] != null
                 ) {
-                    $response = $preloader->preloadImage(Tools::stripslashes($image[0]['url']));
+                    $response = $preloader->preloadImage(stripslashes($image[0]['url']));
                     if ($SLimport->debugmode > 2) {
                         $SLimport->debbug(
                             'After executed preloader return ->' . print_r($response, 1),

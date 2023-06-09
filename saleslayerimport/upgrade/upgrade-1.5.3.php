@@ -35,9 +35,11 @@ function upgrade_module_1_5_3()
         }
     }
     $SLimport->checkDB();
-    Db::getInstance()->execute('ALTER TABLE `'. _DB_PREFIX_.'slyr_category_product` '.
-                               ' ADD INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),	'.
-                               ' ADD INDEX `indice_2` (`ps_id` ASC, `comp_id` ASC, `ps_type` ASC,`ps_attribute_group_id` ASC);');
+    if (Db::getInstance()->execute('SHOW INDEX FROM `'. _DB_PREFIX_.'slyr_category_product` WHERE Key_name = "indice_1"') == false) {
+        Db::getInstance()->execute('ALTER TABLE `' . _DB_PREFIX_ . 'slyr_category_product` ' .
+                                    ' ADD INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),	' .
+                                    ' ADD INDEX `indice_2` (`ps_id` ASC, `comp_id` ASC, `ps_type` ASC,`ps_attribute_group_id` ASC);');
+    }
     $SLimport->debbug('Updating to version 1.5.3 success', '', true);
 
     return true;

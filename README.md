@@ -3,8 +3,8 @@
 <h1><a href="https://saleslayer.com/" title="Sales layer"> Sales Layer</a> Prestashop plugin</h1>
 <span>Sales Layer plugin allows you to easily synchronize your catalogue information with Prestashop.</span>
 
-Prestashop from Version: 1.6.1.6
-Stable in 1.7.5.1
+[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%207.3-8892BF.svg?style=flat-square)](https://php.net/) [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-%3E%3D%201.6.1.6-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop) [![GitHub release](https://img.shields.io/github/v/release/saleslayer/Sales_Layer_Prestashop)](https://github.com/saleslayer/Sales_Layer_Prestashop)
+
 
 <h2>How To Start</h2>
 <div>
@@ -13,9 +13,8 @@ Stable in 1.7.5.1
             <ul>
                 <li>Enter in the module installation template<br>
                 IMPROVE >> Modules >> Modules & Services >> Upload a module<br>
-                Attaching the zip file with the plugin.</li>                
-                <li>If everything went well, the plugin is now installed. But for automatic synchronizations you need to have your cron jobs from prestashop active.</li>
-                <li>Enter the template <b>How to use</b> and follow the instructions described to activate prestashop cron</li>
+                Attaching the zip file with the plugin.</li>
+                <li>Enter the template <b>How to use</b> and follow the instructions described to activate cron</li>
             </ul> 
         </span> 
 </div>
@@ -41,7 +40,7 @@ Stable in 1.7.5.1
     <h2>Requirements for synchronization</h2>
     <ul>
         <li>cUrl extension installed, In order to call and obtain the information from Sales Layer.</li>
-        <li>Active prestashop cronjobs.</li>
+        <li>Active cronjobs.</li>
         <li>Define the fields relationship in the Sales Layer Prestashop connector:
             <ul>
                 <li>Most Prestashop fields are already defined in each section, extra fields for products are converted to features and extra fields for variants are converted to attributes in order to synchronize.</li> 
@@ -138,82 +137,13 @@ This button will help you to eliminate in bulk all the categories, products and 
 
 <div>
 
-<h2>Changelog</h2>
+## Version Guidance
 
-V 1.4.21
-<ul>
-<li> Added function that repairs plugin' tables in diagnostic mode.</li>
-<li> Fixed unnamed variant issue. </li>
-<li> Added the 'enabled' field for variants, that eliminates the variant if it is false. </li>
-</ul>
+| Version | Status | Prestashop version     | PHP Version   | Recommended Prestashop version | Recommended PHP version |
+|---------|--------|------------------------|---------------|-------------------------------|------------------------|
+| 1.5.2   | EOL    | \>= 1.6.1.6, < 1.7.6.x | 7.X           | 1.7.6.1                       | 7.3                    |
+| 1.5.3   | Stable | \>= 1.6.1.6, < 1.7.8.x | 7.X           | 1.7.8.2                       | 7.3                    |
+| 2.0.0   | Latest | \>= 1.7.8.x,  8.0.x    | \>=7.3, <=8.1 | 8.0.4 ,1.7.8.2                | 7.3 , 8.1              |
 
-V 1.4.22
-<ul>
-<li> Fix of field condition.</li>
-</ul>
-
-V 1.4.23
-<ul>
-<li> Fix of the field condition for custom values, reading from the class of Product.</li>
-<li> Fix of the field Visibility for custom values, reading from class of Product.</li>
-<li> Fix of the renaming the values of features.</li>
-<li> Strict deleting product images if is unknown for plugin.</li>
-</ul>
-
-V 1.4.24
-<ul>
-<li> fix of the compression on feature values..</li>
-<li> Fix of the minimum quantity field.</li>
-<li> Fix of quantity field, permission to set to 0.</li>
-</ul>
-
-V 1.4.25
-<ul>
-<li> php 7.3 compatibility improvement and reduce notifications of undeclared variables.</li>
-<li> Fix changing product type from pack configuration.</li>
-<li> Improvement in messages of unlinked products in pack.</li>
-<li> Fix in delete accessories.</li>
-</ul>
-
-V 1.4.26
-<ul>
-<li> Product creation only in stores configured in the connector.</li>
-<li> Creation of features in all stores. (Bug fix in multistore)</li>
-<li> Better control of product deallocation - categories. </li>
-<li> Fix variants with same attributes are not created. </li>
-</ul>
-
-V 1.5.0
-<ul>
-<li> Speed improvements.</li>
-<li> Small fixes. </li>
-<li> Asynchronous stock update. </li>
-<li> Asynchronous image preload. </li>
-<li> Data comparison with data hash. </li>
-<li> Balancer. </li>
-<li> Work in multi-processes. </li>
-<li> Variants with products are synchronized with products. </li>
-</ul>
-
-V 1.5.1
-<ul>
-<li> Massive stock update fix.</li>
-<li> Category problem that has been caused by not maintaining the order of processing in categories. </li>
-
-<li> Better compatibility with 1.7.8.x Prestashop </li>
-<li> Parent category select for first category: Shop category id if not exist-> PS_HOME_CATEGORY if not exist -> PS_ROOT_CATEGORY </li>
-</ul>
-
-V 1.5.2
-<ul>
-<li> Compatibility fix with older version of Prestashop 1.7.7.x >= </li>
-<li> Change plugin tables engine to MyISAM for plugin installed before 1.4.x versions for better performance</li>
-</ul>
-
-V 1.5.3
-<ul>
-<li> Minor fixes in multi-processes. </li>
-<li> Stability and performance improvements </li>
-</ul>
 
 </div>

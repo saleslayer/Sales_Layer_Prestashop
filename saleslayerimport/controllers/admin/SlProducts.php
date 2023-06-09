@@ -95,7 +95,7 @@ class SlProducts extends SalesLayerPimUpdate
         }
         $data_clear['shops'] = $shops;
         $json_clear = json_encode($data_clear);
-        $data_hash = hash($this->hash_algorithm_comparator, $json_clear);
+        $data_hash = (string) hash($this->hash_algorithm_comparator, $json_clear);
 
         $this->debbug(
             ' Entering to process: ' . $occurence . '  Product Information: ' . print_r(
@@ -3723,7 +3723,7 @@ class SlProducts extends SalesLayerPimUpdate
                             ' shops->' . print_r($shops, 1),
                             'syncdata'
                         );
-                        $shops_info = json_decode(Tools::stripslashes($product_row['shops_info']), 1);
+                        $shops_info = json_decode(stripslashes($product_row['shops_info']), 1);
                         if ($shops_info && !empty($shops_info)) {
                             $shops_info[$connector_id] = $shops;
                         } else {
@@ -4628,7 +4628,7 @@ class SlProducts extends SalesLayerPimUpdate
                     $cached = SalesLayerImport::getPreloadedImage($url, 'product', $sl_id, true);
 
                     if ($cached) {
-                        $temp_image = Tools::stripslashes($cached['local_path']);
+                        $temp_image = stripslashes($cached['local_path']);
                         $this->debbug(
                             'Image has been preloaded ->' . print_r(
                                 $cached,

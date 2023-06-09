@@ -58,14 +58,14 @@
     </div>
   </div>
   <div>
-    <section class="row mar-top-btt-10">
-      <h3><strong>{$plugin_name|escape:'htmlall':'UTF-8'}</strong> plugin allows you to add in your Prestashop
+    <div class="row mar-top-btt-10">
+      <h2 class="mar-top-btt-10"><strong>{$plugin_name|escape:'htmlall':'UTF-8'}</strong> plugin allows you to add in your Prestashop
         website all your catalogue super easily. To do so, the catalog automatically imports and syncs all the
-        product information.</h3>
+        product information.</h2>
       <p>First of all the plugin needs the <strong>connector ID code</strong> and the <strong>private key</strong>.
         You will find them in the connector details of <strong>Sales Layer PIM</strong>.</p>
-    </section>
-    <section class="row mar-top-btt-10">
+    </div>
+    <div class="row mar-top-btt-10">
       <ol class="mar-top-btt-10">
         <li>Go to <a href="{$add_connectors|escape:'htmlall':'UTF-8'}">Sales Layer -> Add New Connector</a></li>
         <li>Add the connection credentials.</li>
@@ -74,11 +74,11 @@
         </li>
         <li>The store must be assigned a root category to perform syncronization correctly.</li>
       </ol>
-    </section>
-    <section class="row mar-top-btt-10">
-      <h3>Requirements for synchronization</h3>
-    </section>
-    <section class="row mar-top-btt-10">
+    </div>
+    <div class="row mar-top-btt-10">
+      <h2>Requirements for synchronization</h2>
+    </div>
+    <div class="row mar-top-btt-10">
       <ol>
         <li><strong>cURL</strong> extension installed; In order to call and obtain the information from Sales
           Layer</strong>.
@@ -102,16 +102,16 @@
           {$validation_table|escape:"quotes":"UTF-8"}
         </div>
       </div>
-    </section>
-    <section class="row mar-top-btt-10">
-      <h3>How To Synchronize By Cron</h3>
-    </section>
-    <section class="row">
+    </div>
+    <div class="row mar-top-btt-10">
+      <h2>How To Synchronize By Cron</h2>
+    </div>
+    <div class="row">
       <div class="col-md-12">
         <h4>To enable automatic synchronization, have an active cron job on your server and verify if the
-          prestashop cron is running. If not, you can do it in the following way:</h4>
-        <h4>If result "<b>Registered prestashop cronjob activity</b>" is equal to <i
-            class="fa fa-check text-success" aria-hidden="true"></i> the cron jobs of Prestashop they
+          cron is running. If not, you can do it in the following way:</h4>
+        <h4>If result "<b>Cron has been executed in the last 10 minutes</b>" is equal to <i
+            class="fa fa-check text-success" aria-hidden="true"></i> the cron jobs they
           are executed correctly, means that in the last hour cron job of sales layer has been executed at
           least once. The subsequent configuration is not necessary.</h4>
         <div class="col-md-12">
@@ -130,10 +130,10 @@
                 <li>Command:</li>
                 <li class="mar-top-btt-10">
                   <ol>
-                    <li><strong>wget -O /dev/null {$culr_link|escape:'htmlall':'UTF-8'} > /dev/null&nbsp;
+                    <li><strong>wget -O /dev/null {$directly_sl_cronLink|escape:'htmlall':'UTF-8'} > /dev/null&nbsp;
                         2>&1</strong></li>
                     <p>or</p>
-                    <li><strong>curl "{$culr_link|escape:'htmlall':'UTF-8'}" > /dev/null&nbsp;
+                    <li><strong>curl "{$directly_sl_cronLink|escape:'htmlall':'UTF-8'}" > /dev/null&nbsp;
                         2>&1 </strong></li>
                   </ol>
                 </li>
@@ -141,6 +141,8 @@
             </li>
           </ul>
         </div>
+      </div>
+      <div class="row">
         <div class="col-md-12">
           <ul class="list-unstyled">
             <li class="mar-top-btt-10"><b>By ssh console:</b><br></li>
@@ -150,16 +152,38 @@
             </li>
             <li class="mar-top-btt-10">
               <ol>
-                <li><strong>*/5 * * * * wget -O /dev/null {$culr_link|escape:'htmlall':'UTF-8'}</strong>
+                <li><strong>*/5 * * * * wget -O /dev/null {$directly_sl_cronLink|escape:'htmlall':'UTF-8'}</strong>
                 </li>
                 <p>or</p>
-                <li><strong>*/5 * * * * curl "{$culr_link|escape:'htmlall':'UTF-8'}" </strong></li>
+                <li><strong>*/5 * * * * curl "{$directly_sl_cronLink|escape:'htmlall':'UTF-8'}" </strong></li>
               </ol>
             </li>
           </ul>
         </div>
       </div>
-    </section>
+     {* <div class="row">
+        <div class="col-md-12">
+          <div class="mar-top-btt-10">
+          <h3>Using Cron directly to Sales Layer plugin</h3>
+          </div>
+          <ul class="list-unstyled">
+            <li>Execute command on your console: <b>'crontab -e'</b></li>
+            <li>If there are not any of the following lines that contain the same url add a line at the end
+              of that list.
+            </li>
+            <li class="mar-top-btt-10">
+              <ol>
+                <li><strong>*/5 * * * * wget -O /dev/null {$directly_sl_cronLink|escape:'htmlall':'UTF-8'}</strong>
+                </li>
+                <p>or</p>
+                <li><strong>*/5 * * * * curl "{$directly_sl_cronLink|escape:'htmlall':'UTF-8'}" </strong></li>
+              </ol>
+            </li>
+          </ul>
+        </div>
+      </div>*}
+    </div>
+    </div>
   </div>
 </div>{/strip}{literal}
   <script>

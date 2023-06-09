@@ -92,7 +92,7 @@ class SlVariants extends SalesLayerPimUpdate
         unset($data_clear['data']['quantity']);
         $data_clear['shops'] = $conn_shops;
         $json_clear = json_encode($data_clear);
-        $data_hash = hash($this->hash_algorithm_comparator, $json_clear);
+        $data_hash = (string) hash($this->hash_algorithm_comparator, $json_clear);
 
 
         /**
@@ -2116,7 +2116,14 @@ class SlVariants extends SalesLayerPimUpdate
                 }
                 $show_color = '#ffffff';
                 //Creamos nuevo atributo
-                $attribute = new AttributeCore();
+
+                if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
+                    // PrestaShop 8.0.0 y versiones posteriores
+                    $attribute = new ProductAttributeCore();
+                } else {
+                    // Versiones anteriores a PrestaShop 8.0.0
+                    $attribute = new AttributeCore();
+                }
                 $attribute->name = array();
                 try {
                     if (!empty($multilanguage)) {
@@ -2214,7 +2221,13 @@ class SlVariants extends SalesLayerPimUpdate
                 }
 
                 $attribute->id_attribute_group = $attribute_group_id;
-                $position = AttributeCore::getHigherPosition($attribute_group_id);
+                if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
+                    // PrestaShop 8.0.0 y versiones posteriores
+                    $position = ProductAttributeCore::getHigherPosition($attribute_group_id);
+                } else {
+                    // Versiones anteriores a PrestaShop 8.0.0
+                    $position = AttributeCore::getHigherPosition($attribute_group_id);
+                }
                 $attribute->position = $position == null ? 0 : $position + 1;
 
                 if ($is_color) {
@@ -2270,7 +2283,13 @@ class SlVariants extends SalesLayerPimUpdate
                  * Update if is an Language more possible to set or overwrite
                  */
                 $update_needed = false;
-                $attribute = new AttributeCore($attribute_value_id);
+                if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
+                    // PrestaShop 8.0.0 y versiones posteriores
+                    $attribute = new ProductAttributeCore($attribute_value_id);
+                } else {
+                    // Versiones anteriores a PrestaShop 8.0.0
+                    $attribute = new AttributeCore($attribute_value_id);
+                }
 
                 foreach ($multilanguage as $id_lang => $Value) {
                     if (($attribute->name[$id_lang] == null
@@ -2508,49 +2527,48 @@ class SlVariants extends SalesLayerPimUpdate
 
             $shopsConnectors = array();
             foreach ($attrsInfo as $attrInfo) {
-                $shops_info = json_decode($attrInfo['shops_info'], 1);
-                if (is_array($shops_info) && count($shops_info) > 0) {
-                    foreach ($shops_info as $conn_id => $shops) {
-                        if (!isset($shopsConnectors[$conn_id])) {
-                            $shopsConnectors[$conn_id] = array();
-                        }
-                        foreach ($shops as $shop) {
-                            if (!in_array($shop, $shopsConnectors[$conn_id], false)) {
-                                //array_push($shopsConnectors[$conn_id], $shop);
-                                $shopsConnectors[$conn_id][] = $shop;
+                if (isset($attrInfo['shops_info'])) {
+                    $shops_info = json_decode($attrInfo['shops_info'], true);
+                    if (is_array($shops_info) && count($shops_info) > 0) {
+                        foreach ($shops_info as $conn_id => $shops) {
+                            if (!isset($shopsConnectors[$conn_id])) {
+                                $shopsConnectors[$conn_id] = array();
+                            }
+                            foreach ($shops as $shop) {
+                                if (!in_array($shop, $shopsConnectors[$conn_id], false)) {
+                                    $shopsConnectors[$conn_id][] = $shop;
+                                }
                             }
                         }
                     }
                 }
             }
 
-            foreach ($attrsInfo as $key => $attrInfo) {
-                $sl_attr_info_conns = json_decode($attrInfo['shops_info'], 1);
 
-                //Revisamos las sobrantes
-                if (count($attr_shops) > 0) {
-                    //Buscamos en conectores
-                    foreach ($attr_shops as $attr_shop) {
-                        // $found = false;
-                        if (is_array($sl_attr_info_conns) && count($sl_attr_info_conns) > 0) {
-                            foreach ($sl_attr_info_conns as $sl_attr_info_conn => $sl_attr_info_conn_shops) {
-                                if ($sl_attr_info_conn != $connector_id) {
-                                    if (in_array($attr_shop['id_shop'], $sl_attr_info_conn_shops, false)) {
-                                        //  $found = true;
-                                        break;
+
+            foreach ($attrsInfo as $attrInfo) {
+                if (isset($attrInfo['shops_info'])) {
+                    $sl_attr_info_conns = json_decode($attrInfo['shops_info'], true);
+
+                    // Revisamos las sobrantes
+                    if (count($attr_shops) > 0) {
+                        // Buscamos en conectores
+                        foreach ($attr_shops as $attr_shop) {
+                            if (is_array($sl_attr_info_conns) && count($sl_attr_info_conns) > 0) {
+                                foreach ($sl_attr_info_conns as $sl_attr_info_conn => $sl_attr_info_conn_shops) {
+                                    if ($sl_attr_info_conn != $connector_id) {
+                                        if (in_array($attr_shop['id_shop'], $sl_attr_info_conn_shops, false)) {
+                                            // $found = true;
+                                            break;
+                                        }
                                     }
                                 }
-                            }
 
-                            if (count($shopsConnectors) > 0) {
-                                foreach ($shopsConnectors as $conn_id => $shopsConnector) {
-                                    if ($connector_id != $conn_id && in_array(
-                                        $attr_shop['id_shop'],
-                                        $shopsConnector,
-                                        false
-                                    )
-                                    ) {
-                                        //  $found = true;
+                                if (count($shopsConnectors) > 0) {
+                                    foreach ($shopsConnectors as $conn_id => $shopsConnector) {
+                                        if ($connector_id != $conn_id && in_array($attr_shop['id_shop'], $shopsConnector, false)) {
+                                            // $found = true;
+                                        }
                                     }
                                 }
                             }
@@ -2871,7 +2889,7 @@ class SlVariants extends SalesLayerPimUpdate
                     $cached = SalesLayerImport::getPreloadedImage($url, 'product_format', $sl_id, true);
 
                     if ($cached) {
-                        $temp_image = Tools::stripslashes($cached['local_path']);
+                        $temp_image = stripslashes($cached['local_path']);
                     } else {
                         $temp_image = $this->downloadImageToTemp($url);
                     }

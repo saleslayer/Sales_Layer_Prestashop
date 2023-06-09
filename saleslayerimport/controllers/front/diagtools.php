@@ -36,7 +36,7 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
             $return = array();
             $return['message_type'] = 'error';
             $return['message'] = 'Invalid Token.';
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
         $command = Tools::getValue('logcommand');
         $array_return = array();

@@ -28,7 +28,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return = array();
             $return['message_type'] = 'error';
             $return['message'] = 'Invalid Token.';
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
         /**
          * Commands for syncronize the conector
@@ -148,8 +148,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
              * system health
              */
             $return['health'] = $SLimport->checkServerUse();
-
-            die(Tools::jsonEncode($return));
+             die(json_encode($return));
         }
 
         /**
@@ -170,7 +169,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
 
             $return['server_time'] = 'Server time: ' . date('H:i');
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
 
         /**
@@ -191,7 +190,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
 
             $return['server_time'] = 'Server time: ' . date('H:i');
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
 
 
@@ -216,7 +215,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 if (count($elements_for_unset_conn)) {
                     foreach ($elements_for_unset_conn as $row) {
                         if (!empty($row['shops_info'])) {
-                            $shops_active = json_decode(Tools::stripslashes($row['shops_info']), 1);
+                            $shops_active = json_decode(stripslashes($row['shops_info']), 1);
                             if (isset($shops_active[$connector_id])) {
                                 unset($shops_active[$connector_id]);
                             }
@@ -234,7 +233,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             }
 
             $return['server_time'] = 'Server time: ' . date('H:i');
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
 
         /**
@@ -256,7 +255,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             }
 
             $return['server_time'] = 'Server time: ' . date('H:i');
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
 
         if ($command == 'clear_syncronization') {
@@ -270,7 +269,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['message'] = 'Deleted all from synchronization';
 
             $return['server_time'] = 'Server time: ' . date('H:i');
-            die(Tools::jsonEncode($return));
+            die(json_encode($return));
         }
 
 
@@ -318,7 +317,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                         $return['message_type'] = 'error';
                         $return['message'] = 'Not valid value for save.';
 
-                        die(Tools::jsonEncode($return));
+                        die(json_encode($return));
                     }
                 } catch (Exception $e) {
                     $return['message_type'] = 'error';
@@ -379,7 +378,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['message'] = 'Could not save data in the connector equal to null.';
         }
         $return['server_time'] = 'Server time: ' . date('H:i');
-        die(Tools::jsonEncode($return));
+        die(json_encode($return));
     }
 
     public function updateConector(
