@@ -116,7 +116,7 @@ class SlCatalogues extends SalesLayerPimUpdate
         $data_clear['data'] = $catalog['data'];
 
         $data_clear = json_encode($data_clear);
-        $data_hash = hash($this->hash_algorithm_comparator, $data_clear);
+        $data_hash = (string) hash($this->hash_algorithm_comparator, $data_clear);
 
         $catalog_exists = (int)Db::getInstance()->getValue(
             sprintf(
@@ -1180,7 +1180,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         )
                     );
                     if ($catalogue_row && isset($catalogue_row['shops_info'])) {
-                        $shops_info = json_decode(Tools::stripslashes($catalogue_row['shops_info']), 1);
+                        $shops_info = json_decode(stripslashes($catalogue_row['shops_info']), 1);
                         if ($shops_info && !empty($shops_info)) {
                             $shops_info[$connector_id] = $shops;
                         } else {
@@ -1253,7 +1253,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         if (!empty($url)) {
                             $cached = SalesLayerImport::getPreloadedImage($url, 'category', $catalog['ID']);
                             if ($cached) {
-                                $temp_file = Tools::stripslashes($cached['local_path']);
+                                $temp_file = stripslashes($cached['local_path']);
                                 $this->debbug('Image founded in cache as preloaded->' .
                                               print_r($temp_file, 1) . 'and before used  befor clear ->' .
                                               print_r($cached, 1), 'syncdata');
@@ -1526,7 +1526,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                 try {
                     foreach ($shop_ids as $shop) {
                         Shop::setContext(Shop::CONTEXT_SHOP, $shop);
-                        $cat = new Category($category_id, null, $shop['id_shop']);
+                        $cat = new Category($category_id, null, $shop);
                         if ($cat->id_parent != $new_parent_id && !empty($new_parent_id)) {
                             if ($new_parent_id == 1) {
                                 $cat->is_root_category = 1;
@@ -1648,7 +1648,7 @@ class SlCatalogues extends SalesLayerPimUpdate
         if ($product_ps_arr && count($product_ps_arr) && !empty($product_ps_arr)) {
             $element_to_delete = reset($product_ps_arr);
             $catalog_ps_id = (int) $element_to_delete['ps_id'];
-            $shops_active = json_decode(Tools::stripslashes($element_to_delete['shops_info']), 1);
+            $shops_active = json_decode(stripslashes($element_to_delete['shops_info']), 1);
 
             if (isset($shops_active[$connector])) {
                 foreach ($shops_active[$connector] as $key => $shop_id) {

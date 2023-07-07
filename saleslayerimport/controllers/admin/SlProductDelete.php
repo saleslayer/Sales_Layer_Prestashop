@@ -57,7 +57,7 @@ class SlProductDelete extends SalesLayerPimUpdate
         if ($product_ps_arr && count($product_ps_arr) && !empty($product_ps_arr)) {
             $element_to_delete = reset($product_ps_arr);
             $product_ps_id = (int) $element_to_delete['ps_id'];
-            $shops_active = json_decode(Tools::stripslashes($element_to_delete['shops_info']), 1);
+            $shops_active = json_decode(stripslashes($element_to_delete['shops_info']), 1);
 
             if (isset($shops_active[$connector])) {
                 foreach ($shops_active[$connector] as $key => $shop_id) {

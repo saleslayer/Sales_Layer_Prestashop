@@ -78,7 +78,7 @@ try {
                     $SLimport->checkSqlItemsDelete();
                     $sync_tries = $item_to_delete['sync_tries'];
                     $sync_params = json_decode(
-                        Tools::stripslashes($item_to_delete['sync_params']),
+                        stripslashes($item_to_delete['sync_params']),
                         1
                     );
                     $SLimport->processing_connector_id = $sync_params['conn_params']['connector_id'];
@@ -86,7 +86,7 @@ try {
                     $SLimport->conector_shops_ids      = $sync_params['conn_params']['shops'];
 
 
-                    $item_data = json_decode(Tools::stripslashes($item_to_delete['item_data']), 1);
+                    $item_data = json_decode(stripslashes($item_to_delete['item_data']), 1);
                     $sl_id = $item_data['sl_id'];
 
                     switch ($item_to_delete['item_type']) {

@@ -45,22 +45,12 @@ class HowToUseController extends ModuleAdminController
         $return_table = array();
         $extension_needed = array(
             'curl_version' => array('test' => 'function_exists', 'public_name' => 'PHP cURL Installed'),
-            'cronjobs' => array(
-                'test' => 'module',
-                'public_name' => 'Prestashop module Cronjobs installed',
-            ),
-            'testSlcronExist' => array(
+            'testSlCronLatestRun' => array(
                 'test' => 'setfunction',
-                'public_name' => 'There is a task to execute Sales Layer cron job in Prestashop',
-            ),
-            'verifySLcronRegister' => array(
-                'test' => 'setfunction',
-                'public_name' => 'Registered prestashop cronjob activity',
-                'return' => 'stat',
-                'additional_message' => 'message',
-            ),
+                'public_name' => 'Cron has been executed in the last 10 minutes',
+            )
         );
-
+        
         if (count($extension_needed)) {
             foreach ($extension_needed as $extension_name => $extension_value) {
                 if ($extension_value['test'] == 'function_exists') {
@@ -116,7 +106,6 @@ class HowToUseController extends ModuleAdminController
             $create_validation_table .= '</table>';
         }
 
-        $culr_link = $SLimport->globalUrlToRunPrestashopCronJobs();
 
         $shop_id = (Shop::getContextShopID() ? Shop::getContextShopID() : Configuration::get('PS_SHOP_DEFAULT'));
         Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
@@ -159,9 +148,9 @@ class HowToUseController extends ModuleAdminController
                     array(),
                     array( 'id_shop' => $this->context->shop->id)
                 ),
-                'culr_link' =>  $culr_link,
                 'message' => $message,
                 'validation_table' => $create_validation_table,
+                'directly_sl_cronLink' => $SLimport->createSLPluginCronUrl(false, false)
             )
         );
 

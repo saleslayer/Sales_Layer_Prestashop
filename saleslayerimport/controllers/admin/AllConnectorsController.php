@@ -198,7 +198,7 @@ class AllConnectorsController extends ModuleAdminController
                           $connector['conn_code'] .
                           '" class="btn btn-danger update_btt"
                            onclick=update_command("' . $connector['conn_code'] . '","delete_now");>' .
-                          '<i class="fa fa-trash text-left" aria-hidden="true"></i> Remove</span>';
+                          '<i class="fa fa-trash text-left" aria-hidden="true"></i>&nbsp;Remove</span>';
                 $table .= '</div>';
                 $table .= '</td>';
 
@@ -213,7 +213,7 @@ class AllConnectorsController extends ModuleAdminController
  title="Download and store data now and wait for cron sync."
 class="btn btn-success update_btt">' .
                           '<i class="fa fa-cloud-download text-left" ' .
-                          'aria-hidden="true"/> Download data</span>';
+                          'aria-hidden="true"/>&nbsp;Download&nbsp;data</span>';
                 $table .= '</div>';
                 $table .= '</td>';
 

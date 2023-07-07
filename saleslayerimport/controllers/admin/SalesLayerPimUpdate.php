@@ -2404,7 +2404,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 foreach ($images_types as $image_type) {
                     ImageManager::resize(
                         $resultado,
-                        $path . '-' . Tools::stripslashes($image_type['name']) . '.jpg',
+                        $path . '-' . stripslashes($image_type['name']) . '.jpg',
                         $image_type['width'],
                         $image_type['height']
                     );

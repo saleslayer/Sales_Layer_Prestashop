@@ -81,8 +81,8 @@ class AdminDiagtoolsController extends ModuleAdminController
         $array_toshow = ['Server Software',$_SERVER['SERVER_SOFTWARE']];
         $this->formatTable($array_toshow);
 
-        $array_toshow = ['intl.error_level',ini_get('intl.error_level')];
-        $this->formatTable($array_toshow);
+     /*   $array_toshow = ['intl.error_level',ini_get('intl.error_level')];
+        $this->formatTable($array_toshow);*/
 
         $array_toshow = ['Server name',$_SERVER['SERVER_NAME']];
         $this->formatTable($array_toshow);
@@ -152,6 +152,19 @@ class AdminDiagtoolsController extends ModuleAdminController
                                                      (int) $this->SLimport->getConfiguration('LATEST_CRON_EXECUTION')
                                                  ) . '</span>'];
         $this->formatTable($array_toshow);
+	    $array_toshow = ['SL cron plugin url',$this->SLimport->createSLPluginCronUrl(false, false)];
+	    $this->formatTable($array_toshow);
+
+	    if ($this->SLimport->testSlCronLatestRun()) {
+		    $class = "text-success";
+		    $text = 'Cron executed in latest 10 minutes.';
+	    } else {
+		    $class = "text-danger";
+		    $text = 'no cron activity detected in last 10 minutes.';
+	    }
+
+	    $array_toshow = ['cron execution ','<span class="' . $class . '" title="' . $text . '">' . $text . '</span>'];
+	    $this->formatTable($array_toshow);
 
         if (!$this->SLimport->compareIntegrity()) {
             $class = "text-danger";

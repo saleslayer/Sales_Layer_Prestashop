@@ -154,7 +154,7 @@ class SalesLayerImport extends Module
     private $sl_time_ini_sync_data_process;
     private $load_cron_time_status;
     public $shop_loaded_id;
-    public $hash_algorithm_comparator      = 'md5';
+    public $hash_algorithm_comparator      = 'adler32';
     private $limit_max_value_max_execution = 290;
     private $limit_max_reserved_execution  = 400;
     private $limit_per_process              = 5;
@@ -307,12 +307,12 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '1.5.3';
+        $this->version = '2.0.0';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
-        $this->dependencies = array('cronjobs');  // force users to install cron jobs module
-        $this->ps_versions_compliancy = array('min' => '1.6.1.6', 'max' => '1.8.0.0');
+        $this->dependencies = array();  // force users to install cron jobs module
+        $this->ps_versions_compliancy = array('min' => '1.6.1.6', 'max' => '9.0.0.0');
         $this->bootstrap = true;
 
         parent::__construct();
@@ -367,6 +367,14 @@ class SalesLayerImport extends Module
      */
     public function loadDebugMode()
     {
+        $schemaSQL_PS_SL_configdata = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_aditional_config . " (
+            `configname` VARCHAR(100) NOT NULL,
+            `save_value` VARCHAR(500) NULL,
+            PRIMARY KEY (`configname`),
+            UNIQUE INDEX `configname_UNIQUE` (`configname` ASC)
+        ) ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
+
         $debugmode = $this->getConfiguration('DEBUGMODE');
         if ($debugmode === false) {
             $debugmode = 0;
@@ -475,33 +483,6 @@ class SalesLayerImport extends Module
         }
         $this->shop_languages = $new_order;
     }
-
-    /**
-     * Fix ajax url in different domains
-     * @deprecated
-     */
-
-    /* public function overwriteOriginDomain($url)
-     {
-         if (strpos($url, __PS_BASE_URI__) !== 0) {
-             $parsed_url = parse_url($url);
-             $exploded = explode('/', $parsed_url['path']);
-
-             $element_for_delete = array('',__PS_BASE_URI__);
-             foreach ($exploded as $key => $element) {
-                 if (in_array($element, $element_for_delete, false)) {
-                     unset($exploded[$key]);
-                 }
-             }
-             $urlcorrect = _PS_BASE_URL_ . __PS_BASE_URI__ . implode('/', $exploded);
-         } else {
-             $urlcorrect = $url;
-         }
-         if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') {
-             $urlcorrect = str_replace('http://', 'https://', $urlcorrect);
-         }
-         return $urlcorrect;
-     }*/
 
     /**
      * Rewrite sql string convert ? to %s  and execute sprint con all values  to write secure sql
@@ -737,21 +718,8 @@ class SalesLayerImport extends Module
     ) {
         if ($data != null && is_array($data)) {
             foreach ($data as $configname => $save_value) {
-                // $this->debbug('New configuration to save '.$configname.'   value ->'.$save_value,'syncdata');
-                $sql_sel = 'SELECT * FROM ' . $this->saleslayer_aditional_config . " WHERE configname = '$configname'";
-                $res = $this->slConnectionQuery('read', $sql_sel);
-                if (!empty($res)) {
-                    if ($res[0]['save_value'] !== $save_value) {
-                        $sql_sel = 'UPDATE ' . $this->saleslayer_aditional_config .
-                                   " SET  save_value = '" . $save_value . "' " .
-                                   " WHERE id_config = '" . $res[0]['id_config'] . "' Limit 1";
-                        $this->slConnectionQuery('-', $sql_sel);
-                    }
-                } else {
-                    $sql_sel = "INSERT INTO  " . $this->saleslayer_aditional_config . " ( configname , save_value )
-                     VALUES ('" . $configname . "','" . $save_value . "')";
-                    $this->slConnectionQuery('insert', $sql_sel);
-                }
+                $new_data = ['configname' =>$configname, 'save_value'=>$save_value];
+                self::setRegisterInputCompare($new_data, 'slyr_additional_config');
             }
         }
     }
@@ -761,60 +729,40 @@ class SalesLayerImport extends Module
      * @throws PrestaShopDatabaseException
      * @throws PrestaShopException
      */
-
-
     public function saveCronExecutionTime()
     {
-            $result = $this->testSlcronExist();
-        if (count($result)) {
-            $old_execution_time = $this->checkCronProcessExecutionTime(); //check old time of execution from slyr table
+        $old_execution_time =  $this->getConfiguration('LATEST_CRON_EXECUTION'); //check old time of execution from slyr table
+        $timetosave = time();
+        $timetosave_db = Db::getInstance()->executeS('SELECT UNIX_TIMESTAMP() as time');
+        if (isset($timetosave_db[0]['time'])) {
+            $timetosave = $timetosave_db[0]['time'];
+        }
 
-            $this->debbug('Saving newest cron execution time form BD ->' . $result[0]['timeBD'], 'autosync');
-            $timetosave = strtotime($result[0]['timeBD']);
+        $this->debbug('Saving newest cron execution time form BD ->' . $timetosave, 'autosync');
 
-            $this->saveConfiguration(['LATEST_CRON_EXECUTION' => $timetosave]); // save newest time of execution
+        $this->saveConfiguration(['LATEST_CRON_EXECUTION' => $timetosave]); // save newest time of execution
 
-            if (!$old_execution_time) {
-                $old_execution_time = $this->max_execution_time ;
-                $this->debbug(
-                    'Compare executions of cron ' . date('H:i:s', $timetosave) . ' Old->' . date(
-                        'H:i;s',
-                        $old_execution_time
-                    ),
-                    'autosync'
-                );
-            }
+        if (!$old_execution_time) {
+            $old_execution_time = $this->max_execution_time ;
+            $this->debbug(
+                'Compare executions of cron ' . date('H:i:s', $timetosave) . ' Old->' . date(
+                    'H:i;s',
+                    $old_execution_time
+                ),
+                'autosync'
+            );
+        }
 
-            $execution_time_cron = $timetosave - $old_execution_time ;
-            $this->debbug('Frequency of execution of cron is ' . $execution_time_cron, 'autosync');
+        $execution_time_cron = $timetosave - $old_execution_time ;
+        $this->debbug('Frequency of execution of cron is ' . $execution_time_cron, 'autosync');
 
-            if ($execution_time_cron > 0) {
-                $this->cron_frequency = $execution_time_cron;
-                $this->saveConfiguration(['CRON_MINUTES_FREQUENCY' => $execution_time_cron]);
-            }
+        if ($execution_time_cron > 0) {
+            $this->cron_frequency = $execution_time_cron;
+            $this->saveConfiguration(['CRON_MINUTES_FREQUENCY' => $execution_time_cron]);
         }
     }
 
-    /**
-     *
-     */
-    public function globalUrlToRunPrestashopCronJobs()
-    {
-        $contextShopID = Shop::getContextShopID();
-        Shop::setContext(Shop::CONTEXT_ALL);
-        $url = $this->context->link->getAdminLink(
-            'AdminCronJobs',
-            false
-        ) .
-               '&token=' . Configuration::getGlobalValue('CRONJOBS_EXECUTION_TOKEN');
-        if (Tools::substr($url, 0, 4) !== "http") {
-            $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-            $url = 'http://' . $default_shop->domain . $default_shop->getBaseURI() .
-                   $this->getConfiguration('ADMIN_DIR') . '/' . $url;
-        }
-        Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
-        return $url;
-    }
+
     /**
      * Getactual shop id from loaded domain
      */
@@ -868,6 +816,9 @@ class SalesLayerImport extends Module
 
     public function testSlcronExist()
     {
+        if (!Db::getInstance()->executeS("SHOW TABLES LIKE '" . $this->prestashop_cron_table . "'")) {
+            return [];
+        }
         $task_url = '%' . urlencode(
             'saleslayerimport-cron.php?token=' . Tools::substr(
                 Tools::encrypt('saleslayerimport'),
@@ -893,19 +844,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         return Db::getInstance()->executeS($query_full);
     }
 
-    /**
-     * Read from file the last execution of cron stored in the last call
-     * @return bool|false|int|string
-     */
 
-
-    public function checkCronProcessExecutionTime()
-    {
-        $latest_cron_execution = $this->getConfiguration('LATEST_CRON_EXECUTION');
-        $this->debbug(' LATEST_CRON_EXECUTION ->' . $latest_cron_execution, 'autosync');
-
-        return $latest_cron_execution;
-    }
 
     /**
      * Insatalation of plugin
@@ -915,8 +854,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function install()
     {
         try {
-            if (!$this->registerHook('actionCronJob')
-                  && !parent::install()
+            if (!parent::install()
             ) {
                 if (!empty($this->_errors)) {
                     if (!file_exists(DEBBUG_PATH_LOG)) {
@@ -981,27 +919,24 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                ') ENGINE=MyISAM
                                  ROW_FORMAT=' . $this->sl_updater->table_row_format .
                                ' DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ';
-
         Db::getInstance()->execute($schemaSQL_PS_Config);
 
         $schemaSQL_PS_SL_C_P = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ .
-                               "slyr_category_product`  (
-								`id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-								`ps_id` bigint(20) NOT NULL
-								COMMENT '(prestashop_id| attribute_id if ps_type = product_format_value)',
-								`slyr_id` bigint(20) NOT NULL COMMENT '(sales_layer_id)',
-								`ps_type` varchar(32) NOT NULL
-								COMMENT '(slCatalogue|product|product_format_field|product_format_value|combination)',
-								`ps_attribute_group_id` int(11) DEFAULT NULL,
-								`date_add` datetime NOT NULL,
-								`date_upd` datetime DEFAULT NULL,
-								`comp_id` int(11) NOT NULL COMMENT '(company_id)',
-								`id_lang` int(11) DEFAULT NULL COMMENT 'Prestashop id_language',
-								`shops_info` text COMMENT 'Sales Layer connectors shops',
-								PRIMARY KEY (`id`),
-								INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),								
-								INDEX `indice_2` (`ps_id` ASC, `comp_id` ASC, `ps_type` ASC,`ps_attribute_group_id` ASC)								
-								) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
+                                "slyr_category_product`  (
+                                `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                                `ps_id` bigint(20) NOT NULL,
+                                `slyr_id` bigint(20) NOT NULL,
+                                `ps_type` varchar(32) NOT NULL,
+                                `ps_attribute_group_id` int(11) DEFAULT NULL,
+                                `date_add` datetime NOT NULL,
+                                `date_upd` datetime DEFAULT NULL,
+                                `comp_id` int(11) NOT NULL,
+                                `id_lang` int(11) DEFAULT NULL,
+                                `shops_info` text,
+                                PRIMARY KEY (`id`),
+                                INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),								
+                                INDEX `indice_2` (`ps_id` ASC, `comp_id` ASC, `ps_type` ASC,`ps_attribute_group_id` ASC)
+                                ) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 
         Db::getInstance()->execute($schemaSQL_PS_SL_C_P);
 
@@ -1026,9 +961,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $shops_info = Db::getInstance()->executeS($query_read);
 
         if (empty($shops_info)) {
-            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_category_product ADD COLUMN
-             `shops_info` text COMMENT 'Sales Layer connectors shops'";
-
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_category_product ADD COLUMN `shops_info` text";
+        
             Db::getInstance()->execute(sprintf($query_alter));
         }
 
@@ -1046,12 +980,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
 
         $schemaSQL_PS_SL_C_I = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_image (
-								`image_reference` varchar(255) NOT NULL
-								 COMMENT '(Sales Layer original image reference)',
-								`id_image` int(10) NOT NULL COMMENT '(prestashop image id)',
-								`md5_image` varchar(128) NOT NULL COMMENT '(prestashop image md5)',
-								PRIMARY KEY (`image_reference`)
-								) ENGINE=MyISAM DEFAULT CHARSET=utf8; ";
+                                `image_reference` varchar(255) NOT NULL, 
+                                `id_image` int(10) NOT NULL, 
+                                `md5_image` varchar(128) NOT NULL, 
+                                PRIMARY KEY (`image_reference`)
+                                ) ENGINE=MyISAM DEFAULT CHARSET=utf8; ";
 
         Db::getInstance()->execute($schemaSQL_PS_SL_C_I);
 
@@ -1064,40 +997,23 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         if (empty($md5_image)) {
             $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . "slyr_image ADD COLUMN
-            `md5_image` varchar(128) NOT NULL COMMENT '(prestashop image md5)'";
+            `md5_image` varchar(128) NOT NULL";
             Db::getInstance()->execute(sprintf($query_alter));
         }
-
-        /* from Sales layer version 1.4 */
-
+        
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_syncdata (
-                                    `id` BIGINT NOT NULL AUTO_INCREMENT,
-                                    `sync_type` VARCHAR(10) NOT NULL,
-                                    `item_type` VARCHAR(30) NOT NULL,
-                                    `sync_tries` INT NOT NULL DEFAULT 0,
-                                    `item_data` TEXT(2000000) NULL,
-                                    `sync_params` TEXT(2000000) NULL,
-                                    PRIMARY KEY (`id`),
-                                    INDEX `sync_type` (`sync_type` ASC) ,
-                                    INDEX `item_type` (`item_type` ASC) ,
-                                    INDEX `sync_tries` (`sync_tries` ASC))
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
-                                    COMMENT = 'Sales Layer Sync Data Table' ";
+            `id` BIGINT NOT NULL AUTO_INCREMENT,
+            `sync_type` VARCHAR(10) NOT NULL,
+            `item_type` VARCHAR(30) NOT NULL,
+            `sync_tries` INT NOT NULL DEFAULT 0,
+            `item_data` TEXT(2000000) NULL,
+            `sync_params` TEXT(2000000) NULL,
+            PRIMARY KEY (`id`),
+            INDEX `sync_type` (`sync_type` ASC),
+            INDEX `item_type` (`item_type` ASC),
+            INDEX `sync_tries` (`sync_tries` ASC)
+        ) ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
-
-
-        /*   $schemaSQL_PS_SL_SETDATA_flag = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_syncdata_flag_table .
-                                           " (
-                                         `id` BIGINT NOT NULL AUTO_INCREMENT,
-                                         `syncdata_pid` BIGINT NOT NULL,
-                                         `syncdata_last_date` INT(11) NOT NULL,
-                                         PRIMARY KEY (`id`),
-                                         INDEX `syncdata_pid` (`syncdata_pid` ASC),
-                                         INDEX `syncdata_last_date` (`syncdata_last_date` ASC))
-                                         ENGINE=MyISAM DEFAULT CHARSET=utf8;
-                                         COMMENT = 'Sales Layer Sync Data Flag Table' ";
-           Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA_flag);*/
-
 
         $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
@@ -1161,8 +1077,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $ps_variant_id = Db::getInstance()->executeS($query_read);
 
         if (empty($ps_variant_id)) {
-            $query_alter = " ALTER TABLE " . _DB_PREFIX_ . "slyr_image
-            ADD COLUMN `ps_product_id` BIGINT COMMENT '(prestashop ps_product_id)'";
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_image
+            ADD COLUMN `ps_product_id` BIGINT";
             Db::getInstance()->execute(sprintf($query_alter));
         }
 
@@ -1174,10 +1090,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $ps_variant_id = Db::getInstance()->executeS($query_read);
 
         if (empty($ps_variant_id)) {
-            $query_alter = " ALTER TABLE " . _DB_PREFIX_ . "slyr_image
-            ADD COLUMN `ps_variant_id` TEXT COMMENT '(prestashop ps_variant_id)'";
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_image
+            ADD COLUMN `ps_variant_id` TEXT";
             Db::getInstance()->execute(sprintf($query_alter));
         }
+        
 
         $query_read = " SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
@@ -1187,21 +1104,20 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $ps_variant_id = Db::getInstance()->executeS($query_read);
 
         if (empty($ps_variant_id)) {
-            $query_alter = " ALTER TABLE " . _DB_PREFIX_ . "slyr_image
-            ADD COLUMN `origin` varchar(4) COMMENT '(photo import from origin)'";
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_image
+            ADD COLUMN `origin` varchar(4)";
             Db::getInstance()->execute(sprintf($query_alter));
         }
 
         $schemaSQL_PS_SL_configdata = "CREATE TABLE IF NOT EXISTS " . $this->saleslayer_aditional_config . " (
-                                     `id_config` INT NOT NULL AUTO_INCREMENT,
-                                      `configname` VARCHAR(100) NOT NULL,
-                                      `save_value` VARCHAR(500) NULL,
-                                    PRIMARY KEY (`id_config`),
-                                    UNIQUE INDEX `configname_UNIQUE` (`configname` ASC))
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
-                                    COMMENT = 'Sales Layer additional configuration' ";
+            `configname` VARCHAR(100) NOT NULL,
+            `save_value` VARCHAR(500) NULL,
+            PRIMARY KEY (`configname`),
+            UNIQUE INDEX `configname_UNIQUE` (`configname` ASC)
+        ) ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
-        /*From 1.4.1*/
+
+	    /*From 1.4.1*/
         $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
             " AND table_name = '" . _DB_PREFIX_ . "slyr_syncdata' " .
@@ -1217,69 +1133,52 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             Db::getInstance()->execute(sprintf($query_alter));
         }
 
-        /*From version 1.4.7*/
-
-        /*  $schemaSQL_PS_SL_C_I = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_attachment (
-                                  `file_reference` varchar(255) NOT NULL
-                                   COMMENT '(Sales Layer original file attachment reference)',
-                                  `id_attachment` int(10) NOT NULL COMMENT '(prestashop file attachment id)',
-                                  `md5_attachment` varchar(128) NOT NULL COMMENT '(prestashop file md5)',
-                                  `ps_product_id` BIGINT COMMENT '(prestashop ps_product_id)',
-                                  PRIMARY KEY (`file_reference`)
-                                  ) ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
-          Db::getInstance()->execute($schemaSQL_PS_SL_C_I);*/
-
-        /* From version 1.4.20 */
-
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_indexer (
-                                    `id` BIGINT NOT NULL AUTO_INCREMENT,
-                                    `id_product` BIGINT NOT NULL,
-                                    PRIMARY KEY (`id`),
-                                    INDEX `id_product` (`id_product` ASC))
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
-                                    COMMENT = 'Sales Layer poducts ids for reindex' ";
+            `id` BIGINT NOT NULL AUTO_INCREMENT,
+            `id_product` BIGINT NOT NULL,
+            PRIMARY KEY (`id`),
+            INDEX `id_product` (`id_product` ASC))
+            ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+        
 
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_accessories (
-                                    `id` BIGINT NOT NULL AUTO_INCREMENT,
-                                    `id_product` BIGINT NOT NULL,
-                                    `accessories` varchar(20000) NOT NULL,
-                                    PRIMARY KEY (`id`),
-                                    INDEX `id_product` (`id_product` ASC))
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
-                                    COMMENT = 'Sales Layer table for accessories' ";
+            `id` BIGINT NOT NULL AUTO_INCREMENT,
+            `id_product` BIGINT NOT NULL,
+            `accessories` varchar(20000) NOT NULL,
+            PRIMARY KEY (`id`),
+            INDEX `id_product` (`id_product` ASC))
+            ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
         /* from 1.4.27*/
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_input_compare (
-                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-                                     `sl_id` BIGINT unsigned NOT NULL,
-                                     `ps_type` varchar(14) NOT NULL, 
-                                    `conn_id` int(9) unsigned NOT NULL,                                    
-                                    `ps_id` BIGINT NOT NULL ,
-                                    `hash` varchar(50),
-                                    `timestamp_modified` datetime DEFAULT NULL,
-                                    UNIQUE(`sl_id`,`ps_type`,`conn_id`),
-                                    INDEX `reg` (`ps_id` ASC , `hash` ASC, `ps_type` ASC, `conn_id` ASC ),
-                                    UNIQUE INDEX `reg_unique` (`ps_id` ASC ,`ps_type` ASC, `conn_id` ASC )
-                                    )
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8;                                     
-                                    COMMENT = 'Sales Layer table for data hash' ";
+            `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+            `sl_id` BIGINT unsigned NOT NULL,
+            `ps_type` varchar(14) NOT NULL,
+            `conn_id` int(9) unsigned NOT NULL,
+            `ps_id` BIGINT NOT NULL,
+            `hash` varchar(50),
+            `timestamp_modified` datetime DEFAULT NULL,
+            UNIQUE(`sl_id`,`ps_type`,`conn_id`),
+            INDEX `reg` (`ps_id` ASC , `hash` ASC, `ps_type` ASC, `conn_id` ASC),
+            UNIQUE INDEX `reg_unique` (`ps_id` ASC ,`ps_type` ASC, `conn_id` ASC)
+        )
+        ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_stock_update (
-                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,                                    
-                                    `ps_type` varchar(14) NOT NULL, 
-                                    `id_shop` int(9) unsigned NOT NULL,                                    
-                                    `ps_id` BIGINT NOT NULL ,                                  
-                                    `stock` int(11) NOT NULL,
-                                    UNIQUE(`ps_id`,`ps_type`,`id_shop`),                                    
-                                    UNIQUE INDEX `reg_unique` (`ps_id` ASC , `ps_type` ASC, `id_shop` ASC )
-                                    ) 
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8;                                    
-                                    COMMENT = 'Sales Layer table for update stock quickly' ";
+            `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+            `ps_type` varchar(14) NOT NULL,
+            `id_shop` int(9) unsigned NOT NULL,
+            `ps_id` BIGINT NOT NULL,
+            `stock` int(11) NOT NULL,
+            UNIQUE(`ps_id`,`ps_type`,`id_shop`),
+            UNIQUE INDEX `reg_unique` (`ps_id` ASC , `ps_type` ASC, `id_shop` ASC)
+        )
+        ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
-
+        
         $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
                       " WHERE table_schema = '" . _DB_NAME_ . "' " .
                       " AND table_name = '" . _DB_PREFIX_ . "slyr_indexer' " .
@@ -1294,31 +1193,31 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
 
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_image_preloader (
-                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,                                    
-                                    `url` varchar(3000) NOT NULL, 
-                                    `ps_type` varchar(14) NOT NULL, 
-                                    `status` VARCHAR(2) NOT NULL DEFAULT 'no',
-                                    `md5_image` varchar(128) ,                                   
-                                    `local_path` varchar(128),                                               
-                                    INDEX `type` (`ps_type` ASC),
-                                    INDEX `url` (`url` ASC),
-                                    INDEX `type_status` (`ps_type`,`status`)                                    
-                                    )
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8;                                     
-                                    COMMENT = 'Sales Layer table for preload images before sync' ";
+            `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+            `url` varchar(3000) NOT NULL,
+            `ps_type` varchar(14) NOT NULL,
+            `status` VARCHAR(2) NOT NULL DEFAULT 'no',
+            `md5_image` varchar(128),
+            `local_path` varchar(128),
+            INDEX `type` (`ps_type` ASC),
+            INDEX `url` (`url` ASC),
+            INDEX `type_status` (`ps_type`,`status`)
+        )
+        ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+        
 
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_process (
-                                    `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,                                    
-                                    `prc_type` varchar(30) NOT NULL, 
-                                    `prc_time` datetime DEFAULT NULL, 
-                                    `pid` int(15) DEFAULT 0,
-                                    UNIQUE  (`pid`,`prc_type`),
-                                    UNIQUE INDEX `prc_type` (`pid` ASC ,`prc_type` ASC)
-                                    )                                    
-                                    ENGINE=MyISAM DEFAULT CHARSET=utf8; 
-                                    COMMENT = 'Sales Layer table for control process' ";
+            `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+            `prc_type` varchar(30) NOT NULL,
+            `prc_time` datetime DEFAULT NULL,
+            `pid` int(15) DEFAULT 0,
+            UNIQUE  (`pid`,`prc_type`),
+            UNIQUE INDEX `prc_type` (`pid` ASC ,`prc_type` ASC)
+        )
+        ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
+        
 
         $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
                       " WHERE table_schema = '" . _DB_NAME_ . "' " .
@@ -1360,6 +1259,20 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_syncdata ' .
                            "ADD COLUMN `num_variants` int(4) DEFAULT 0 AFTER `item_data` ";
 
+            Db::getInstance()->execute(sprintf($query_alter));
+        }
+        $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
+                      " WHERE table_schema = '" . _DB_NAME_ . "' " .
+                      " AND table_name = '" . $this->saleslayer_aditional_config . "' " .
+                      " AND column_name = 'id_config'";
+
+        $shops_info = Db::getInstance()->executeS($query_read);
+
+        if (!empty($shops_info)) {
+            $query_alter = "ALTER TABLE `" . $this->saleslayer_aditional_config . "` " .
+                           " DROP PRIMARY KEY ,
+                            DROP COLUMN `id_config` , 
+		                    ADD PRIMARY KEY (`configname`)";
             Db::getInstance()->execute(sprintf($query_alter));
         }
     }
@@ -1441,11 +1354,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->deleteSlcronRegister();
             $this->deleteSlyrTables();
             $this->unregisterHook('displayBackOfficeHeader');
+
             if (!parent::uninstall()
             ) {
                 $this->_errors[] = 'Error uninstall module';
-                $this->debbug('## Error. Ocurred errors on uninstalling ' . print_r($this->_errors, 1));
-                return false;
+                $this->debbug('## Error. Occurred errors on uninstalling ' . print_r($this->_errors, 1));
+                return true;
             }
             return true;
         } catch (Exception $e) {
@@ -1520,9 +1434,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function deleteSlcronRegister()
     {
-        $sql_delete_query = 'DELETE FROM ' . $this->prestashop_cron_table .
-                            " WHERE task LIKE '%saleslayerimport-cron%' ";
-        $this->slConnectionQuery('-', $sql_delete_query);
+        if (Db::getInstance()->executeS("SHOW TABLES LIKE '" . $this->prestashop_cron_table . "'")) {
+            $sql_delete_query = 'DELETE FROM ' . $this->prestashop_cron_table .
+                                " WHERE task LIKE '%saleslayerimport-cron%' ";
+            $this->slConnectionQuery('-', $sql_delete_query);
+        }
     }
 
     /**
@@ -1542,20 +1458,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $return_table = array();
         $extension_needed = array(
             'curl_version' => array('test' => 'function_exists', 'public_name' => 'PHP cURL Installed'),
-            'cronjobs' => array(
-                'test' => 'module',
-                'public_name' => 'Prestashop module Cronjobs Installed',
-            ),
-            'testSlcronExist' => array(
+            'testSlCronLatestRun' => array(
                 'test' => 'setfunction',
-                'public_name' => 'There is a task to execute Sales Layer cron job in prestashop',
-            ),
-            'verifySLcronRegister' => array(
-                'test' => 'setfunction',
-                'public_name' => 'Registered prestashop cronjob activity',
-                'return' => 'stat',
-                'additional_message' => 'message',
-            ),
+                'public_name' => 'Cron has been executed in the last 10 minutes',
+            )
         );
 
         if (count($extension_needed)) {
@@ -1613,9 +1519,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
             $create_validation_table .= '</table>';
         }
-        $culr_link = $this->globalUrlToRunPrestashopCronJobs();
-
-
 
         $this->context->smarty->assign(
             array(
@@ -1629,7 +1532,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 'admin_attributes' => $this->context->link->getAdminLink('AdminAttributesGroups'),
                 'message' => $message,
                 'validation_table' => $create_validation_table,
-                'culr_link' => $culr_link,
+                'directly_sl_cronLink' => $this->createSLPluginCronUrl(false, false)
             )
         );
 
@@ -1659,20 +1562,20 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $this->debbug('Cron jobs of Sl are working correctly.');
             } else {
                 $construct_prestashop_cron_url = '*/5 * * * *  curl "' .
-                    $this->globalUrlToRunPrestashopCronJobs() . '"';
+                                                 $this->createSLPluginCronUrl(false, false) . '"';
                 $this->debbug(
-                    '## Error. The activity of Prestashop cron has not been detected.' .
+                    '## Error. The activity of cron has not been detected.' .
                     ' Last time the SL cron needed for synchronization was executed ->' . print_r(
                         date('d/m/Y H:i:s', $updated_time),
                         1
                     ) .
                     'It is necessary that you activate on your server the cron job ' .
-                    'that performs the prestashop tasks in order to execute ' .
+                    'that performs the tasks in order to execute ' .
                     'the automatic synchronizations of prestashop.' .
                     'Add the following command to the cronjobs on your server: ' . $construct_prestashop_cron_url
                 );
                 $return['stat'] = false;
-                $return['message'] = 'The activity of Prestashop cron has not been detected.<br>';
+                $return['message'] = 'The activity of cron has not been detected.<br>';
                 $return['message'] .= 'It is necessary that you activate on your server the cron job ' .
                                         'that performs the prestashop tasks ' .
                                             'in order to execute the automatic synchronizations Sales ' .
@@ -1681,27 +1584,45 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $construct_prestashop_cron_url;
             }
         } else {
-            $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
-            $task_url = urlencode(
-                'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
-                'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
-                    Tools::encrypt('saleslayerimport'),
-                    0,
-                    10
-                )
-            );
-            $task = array(
-                'task' => $task_url,
+           /* $task = array(
+                'task' => $this->createSLPluginCronUrl(),
                 'hour' => -1,
                 'day' => -1,
                 'month' => -1,
                 'day_of_week' => -1,
             );
-            $this->createSlcronRegister($task);
+            $this->createSlcronRegister($task);*/
         }
 
         return $return;
     }
+    public function createSLPluginCronUrl($internal = false, $encoded = true)
+    {
+        $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+        $task_url =
+            'http://' . $default_shop->domain . $default_shop->getBaseURI() . 'modules/' .
+            'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
+                Tools::encrypt('saleslayerimport'),
+                0,
+                10
+            ).($internal ? '&internal=1' : '');
+        if ($encoded) {
+            $task_url = urlencode($task_url);
+        }
+
+        return $task_url;
+    }
+
+    public function testSlCronLatestRun()
+    {
+        $latest = (int) $this->getConfiguration('LATEST_CRON_EXECUTION');
+        if ($latest >= strtotime('-10 minutes')) {
+            return true;
+        }
+        return false;
+    }
+
+
 
     /**
      * Create a task in prestashop to execute the tasks of the sales layer plugin
@@ -1712,6 +1633,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function createSlcronRegister(
         $config_task
     ) {
+        ;
+
         $description = 'Registration required for Sales layer catalog synchronization.';
         $task = $config_task['task'];
         $hour = $config_task['hour'];
@@ -1719,7 +1642,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $month = $config_task['month'];
         $day_of_week = $config_task['day_of_week'];
 
-        if ($task != null && $hour != null && $day != null && $month != null && $day_of_week != null) {
+        if (Db::getInstance()->executeS("SHOW TABLES LIKE '" . $this->prestashop_cron_table . "'")
+            && $task != null && $hour != null && $day != null && $month != null && $day_of_week != null) {
             $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
             $id_shop = $default_shop->id;
             $id_shop_group = $default_shop->id_shop_group;
@@ -1873,7 +1797,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 )
             );
             foreach ($deleteAttributeGroup as $Attribute) {
-                $attributeValue = new AttributeCore($Attribute['id_attribute']);
+                //$attributeValue = new AttributeCore($Attribute['id_attribute']);
+
+                if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
+                    // PrestaShop 8.0.0 y versiones posteriores
+                    $attributeValue = new ProductAttributeCore($Attribute['id_attribute']);
+                } else {
+                    // Versiones anteriores a PrestaShop 8.0.0
+                    $attributeValue = new AttributeCore($Attribute['id_attribute']);
+                }
+                
                 $attributeValue->delete();
             }
         }
@@ -2723,7 +2656,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     'syncdata'
                 );
                 $old_json = reset($res);
-                $decode_json = json_decode(Tools::stripslashes($old_json['accessories']), 1);
+                $decode_json = json_decode(stripslashes($old_json['accessories']), 1);
                 if ($decode_json) {
                     foreach ($decode_json as $sku) {
                         if (in_array($sku, $accessories)) {
@@ -2801,7 +2734,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 foreach ($res as $register) {
                     $ids_for_delete[] = $register['id'];
                     $id_product       = $register['id_product'];
-                    $product_accessories = json_decode(Tools::stripslashes($register['accessories']), 1);
+                    $product_accessories = json_decode(stripslashes($register['accessories']), 1);
                     $product_accessories_ids = array();
 
                     if (!empty($product_accessories)) {
@@ -2860,19 +2793,20 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
 
         $this->debbug('Entry to retry call ', 'balancer');
-        $result = $this->testSlcronExist();
 
         $register_forProcess = $this->checkRegistersForProccess();
+        $updated_time = $this->getConfiguration('LATEST_CRON_EXECUTION');
 
-        if (isset($this->load_cron_time_status[0]['updated_at']) &&
-            ((count($result) && $register_forProcess) || $force)
-        ) {
-            //$updated_time = strtotime($this->load_cron_time_status[0]['updated_at']);
-            //$updated_time = strtotime($result[0]['updated_at']);
-            $updated_time = $this->getConfiguration('LATEST_CRON_EXECUTION');
-            $now_is = strtotime($result[0]['timeBD']);
+        if ($register_forProcess || $force) {
+            $now_is = 0;
+
+            $timetosave_db = Db::getInstance()->executeS('SELECT UNIX_TIMESTAMP() as time');
+            if (isset($timetosave_db[0]['time'])) {
+                $now_is = $timetosave_db[0]['time'];
+            }
+            
             $this->debbug(
-                'now is ->' . print_r($result[0]['timeBD'], 1) .
+                'now is ->' . print_r($now_is, 1) .
                 ' last update ->' .
                 date('d-m-Y H:i:s', $updated_time),
                 'balancer'
@@ -2948,14 +2882,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         if (Tools::usingSecureMode()) {
                             $s = 's';
                         }
-                        $url =  'http' . $s . '://' . $domain . $baseUri . 'modules/' .
-                                'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
-                                    Tools::encrypt('saleslayerimport'),
-                                    0,
-                                    10
-                                ) .
-                                '&internal=1';
-
+                        $url =  $this->createSLPluginCronUrl(true, false);
                         $this->debbug(
                             'Calling execution of this syncronization $restant_seconds_for_next_sync->' .
                             $restant_seconds_for_next_sync . ' and time limit-> ' . $this->max_execution_time .
@@ -3020,13 +2947,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     if (Tools::usingSecureMode()) {
                         $s = 's';
                     }
-                    $url =  'http' . $s . '://' . $domain  . $baseUri . 'modules/' .
-                            'saleslayerimport/saleslayerimport-cron.php?token=' . Tools::substr(
-                                Tools::encrypt('saleslayerimport'),
-                                0,
-                                10
-                            ) .
-                            '&internal=1';
+                    $url =  $this->createSLPluginCronUrl(true, false);
                     $this->debbug(
                         'Calling execution of this synchronization  and time limit-> ' .
                         $this->max_execution_time . ' force ->' . print_r(
@@ -3055,10 +2976,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 return true;
             } else {
                 $this->debbug(
-                    'Else The call will not be made -> ' . print_r(
-                        $result,
-                        1
-                    ) . ' registers for process ->' . print_r(
+                    'Else The call will not be made -> '
+                    . ' registers for process ->' . print_r(
                         $register_forProcess,
                         1
                     ),
@@ -4216,7 +4135,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $data_clear['ID_PARENT'] = $item_data['ID_PARENT'];
                 $data_clear['data']      = $item_data['data'];
                 $data = json_encode($data_clear);
-                $hash = hash($this->hash_algorithm_comparator, $data);
+                $hash = (string) hash($this->hash_algorithm_comparator, $data);
                 $images = (isset($item_data['data']['section_image']) ? $item_data['data']['section_image'] : []);
             } else { //products and product_format
                 $data_clear = [];
@@ -4249,7 +4168,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 }
                 unset($data_clear['data']['product_quantity'], $data_clear['data']['quantity']);
                 $json = json_encode($data_clear);
-                $hash = hash($this->hash_algorithm_comparator, $json);
+                $hash = (string) hash($this->hash_algorithm_comparator, $json);
             }
             $sl_id = $item_data['ID'];
             $query = "SELECT slic.hash, slic.ps_id FROM " . _DB_PREFIX_ . "slyr_input_compare slic " .
@@ -4322,7 +4241,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $query_input_compare = 'INSERT INTO ' . _DB_PREFIX_ . $table .
                                    ' (`' . implode('`,`', array_keys($prepare_input_compare)) . '`)' .
                                    ' VALUES ("' . implode('","', array_values($prepare_input_compare)) . '") ' .
-                                   " ON DUPLICATE KEY UPDATE  " . implode(', ', $for_update);
+                                   " ON DUPLICATE KEY UPDATE  " . implode(',', $for_update);
 
             $result =    Db::getInstance()->execute($query_input_compare);
 
@@ -4330,8 +4249,18 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 return true;
             }
         } catch (Exception $e) {
+           // echo '##error ->' . $e->getMessage();
             return false;
         }
+    }
+    /**
+     * Function to get ON DUPLICATE KEY UPDATE fields statement
+     * @param string $field         field name to get statement
+     * @return string field         statement
+     */
+    private static function getDuplicateKeys($field)
+    {
+        return $field.' = values('.$field.')';
     }
     public function clearDataHash($soft_clear = true)
     {
@@ -4449,7 +4378,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $response = self::getPreloadedImage($url, $ps_type, $sl_id);
         if ($response) {
             if (isset($response['local_path'])) {
-                $response['local_path'] = Tools::stripslashes($response['local_path']);
+                $response['local_path'] = stripslashes($response['local_path']);
                 if (file_exists($response['local_path'])) {
                     unlink($response['local_path']);
                 }
@@ -4467,7 +4396,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     {
         if ($cached) {
             if (isset($cached['local_path'])) {
-                $cached['local_path'] = Tools::stripslashes($cached['local_path']);
+                $cached['local_path'] = stripslashes($cached['local_path']);
                 if (file_exists($cached['local_path'])) {
                     unlink($cached['local_path']);
                 }

@@ -1,219 +1,139 @@
 
 
-<h1><a href="https://saleslayer.com/" title="Sales layer"> Sales Layer</a> Prestashop plugin</h1>
-<span>Sales Layer plugin allows you to easily synchronize your catalogue information with Prestashop.</span>
 
-Prestashop from Version: 1.6.1.6
-Stable in 1.7.5.1
+<a href="https://support.saleslayer.com"><img src="https://saleslayer.com/assets/images/logo.svg" alt="Sales Layer WooCommerce" width="460"></a>
 
-<h2>How To Start</h2>
-<div>
-    <h3>1. Install the plugin in Prestashop</h3>          
-        <span>From Prestashops Admin panel follow these steps for installation:
-            <ul>
-                <li>Enter in the module installation template<br>
-                IMPROVE >> Modules >> Modules & Services >> Upload a module<br>
-                Attaching the zip file with the plugin.</li>                
-                <li>If everything went well, the plugin is now installed. But for automatic synchronizations you need to have your cron jobs from prestashop active.</li>
-                <li>Enter the template <b>How to use</b> and follow the instructions described to activate prestashop cron</li>
-            </ul> 
-        </span> 
-</div>
-<div>
-    <h3>2. In the Sales Layer platform, create a Prestashop connector and assign the fields.</h3>
-    <ul>
-        <li>The plugin needs the connector ID code and the private key, you will find them in the connector details inside Sales Layer.</li> 
-    </ul>
-</div>    
-<div>
-    <h3>3. Add the connector credencials in Prestashop</h3>
-    <ul>
-        <li>Go to <b>Sales Layer</b> >> <b>Add New Connector</b>, add the connector id and secret key and press <b>Save Connector</b>.</li>
-        <li>Finally, In Sales Layer >> Connectors >> The connector you created. In the <b>Autosync select</b>, choose the frequency of hours in which the synchronization must be performed, in order to synchronize products automatically.</li>
-        <li>Wait a few minutes and enter the template <b>Sales Layer</b> >> <b>How to use</b> to verify that we have everything necessary working well.</li>    
-    </ul><br>
+# Sales Layer PrestaShop plugin
+
+[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%207.3-8892BF.svg?style=flat-square)](https://php.net/) [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-%3E%3D%201.6.1.6-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop) [![GitHub release](https://img.shields.io/github/v/release/saleslayer/Sales_Layer_Prestashop)](https://github.com/saleslayer/Sales_Layer_Prestashop)
+
+PrestaShop plugin that allows you to easily synchronize your Sales Layer catalogue information with PrestaShop online stores.
+[Sales Layer - Global Leading PIM][saleslayer-home]
+
+## Download
+
+[Download latest module version][latest-release-download]
+Check out the latest changes at our [Changelog][changelog-md]
+
+## Important notes & documentation
+Check the [full module documentation][sc-connector-about] available at our support center.
+In some cases, a Sales Layer PIM platform account might be needed to access the documentation.
+
+## Quick Start
+
+#### Upload & Install in your PrestaShop online store the downloaded version of this module as a manual module installation.
+* After installed correctly, you will see a new element in your navigation bar named -sales layer-. Go -how to use- menu for further information on module configuration.
+> Follow the - How to synchronize by cron - guidelines to enable automatic synchronization.
+
+#### Under channels tab, into your Sales Layer PIM account, create a Prestashop connector and assign the fields.	
+* The plugin needs the connector ID code and the private key, you will find them in the connector details inside Sales Layer, after saving your new connector.
+
+#### Add the connector credencials in Prestashop.
+* Go to Sales Layer >> Add New Connector. Set the connector id and secret key and press Save Connector.
+* Finally, In Sales Layer >> Connectors >> The connector you created. In the Autosync select, choose the frequency of hours in which the synchronization must be performed, in order to synchronize products automatically.
+Wait a few minutes and enter the template Sales Layer >> How to use , to verify that we have everything necessary for working.
     
   ![Synchronizing](images/image5.png)
   
-  <br>  
-</div>
-<div>
-    <h2>Requirements for synchronization</h2>
-    <ul>
-        <li>cUrl extension installed, In order to call and obtain the information from Sales Layer.</li>
-        <li>Active prestashop cronjobs.</li>
-        <li>Define the fields relationship in the Sales Layer Prestashop connector:
-            <ul>
-                <li>Most Prestashop fields are already defined in each section, extra fields for products are converted to features and extra fields for variants are converted to attributes in order to synchronize.</li> 
-           </ul>
-        </li>
-        <li>Inside categories, products and variants there will be attributes; Sales Layer Product Identification, Sales Layer Product Company Identification and Sales Layer Format Identification, don't modify or delete these attributes or its values, otherwise, the products will be created again as new ones in the next synchronization.</li>
-        <li>Inside the connector configuration you can set different values before the synchronization in the different tabs, such as:
-          <ul>
-            <li>Auto-synchronization and preferred hour for it.</li>
-            <li>The stores where the information will be updated.</li>            
-            <li>Overwrite stock status (stock will be updated only at creation of new items)</li>
-          </ul>
-        </li>
-    </ul> 
-</div>
-<div>
-    <h2>Diagnosis and troubleshooting</h2>
-    <p>In the Diagnostics option, we have a tool list available for the diagnostic files generated by our connector.
-     There are several options when executing in "debug" mode in <b>Off</b>. In this mode only files are created if any errors occur and you will only print the debug texts of an item in which an error has occurred.</p><br>
+## Requirements for synchronization
+* cUrl extension installed, In order to call and obtain the information from Sales Layer.
+* Active cronjobs.
+* Define the fields relationship in the Sales Layer Prestashop connector:
+	* Most Prestashop fields are already defined in each section, extra fields for products are converted to features and extra fields for variants are converted to attributes in order to synchronize.
+* Inside categories, products and variants there will be attributes; Sales Layer Product Identification, Sales Layer Product Company Identification and Sales Layer Format Identification, don't modify or delete these attributes or its values, otherwise, the products will be created again as new ones in the next synchronization.
+* Inside the connector configuration you can set different values before the synchronization in the different tabs, such as:
+	* Auto-synchronization and preferred hour for it.
+	* The stores where the information will be updated.
+	* Overwrite stock status (stock will be updated only at creation of new items)
+
+## Diagnosis and troubleshooting
+
+In the Diagnostics option, we have a tool list available for the diagnostic files generated by our connector.
+There are several options when executing in "debug" mode in **Off**. In this mode only files are created if any errors occur and you will only print the debug texts of an item in which an error has occurred.
      
    ![Troubleshooting](images/image1.png) 
      
-   <br>
-   <p>In other debug options (going up from "level") more information about memory and CPU usage will appear. This information can be used for the development and solution of problems. 
-     By default, however, the best option is to have it in <b>Off</b> mode and thus see only if errors occur so as not to create large files.</p><br>
-     <p>The diagnostic files should be deleted automatically after 15 days. The errors that appear in the file will be marked with an icon and in red background. 
-     The items with error will appear with an informative message and the identifying reference of Sales Layer to be able to go to review the information if it is required. An example of a message would be:</p>
+In other debug options (going up from "level") more information about memory and CPU usage will appear. This information can be used for the development and solution of problems. 
+By default, however, the best option is to have it in **Off** mode and thus see only if errors occur so as not to create large files.
+The diagnostic files should be deleted automatically after 15 days. The errors that appear in the file will be marked with an icon and in red background. 
+The items with error will appear with an informative message and the identifying reference of Sales Layer to be able to go to review the information if it is required. An example of a message would be:
                  
- ```html          
-                                                ## Error. Creating category  ID: 91
- ```
- 
-  <i>With this message we know that it is a category and that its reference in Sales Layer is "91".</i><br>      
-  <p>In case the error does not have an identifying reference it is possible that it has happened somewhere in the middle of the code and, in this case, we can identify it in the general log file that begins with:</p>          
-
-```html 
-                                                _debbug_log_saleslayer_sync_data_
+```html          
+## Error. Creating category  ID: 91
 ```
 
-<p>... followed with the date of the day of what happened.
- In the file we can find more information about the element in which the problem has occurred (by clicking on the error icon) and we can jump from one error to another and navigate between the errors (if more than one has occurred).</p>
-<p>The errors that could be found before the synchronization of an item, most likely relate to this fact. With this we can identify if it is a category or another element, and what concrete reference you have to review it in Sales Layer.</p>                 
-</div>
-<div>
-<h2>Development or Customization</h2>
-<p>For developers who need to customize the plugin or make corrections in the code they can use the diagnostic tool as well as unlock the button to remove everything from prestashop. 
-This button will help you to eliminate in bulk all the categories, products and variants to synchronize everything from an empty shop, it is made only for development therefore it should be used in a test server and with caution. To unblock this botton you can edit the saleslayerimport.php file and change the variable value:</p>
+> With this message we know that it is a category and that its reference in Sales Layer is "91".
+
+In case the error does not have an identifying reference it is possible that it has happened somewhere in the middle of the code and, in this case, we can identify it in the general log file that begins with:
+
+```html
+_debbug_log_saleslayer_sync_data_
+```
+... followed with the date of the day of what happened.
+ In the file we can find more information about the element in which the problem has occurred (by clicking on the error icon) and we can jump from one error to another and navigate between the errors (if more than one has occurred).
+The errors that could be found before the synchronization of an item, most likely relate to this fact. With this we can identify if it is a category or another element, and what concrete reference you have to review it in Sales Layer.
+
+## Development or Customization
+
+For developers who need to customize the plugin or make corrections in the code they can use the diagnostic tool as well as unlock the button to remove everything from prestashop. 
+This button will help you to eliminate in bulk all the categories, products and variants to synchronize everything from an empty shop, it is made only for development therefore it should be used in a test server and with caution. To unblock this botton you can edit the saleslayerimport.php file and change the variable value:
 
 ```php 
-                                     public      $i_am_a_developer                    = false;
+public $i_am_a_developer = false;
 ```
+> set a **true** value to unlock the button.
 
-<p>a true value to unlock the button.</p>
-</div>
-<div>
-<h2>Creation of Custom Fields</h2>
+## Creation of Custom Fields
 
-<p>To create custom fields we can use the <b>customizable</b> field in the configuration of the connector in the Sales Layer cloud. The plugin recognizes internal commands that we can add after he value we set as the field name, this appears behind the field "YOUR TEXT FOR FIELD:file". This Command makes it so that the field is created as a required one, and so the client has to fill in the desired field "YOUR TEXT FOR FIELD:required" . The fields can be created as comma separated text, attribute lists, or completed with a formula such as comma separated text. If we want to send it in several languages we must choose the text field.</p>
- <h5>Example:</h5>
-<b>My Custom Field:file, My other custom field:required, My field for images:file:required</b>
-<h5>this will create fields in prestashop on the product:</h5>
+To create custom fields we can use the **customizable** field in the configuration of the connector in the Sales Layer PIM platform. The module recognizes internal commands that we can add after he value we set as the field name, this appears behind the field { YOUR TEXT FOR FIELD:file }. This Command makes it so that the field is created as a required one, and so the client has to fill in the desired field { YOUR TEXT FOR FIELD:required } . The fields can be created as comma separated text, attribute lists, or completed with a formula such as comma separated text. If we want to send it in several languages we must choose the text field.
 
-<ul>
-<li><b>My Custom Field</b> - Field to upload images.</li>
-<li><b>My other custom field</b> - Text field with mandatory settings to be filled in by the customer.</li>
-<li><b>My field for images</b> - Field to upload mandatory images to be filled in when sending the order.</li>
-</ul>
-</div>
-<div>
-<h2>Custom colors</h2>
-<p>The plugin contains, from version 1.4.3, a folder called colors which contains a small database of colors that it recognizes for each language. This folder is used to recognize attributes of non-existent colors in prestashop for variants. This means that if Sales layer comes with a light green variant in Spanish, the plugin will try to find the file es.txt, remove the accents and spaces, and then look for the color light green and assigns it the color value #90ee90 that is predefined in the file. These files can be customized for your needs. The reason for this is that each company uses different names and different color maps in several languages ​to recognize colors. This allows you to always have your file and with each update simply copy and paste your colored files into the plugin. It is enough to have a file in a language that we are going to use to recognize colors and assign them the first time the attribute was created.</p>
+### Example:
 
-<b>Another way to send colors is to send the color as text so:</b>
- <b>light green:#90ee90</b> <p>The plugin accepts everything before "<b>:#</b>" as a name and everything after ":" as color "<b>#90ee90</b>".</p>
-</div>
+**My Custom Field:file, My other custom field:required, My field for images:file:required**
 
-<div>
-<h2>Features</h2>
-<p>Version 1.7 can send features with more than one value. To separate them you can use "<b>|</b>" To create the custom type characteristics you can include in the command text "<b>:custom</b>" either with a formula or in any other way that you find convenient. To create all the features in the same way without having to send a custom command, you can edit the <b>saleslayerimport.php</b> file and edit the line that says:
+this will create fields in prestashop on the product:
+
+* **My Custom Field** - Field to upload images.
+* **My other custom field** - Text field with mandatory settings to be filled in by the customer.
+* **My field for images** - Field to upload mandatory images to be filled in when sending the order.
+
+## Custom colors
+
+Since version 1.4.3, the module contains a folder called colors, which contains a small database of colors that it recognizes for each language. This folder is used to recognize attributes of non-existent colors in prestashop for variants. This means that if Sales layer comes with a light green variant in Spanish, the plugin will try to find the file es.txt, remove the accents and spaces, and then look for the color light green and assigns it the color value #90ee90 that is predefined in the file. These files can be customized for your needs. The reason for this is that each company uses different names and different color maps in several languages ​to recognize colors. This allows you to always have your file and with each update simply copy and paste your colored files into the plugin. It is enough to have a file in a language that we are going to use to recognize colors and assign them the first time the attribute was created.
+
+Another way to send colors is to send the color as text so:
+
+**light green:#90ee90** 
+
+The plugin accepts everything before "**:#**" as a name, "**light green**" and everything after "**:**" as color "**#90ee90**".
+
+## Features
+
+Since PrestaShop Version 1.7 you can send features with more than one value. To separate them you can use the pipe character "*|*" as a separator, in order to create the custom type characteristics you want to include in the command text "**:custom**" either with a formula or in any other way that you find convenient. To create all the features in the same way without having to send a custom command, you can edit the **saleslayerimport.php** file and edit the line:
 
 ```php    
-     public $ create_new_features_as_custom = false;
+public $create_new_features_as_custom = false;
 ``` 
 
-   and change the value to <b>true</b>.</p>
-</div>
+   and set the value to **true**.
 
+## Version Guidance
 
-<div>
-<h2>Important notes</h2>
-<p>Please check the important notes for the installation available at <a target="_blank" title="documentation" href="https://support.saleslayer.com/prestashop/important-notes-about-connector">https://support.saleslayer.com/prestashop/important-notes-about-connector</a>
- (In some cases, a Sales Layer account might be needed to access the documentation).</p>
-</div>
+| Version | Status | Prestashop version     | Recommended Configuration    |
+|---------|--------|------------------------|------------------------------|
+| 1.5.2   | EOL    | \>= 1.6.1.6, < 1.7.6.x | Prestashop 1.7.6.1 / PHP 7.3 |
+| 1.5.3   | Stable | \>= 1.6.1.6, < 1.7.8.x | Prestashop 1.7.8.2 / PHP 7.3 |
+| 2.0.0   | Latest | \>= 1.7.8.x,  8.0.x    | Prestashop 8.0.4 / PHP 8.1   |
 
-<div>
+> **Warning** 
+> Prestashop releases frequently new software versions fixing bugs and adding new functionallity. Some of this versions could be in conflict with this plugin. We highly encourage you to set the prestashop configuration recommended in the guidance table for running correctly this plugin.
 
-<h2>Changelog</h2>
+> **Note** 
+> See [System requirements for PrestaShop 8][prestashop8-system-requirements] and [System requirements for PrestaShop 1.7][prestashop1.7-system-requirements] for best setting up on your system environment.
 
-V 1.4.21
-<ul>
-<li> Added function that repairs plugin' tables in diagnostic mode.</li>
-<li> Fixed unnamed variant issue. </li>
-<li> Added the 'enabled' field for variants, that eliminates the variant if it is false. </li>
-</ul>
-
-V 1.4.22
-<ul>
-<li> Fix of field condition.</li>
-</ul>
-
-V 1.4.23
-<ul>
-<li> Fix of the field condition for custom values, reading from the class of Product.</li>
-<li> Fix of the field Visibility for custom values, reading from class of Product.</li>
-<li> Fix of the renaming the values of features.</li>
-<li> Strict deleting product images if is unknown for plugin.</li>
-</ul>
-
-V 1.4.24
-<ul>
-<li> fix of the compression on feature values..</li>
-<li> Fix of the minimum quantity field.</li>
-<li> Fix of quantity field, permission to set to 0.</li>
-</ul>
-
-V 1.4.25
-<ul>
-<li> php 7.3 compatibility improvement and reduce notifications of undeclared variables.</li>
-<li> Fix changing product type from pack configuration.</li>
-<li> Improvement in messages of unlinked products in pack.</li>
-<li> Fix in delete accessories.</li>
-</ul>
-
-V 1.4.26
-<ul>
-<li> Product creation only in stores configured in the connector.</li>
-<li> Creation of features in all stores. (Bug fix in multistore)</li>
-<li> Better control of product deallocation - categories. </li>
-<li> Fix variants with same attributes are not created. </li>
-</ul>
-
-V 1.5.0
-<ul>
-<li> Speed improvements.</li>
-<li> Small fixes. </li>
-<li> Asynchronous stock update. </li>
-<li> Asynchronous image preload. </li>
-<li> Data comparison with data hash. </li>
-<li> Balancer. </li>
-<li> Work in multi-processes. </li>
-<li> Variants with products are synchronized with products. </li>
-</ul>
-
-V 1.5.1
-<ul>
-<li> Massive stock update fix.</li>
-<li> Category problem that has been caused by not maintaining the order of processing in categories. </li>
-
-<li> Better compatibility with 1.7.8.x Prestashop </li>
-<li> Parent category select for first category: Shop category id if not exist-> PS_HOME_CATEGORY if not exist -> PS_ROOT_CATEGORY </li>
-</ul>
-
-V 1.5.2
-<ul>
-<li> Compatibility fix with older version of Prestashop 1.7.7.x >= </li>
-<li> Change plugin tables engine to MyISAM for plugin installed before 1.4.x versions for better performance</li>
-</ul>
-
-V 1.5.3
-<ul>
-<li> Minor fixes in multi-processes. </li>
-<li> Stability and performance improvements </li>
-</ul>
-
-</div>
+[saleslayer-home]: https://www.saleslayer.com
+[latest-release-download]: https://github.com/saleslayer/Sales_Layer_Prestashop/releases/download/2.0.0/prestashop_module_sales_layer_v2.0.0.zip
+[changelog-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/master/CHANGELOG.md
+[sc-connector-about]: https://support.saleslayer.com/prestashop/important-notes-about-connector
+[prestashop8-system-requirements]: https://devdocs.prestashop-project.org/8/basics/installation/system-requirements/
+[prestashop1.7-system-requirements]: https://devdocs.prestashop-project.org/1.7/basics/installation/system-requirements/
