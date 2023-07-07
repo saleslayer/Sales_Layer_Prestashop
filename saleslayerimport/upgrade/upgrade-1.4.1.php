@@ -28,7 +28,8 @@ function upgrade_module_1_4_1()
     //Create all the necessary tables empty
     $SLimport->checkDB();
 
-    $connectors = $SLimport->sl_updater->getConnectorsInfo(null, true);
+
+    $connectors = $SLimport->getConectors();
     if (!empty($connectors)) {
         foreach ($connectors as $connector) {
             $SLimport->setConnectorData($connector['conn_code'], 'last_update', 0);

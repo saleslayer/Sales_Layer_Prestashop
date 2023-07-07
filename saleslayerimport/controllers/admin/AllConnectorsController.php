@@ -282,6 +282,25 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
         if (Tools::version_compare(_PS_VERSION_, '1.7.7.5', '>=') == true) {
             ShopConstraint::shop($this->SLimport->shop_loaded_id);
         }
+        $api_version = $this->SLimport->getConfiguration('API_VERSION');
+        $api_version_selected = (!$api_version? $this->SLimport->default_api_version: $api_version);
+        $apì_versions = [
+            '1.17' => '1.17',
+            '1.18' => '1.18'
+        ];
+        $api_versions_options = '';
+        foreach ($apì_versions as $api_version) {
+            $api_versions_options .= '<option value="'.$api_version.'" '.($api_version_selected == $api_version? 'selected="selected"': '').'>'.$api_version.'</option>';
+        }
+
+        $pagination_options = '';
+        $pagination_stat = $this->SLimport->getConfiguration('PAGINATION');
+        $pagination_stat = (!$pagination_stat? $this->SLimport->default_api_pagination: $pagination_stat);
+
+        foreach ($this->SLimport->api_pagination_values as $pagination_value) {
+            $pagination_options .= '<option value="'.$pagination_value.'" '.($pagination_stat == $pagination_value? 'selected="selected"': '').'>'.$pagination_value.'</option>';
+        }
+
         $this->context->smarty->assign(
             array(
                 'ajax_link' =>
@@ -317,6 +336,8 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                 ),
                 'purge_button' => $this->purgeAllButton(),
                 'stop_syncronization' => $this->stopSyncronizacionButton(),
+                'api_version' => $api_versions_options,
+                'pagination' => $pagination_options,
             )
         );
 
@@ -362,7 +383,7 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
 
                     /* shops */
                     try {
-                        $conn_extra_info = $this->SLimport->sl_updater->getConnectorExtraInfo($conector_id);
+                        $conn_extra_info = $this->SLimport->getConectors(['conn_extra'], ['conn_code'=>$conector_id]);
                         foreach ($conn_extra_info['shops'] as $shop_key => $connector_shop) {
                             if (isset($shops[$conector_id][$connector_shop['id_shop']])) {
                                 if ($shops[$conector_id][$connector_shop['id_shop']] == true) {
@@ -374,38 +395,22 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                                 $conn_extra_info['shops'][$shop_key]['checked'] = 0;
                             }
                         }
-                        $this->SLimport->sl_updater->setConnectorExtraInfo($conector_id, $conn_extra_info);
+                        $order_content[$conector_id]['conn_extra'] = $conn_extra_info;
                     } catch (Exception $e) {
                         $this->SLimport->debbug('##Error. In save nech store info -> ' . $conn_extra_info .
                                                 ' msg -> ' . $e->getMessage() . ' line->' . $e->getLine(), '');
                     }
-                    $sql_FUPD = "UPDATE " . _DB_PREFIX_ . "slyr_" . $this->SLimport->sl_updater->table_config .
-                                " SET " ;
-                    $counter = 1;
-                    $total = count($order_content[$conector_id]);
-                    foreach ($order_content[$conector_id] as $key => $value_for_save) {
-                        $sql_FUPD .=      $key . " = '$value_for_save.'  ";
-                        if ($counter == $total) {
-                        } else {
-                            $sql_FUPD .= ',';
-                        }
-                        $counter++;
-                    }
-
-                    $sql_FUPD .= " WHERE conn_code = '" . addslashes(
-                        $conector_id
-                    ) . "' limit 1 ";
                     try {
-                        Db::getInstance()->execute($sql_FUPD);
+                        $this->SLimport->setConnectors($conector_id, $order_content[$conector_id]);
                     } catch (Exception $e) {
-                        $this->SLimport->debbug('##Error. In sve chages -> ' . $sql_FUPD, '');
+                        $this->SLimport->debbug('##Error. In sve chages -> ' . $e->getMessage(), '');
                     }
                 }
             }
         } else {
             $delete_conector = Tools::getValue('del_conn');
             if ($delete_conector != '') {
-                $this->SLimport->sl_updater->deleteConnector($delete_conector, true);
+                $this->SLimport->deleteConnector($delete_conector);
                 return true;
             }
             $sync_conector = Tools::getValue('sync_conn');
@@ -442,6 +447,38 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                 $sql_processing = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_syncdata';
                 $this->SLimport->slConnectionQuery('-', $sql_processing);
                 return true;
+            }
+            $api_version = Tools::getValue('api_version');
+            if ($api_version != '') {
+                $this->SLimport->debbug(
+                    'change configuration of api version to->' . print_r($api_version, 1)
+                );
+                if (is_string($api_version) && in_array($api_version, ['1.17','1.18'])) {
+                    $this->SLimport->saveConfiguration(['API_VERSION'=>$api_version]);
+                    return true;
+                } else {
+                    $this->SLimport->debbug(
+                        '#Error. change configuration of api version to->' . print_r($api_version, 1)
+                    );
+                    echo 'error unsuported value for api version: ' . $api_version;
+                }
+                return false;
+            }
+            $pagination = Tools::getValue('pagination');
+            if ($pagination != '') {
+                $this->SLimport->debbug(
+                    'change configuration of pagination to->' . print_r($api_version, 1)
+                );
+                if (is_numeric($pagination) && $pagination >= 0 && $pagination <= 1000000 && is_int($pagination + 0)) {
+                    $this->SLimport->saveConfiguration(['PAGINATION'=>$pagination]);
+                    return true;
+                } else {
+                    $this->SLimport->debbug(
+                        '##Error. change configuration of pagination to->' . print_r($api_version, 1)
+                    );
+                    echo 'error unsuported value for pagination: ' . $api_version;
+                }
+                return false;
             }
         }
     }

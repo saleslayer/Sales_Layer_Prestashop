@@ -19,17 +19,6 @@ require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'config'
     . DIRECTORY_SEPARATOR . 'config.php';
 require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
     . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'SalesLayer-Conn.php';
-require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
-    . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'SalesLayer-Updater.php';
-if (extension_loaded('PDO')) {
-    if (!class_exists('slyrSQL')) {
-        include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
-            . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'class.DBPDO.php';
-    }
-} elseif (!class_exists('slyrSQL')) {
-    include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'controllers'
-        . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'class.MySQL.php';
-}
 
 class SalesLayerImport extends Module
 {
@@ -81,7 +70,7 @@ class SalesLayerImport extends Module
 
     ###############################################################
 
-    public $i_am_a_developer = false;
+    public $i_am_a_developer = true;
 
     ###############################################################
 
@@ -106,6 +95,10 @@ class SalesLayerImport extends Module
     private $sql_insert_limit                   = 5;
     private $logfile_delete_days                = 10;// After so many days the debug files will be deleted
 
+    public $default_api_version                 = '1.18';
+    public $default_api_pagination              = 5000;
+    public $pagination                          = 5000;
+    public $api_pagination_values               = ['500','1000', '5000', '10000','100000'];
 
     ##############################################################
 
@@ -139,7 +132,7 @@ class SalesLayerImport extends Module
     public $sl_variants;
     public $shop_languages;
     public $sl_time_ini_process;
-    public $sl_updater;
+
     public $processing_connector_id;
     public $module_path;
     public $debugmode;
@@ -321,9 +314,7 @@ class SalesLayerImport extends Module
         $this->description = $this->l('Import products from Sales Layer API.');
         $this->confirmUninstall = $this->l('Are you sure you want to uninstall?');
         $this->sl_time_ini_process = microtime(1);
-        $this->sl_updater = new SalesLayerUpdater(_DB_NAME_, _DB_USER_, _DB_PASSWD_, _DB_SERVER_);
-        $this->sl_updater->setTablePrefix(_DB_PREFIX_ . 'slyr_');
-        $this->sl_updater->connect(_DB_NAME_, _DB_USER_, _DB_PASSWD_, _DB_SERVER_);
+
         $this->module_path = $this->_path;
         $this->loadLanguages();
         $this->loadActualShopId();
@@ -903,7 +894,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function checkDB()
     {
         $schemaSQL_PS_Config = 'CREATE TABLE IF NOT EXISTS ' .
-                               "`" . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config . "` (" .
+                               "`" . _DB_PREFIX_ . "slyr___api_config` (" .
                                '`cnf_id` int(11) NOT NULL AUTO_INCREMENT, ' .
                                '`conn_code` varchar(32) NOT NULL, ' .
                                '`conn_secret` varchar(32) NOT NULL, ' .
@@ -917,7 +908,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                '`updater_version` varchar(10) NOT NULL, ' .
                                'PRIMARY KEY (`cnf_id`)' .
                                ') ENGINE=MyISAM
-                                 ROW_FORMAT=' . $this->sl_updater->table_row_format .
+                                 ROW_FORMAT=COMPACT '.
                                ' DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ';
         Db::getInstance()->execute($schemaSQL_PS_Config);
 
@@ -1017,26 +1008,26 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
-            " AND table_name = '" . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config . "' " .
+            " AND table_name = '" . _DB_PREFIX_ . "slyr___api_config' " .
             " AND column_name = 'auto_sync'";
 
         $shops_info = Db::getInstance()->executeS($query_read);
 
         if (empty($shops_info)) {
-            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_' . $this->sl_updater->table_config .
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr___api_config' .
                 ' ADD COLUMN `auto_sync` INT(11) NOT NULL DEFAULT 0 AFTER `updater_version` ';
             Db::getInstance()->execute($query_alter);
         }
 
         $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
-            " AND table_name = '" . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config . "' " .
+            " AND table_name = '" . _DB_PREFIX_ . "slyr___api_config' " .
             " AND column_name = 'last_sync' ";
 
         $shops_info = Db::getInstance()->executeS($query_read);
 
         if (empty($shops_info)) {
-            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config .
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr___api_config " .
                 ' ADD COLUMN `last_sync` DATETIME NULL AFTER `auto_sync` ';
             Db::getInstance()->execute($query_alter);
         }
@@ -1044,26 +1035,26 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
-            " AND table_name = '" . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config . "' " .
+            " AND table_name = '" . _DB_PREFIX_ . "slyr___api_config' " .
             " AND column_name = 'auto_sync_hour' ";
 
         $shops_info = Db::getInstance()->executeS($query_read);
 
         if (empty($shops_info)) {
-            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config .
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr___api_config" .
                 " ADD COLUMN `auto_sync_hour` INT(2) NOT NULL DEFAULT 0 AFTER `last_sync` ";
             Db::getInstance()->execute($query_alter);
         }
 
         $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
-            " AND table_name = '" . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config . "' " .
+            " AND table_name = '" . _DB_PREFIX_ . "slyr___api_config' " .
             " AND column_name = 'avoid_stock_update' ";
 
         $shops_info = Db::getInstance()->executeS($query_read);
 
         if (empty($shops_info)) {
-            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config .
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr____api_config" .
                 " ADD COLUMN `avoid_stock_update` INT(2) NOT NULL DEFAULT 0 AFTER `auto_sync_hour` ";
             Db::getInstance()->execute($query_alter);
         }
@@ -1117,7 +1108,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         ) ENGINE=MyISAM DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
 
-	    /*From 1.4.1*/
+        /*From 1.4.1*/
         $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
             " WHERE table_schema = '" . _DB_NAME_ . "' " .
             " AND table_name = '" . _DB_PREFIX_ . "slyr_syncdata' " .
@@ -1339,17 +1330,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function uninstall()
     {
         try {
-            /**
-             * Delete images that are not assigned to any product and have been imported from sales layer
-             */
-            $connectors = $this->sl_updater->getConnectorsInfo(null, true);
-            if (!empty($connectors)) {
-                foreach ($connectors as $connector) {
-                    $this->setConnectorData($connector['conn_code'], 'last_update', 0);
-                }
-                $this->sl_updater->deleteAll(true);
-            }
-
             $this->deleteTabLink();
             $this->deleteSlcronRegister();
             $this->deleteSlyrTables();
@@ -1386,7 +1366,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $field_value
     ) {
         if ($connector_id != null && $field_name != null) {
-            $sql_FUPD = "UPDATE " . _DB_PREFIX_ . "slyr_" . $this->sl_updater->table_config .
+            $sql_FUPD = "UPDATE " . _DB_PREFIX_ . "slyr___api_config" .
                 " SET " . $field_name . " = '$field_value' WHERE conn_code = '" . addslashes(
                     $connector_id
                 ) . "' limit 1 ";
@@ -1684,51 +1664,48 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->debbug(
             'Reasync deleted content and remove all from sl table if not exist in prestashop'
         );
-
-        $categoriesDelete = Db::getInstance()->executeS(
-            "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_category_product`  sl
+        $this->clearDeletedCategoriesFromCache();
+        $this->clearDeletedProductsFromCache();
+        $this->clearDeletedAttributesGroupFromCache();
+        $this->clearAttributesValuesFromNonexistentGroupsInPrestashop();
+        $this->clearNonExistentAttributesValuesFromCache();
+        $this->clearDeletedVariantsFromCache();
+        $this->clearDataHashFromDeletedVariants();
+        $this->clearDeletedImagesFromCache();
+        $this->clearDataHashOfDeletedCategories();
+        $this->clearDataHashOfDeletedProducts();
+    }
+    private function clearDeletedCategoriesFromCache()
+    {
+        $start_limit = 0;
+        do {
+            $categoriesDelete = Db::getInstance()->executeS(
+                "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_category_product`  sl
             LEFT JOIN `' . _DB_PREFIX_ . "category`  ca ON (ca.id_category = sl.ps_id )
-            WHERE  sl.ps_type = 'slCatalogue' AND ca.id_category is null"
-        );
+            WHERE  sl.ps_type = 'slCatalogue' AND ca.id_category is null LIMIT ".$start_limit.','.$this->pagination
+            );
 
-        if (!empty($categoriesDelete)) {
-            //  $this->debbug(' delete this slCatalogue register but already deleted ' .
-            // print_r($categoriesDelete,1).' sql->'.$schemaCats);
-            foreach ($categoriesDelete as $categoryDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s" ' .
-                        ' AND ps_type = "slCatalogue" ',
-                        $categoryDelete['id']
-                    )
-                );
+            if (!empty($categoriesDelete)) {
+                //  $this->debbug(' delete this slCatalogue register but already deleted ' .
+                // print_r($categoriesDelete,1).' sql->'.$schemaCats);
+                foreach ($categoriesDelete as $categoryDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s" ' .
+                            ' AND ps_type = "slCatalogue" ',
+                            $categoryDelete['id']
+                        )
+                    );
+                }
+                $start_limit += count($categoriesDelete);
             }
-        }
-        $categoriesDelete = Db::getInstance()->executeS(
-            "SELECT sl.ps_id FROM `" . _DB_PREFIX_ . 'slyr_input_compare`  sl
-            LEFT JOIN `' . _DB_PREFIX_ . "category`  ca ON (ca.id_category = sl.ps_id )
-            WHERE  sl.ps_type = 'category' AND ca.id_category is null"
-        );
-
-        if (!empty($categoriesDelete)) {
-            //  $this->debbug(' delete this slCatalogue register but already deleted ' .
-            // print_r($categoriesDelete,1).' sql->'.$schemaCats);
-            foreach ($categoriesDelete as $categoryDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ' .
-                        '  WHERE ' .
-                        ' ps_type = "category" ' .
-                        ' AND ps_id = "%s" ',
-                        $categoryDelete['ps_id']
-                    )
-                );
-            }
-        }
-
+        } while (count($categoriesDelete)>=$this->pagination);
+    }
+    private function clearDeletedProductsFromCache()
+    {
         $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
-            " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
-            " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
+                       " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
+                       " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
         $productsDelete = Db::getInstance()->executeS($schemaProds);
 
         if (!empty($productsDelete)) {
@@ -1744,30 +1721,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
-        $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_input_compare`  sl " .
-                       " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
-                       " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
-        $productsDelete = Db::getInstance()->executeS($schemaProds);
-
-        if (!empty($productsDelete)) {
-            //  $this->debbug(' delete this product register but already deleted ' .
-            // print_r($productsDelete,1).' $sql->'.$schemaProds);
-            foreach ($productsDelete as $productDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ .
-                        'slyr_input_compare WHERE ' .
-                        ' ps_type = "product" ' .
-                        ' AND id = "%s" ',
-                        $productDelete['id']
-                    )
-                );
-            }
-        }
-
+    }
+    private function clearDeletedAttributesGroupFromCache()
+    {
         $schemaAttrs = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
-            " LEFT JOIN " . $this->attribute_group_table . " ag ON (ag.id_attribute_group = sl.ps_id ) " .
-            " WHERE  sl.ps_type = 'product_format_field' AND ag.id_attribute_group is null ";
+                       " LEFT JOIN " . $this->attribute_group_table . " ag ON (ag.id_attribute_group = sl.ps_id ) " .
+                       " WHERE  sl.ps_type = 'product_format_field' AND ag.id_attribute_group is null ";
         $attributesDelete = Db::getInstance()->executeS($schemaAttrs);
 
         if (!empty($attributesDelete)) {
@@ -1781,10 +1740,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
-
-        // Removes attribute values which group no longer exists
+    }
+    private function clearAttributesValuesFromNonexistentGroupsInPrestashop()
+    {
         $schemaAttributesGroup = 'SELECT at.id_attribute FROM ' . $this->attribute_table . ' AS at ' .
-            ' LEFT JOIN ' . $this->attribute_group_table . ' AS pa
+                                 ' LEFT JOIN ' . $this->attribute_group_table . ' AS pa
             ON (pa.id_attribute_group = at.id_attribute_group ) WHERE pa.id_attribute_group is null ';
         $deleteAttributeGroup = Db::getInstance()->executeS($schemaAttributesGroup);
 
@@ -1806,14 +1766,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     // Versiones anteriores a PrestaShop 8.0.0
                     $attributeValue = new AttributeCore($Attribute['id_attribute']);
                 }
-                
+
                 $attributeValue->delete();
             }
         }
-
+    }
+    private function clearNonExistentAttributesValuesFromCache()
+    {
         $schemaAttrVals = 'SELECT id FROM ' . _DB_PREFIX_ . 'slyr_category_product  AS sl ' .
-            ' LEFT JOIN ' . $this->attribute_table . ' AS a ON (a.id_attribute = sl.ps_id ) ' .
-            " WHERE  sl.ps_type = 'product_format_value' AND a.id_attribute is null ";
+                          ' LEFT JOIN ' . $this->attribute_table . ' AS a ON (a.id_attribute = sl.ps_id ) ' .
+                          " WHERE  sl.ps_type = 'product_format_value' AND a.id_attribute is null ";
         $attributeValuesDelete = Db::getInstance()->executeS($schemaAttrVals);
 
         if (!empty($attributeValuesDelete)) {
@@ -1829,10 +1791,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
-
+    }
+    private function clearDeletedVariantsFromCache()
+    {
         $schemaFeatures = " SELECT sl.id FROM " . _DB_PREFIX_ . "slyr_category_product  AS sl " .
-            " LEFT JOIN " . $this->product_attribute_table . " AS pa ON (pa.id_product_attribute = sl.ps_id ) " .
-            " WHERE  sl.ps_type = 'combination' AND ( pa.id_product_attribute is null OR pa.id_product = 0) ";
+                          " LEFT JOIN " . $this->product_attribute_table .
+                          " AS pa ON (pa.id_product_attribute = sl.ps_id ) " .
+                          " WHERE  sl.ps_type = 'combination' AND ( pa.id_product_attribute is null OR pa.id_product = 0) ";
         $featuresDelete = Db::getInstance()->executeS($schemaFeatures);
 
         if (!empty($featuresDelete)) {
@@ -1848,7 +1813,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
-
+    }
+    private function clearDataHashFromDeletedVariants()
+    {
         $schemaFeatures = " SELECT sl.ps_id FROM " . _DB_PREFIX_ . "slyr_input_compare  AS sl " .
                           " LEFT JOIN " . $this->product_attribute_table .
                           " AS pa ON (pa.id_product_attribute = sl.ps_id ) " .
@@ -1871,9 +1838,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
+    }
+    private function clearDeletedImagesFromCache()
+    {
 
         $schemaImages = " SELECT sl.id_image FROM " . _DB_PREFIX_ . "slyr_image AS sl " .
-            " LEFT JOIN " . $this->image_shop_table . ' AS pa
+                        " LEFT JOIN " . $this->image_shop_table . ' AS pa
             ON (pa.id_image = sl.id_image ) WHERE pa.id_image is null ';
 
         $deleteImages = Db::getInstance()->executeS($schemaImages);
@@ -1881,7 +1851,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if (!empty($deleteImages)) {
             $this->debbug('Enviando imagenes para eliminar de tabla SLYR que ya no existen en la
              tabla de imagenes de prestashop $deleteImages->' . print_r($deleteImages, 1) .
-             ' query->' . print_r($schemaImages, 1));
+                          ' query->' . print_r($schemaImages, 1));
             foreach ($deleteImages as $ImageforDelete) {
                 Db::getInstance()->execute(
                     sprintf(
@@ -1891,6 +1861,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
+    }
+    private function clearDataHashOfDeletedCategories()
+    {
 
         $categoriesDelete = Db::getInstance()->executeS(
             "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_input_compare`  sl
@@ -1913,7 +1886,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
             }
         }
-
+    }
+    private function clearDataHashOfDeletedProducts()
+    {
         $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_input_compare`  sl " .
                        " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
                        " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
@@ -1936,6 +1911,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
     }
+
+
+
 
     /**
      * Function to insert sync data into the database.
@@ -1983,8 +1961,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $field_name = implode(',', $field_name);
             }
 
-            $sql = "SELECT " . $field_name . " FROM " . _DB_PREFIX_ . "slyr_" .
-                $this->sl_updater->table_config . " WHERE `conn_code`='" . addslashes(
+            $sql = "SELECT " . $field_name . " FROM " . _DB_PREFIX_ . "slyr___api_config" .
+                " WHERE `conn_code`='" . addslashes(
                     $connector_id
                 ) . "' limit 1 ;";
             $return = $this->slConnectionQuery('read', $sql);
@@ -2338,7 +2316,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function getAllConnectors()
     {
-        $connectors = $this->sl_updater->getConnectorsInfo(null, true);
+
+        $connectors = $this->getConectors();
 
         if (!empty($connectors)) {
             $shops = $this->getAllShops();
@@ -2351,7 +2330,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $connectors[$conn_key]['conn_extra']
                 );
 
-                $conn_extra_info = $this->sl_updater->getConnectorExtraInfo($connector['conn_code']);
+                $conn_extra_info = $this->getConectors(['conn_extra'], ['conn_code'=>$connector['conn_code']]);
 
                 $updated_shops = array();
 
@@ -2379,10 +2358,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         && !empty($connectors[$conn_key]['shops'])
                         && $connectors[$conn_key]['shops'] != $conn_extra_info['shops'])
                 ) {
-                    $this->sl_updater->setConnectorExtraInfo(
-                        $connector['conn_code'],
-                        array('shops' => $connectors[$conn_key]['shops'])
-                    );
+                    $conn_extra = $this->getConectors(['conn_extra'], ['conn_code'=>$connector['conn_code']]);
+                    $conn_extra['shops'] = $connectors[$conn_key]['shops'];
+                    $this->setConnectors($connector['conn_code'], ['conn_extra' => $conn_extra]);
                 }
 
                 if ($connectors[$conn_key]['last_update'] != null && $connectors[$conn_key]['last_update'] != 0) {
@@ -2398,6 +2376,105 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         return $connectors;
     }
+
+    public function getConectors($columns = [], $where = [])
+    {
+        try {
+            $where_sql = [];
+            foreach ($where as $key => $value) {
+                $where_sql[] = $key.' = "'.addslashes($value).'"';
+            }
+
+            $connectors_sql = ' SELECT '.(empty($columns)?'*':implode(',', $columns)).' FROM ' .
+                              _DB_PREFIX_. 'slyr___api_config ' .
+                              (empty($where_sql)?'':' WHERE '.implode(' AND ', $where_sql));
+            $connectors = Db::getInstance()->executeS($connectors_sql);
+
+
+
+            foreach ($connectors as $num => $connector) {
+                foreach ($connector as $column => $values) {
+                    if (is_string($values) && !empty($values) && substr(trim($values), 0, 1) == '{' && substr(trim($values), -1) == '}') {
+                        $values = stripslashes($values);
+                        $connectors[$num][$column] = json_decode($values, true);
+                    }
+                }
+            }
+
+            if ($where && count($where)==1) {
+                $connectors = reset($connectors);
+            }
+
+            if ($columns && count($columns)==1 && isset($connectors[reset($columns)])) {
+                $connectors = $connectors[reset($columns)];
+            }
+
+            return $connectors;
+        } catch (Exception $e) {
+            $this->debbug('## Error. get conector: ' . $e->getMessage());
+        }
+        return false;
+    }
+
+    public function setConnectors($connector_id, $data)
+    {
+        try {
+            $data_sql = [];
+            foreach ($data as $key => $value) {
+                if (is_array($value)) {
+                    $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+                }
+                $data_sql[] = $key.' = "'.addslashes($value).'"';
+            }
+
+            $connector_sql = ' UPDATE ' . _DB_PREFIX_ . 'slyr___api_config SET ' .
+                             implode(',', $data_sql) .
+                             ' WHERE conn_code = "' .
+                             $connector_id . '" ';
+            return Db::getInstance()->execute($connector_sql);
+        } catch (Exception $e) {
+            $this->debbug('## Error. save data to conector: ' . $e->getMessage());
+        }
+        return false;
+    }
+    public function addConnectors($data)
+    {
+        try {
+            $data_sql = [];
+            foreach ($data as $key => $value) {
+                if (is_array($value)) {
+                    $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+                }
+                $data_sql[$key] = ' "'.addslashes($value).'"';
+            }
+
+            $connector_sql = ' INSERT INTO ' . _DB_PREFIX_ . 'slyr___api_config  (' .
+                             implode(',', array_keys($data_sql)) .
+                             ') VALUES (' .
+                             implode(',', array_values($data_sql)) . ') ';
+            return Db::getInstance()->execute($connector_sql);
+        } catch (Exception $e) {
+            $this->debbug('## Error. save data to conector: ' . $e->getMessage());
+        }
+        return false;
+    }
+
+
+    public function deleteConnector($connector_code)
+    {
+        try {
+            $delete = "DELETE FROM "._DB_PREFIX_.
+                      "slyr___api_config WHERE conn_code = '".$connector_code."'";
+
+            Db::getInstance()->execute($delete);
+            return true;
+        } catch (Exception $e) {
+            $this->debbug('## Error. save data to conector: ' . $e->getMessage());
+        }
+        return false;
+    }
+
+
 
     /**
      * Get all actived shops saved in Prestashop
@@ -3059,9 +3136,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function getConnectorShops(
         $connector_id
     ) {
-        $extra_info = $this->sl_updater->getConnectorExtraInfo($connector_id);
-
-        $shops = array();
+        $extra_info = $this->getConectors(['conn_extra'], ['conn_code'=>$connector_id]);
+        $shops = [];
         if (isset($extra_info['shops']) && count($extra_info['shops']) > 0) {
             foreach ($extra_info['shops'] as $shop) {
                 if ($shop['checked']) {
@@ -3087,7 +3163,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             'slyr_image',
             'slyr_category_products',
             /* from version 1.4.0 */
-            'slyr_' . $this->sl_updater->table_config,
             'slyr_catalogue',
             'slyr_product_formats',
             'slyr_products',
@@ -3105,7 +3180,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             'slyr_input_compare',
             'slyr_stock_update',
             'slyr_image_preloader',
-            'slyr_process'
+            'slyr_process',
+            'slyr___api_config'
         ];
 
         foreach ($tables as $table) {
@@ -3354,8 +3430,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
                     case 'product':
                             $this->debbug(' >> Product start << ', 'syncdata');
-                           /* $this->loadConnectorAccesories('accessories', 'product_accessories');
-                            $this->loadConnectorAccesories('index', 'for_index');*/
 
                             $time_ini_sync_stored_product = microtime(1);
                             $this->debbug(' >> Product synchronization initialized << ', 'syncdata');
@@ -3414,9 +3488,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     unset($item_data['sync_data']['variants'][$key_var]);
                                 }
                             }
-
-                            /* $this->saveStatAccessories('accessories', 'product_accessories');
-                             $this->saveStatAccessories('index', 'for_index');*/
                         } catch (Exception $e) {
                             $result_update = 'item_not_updated';
                             $this->debbug(
@@ -3432,7 +3503,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             );
                         }
 
-                            // $result_update = $this->sync_stored_product($item_data);
+
                             $this->debbug(' >> Product synchronization finished << ', 'syncdata');
                             $this->debbug(
                                 '#### time_sync_stored_product: ' . $item_data['sync_data']['ID'] . '->' . (
@@ -3449,6 +3520,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                            $time_ini_sync_stored_product_format = microtime(1);
                             $this->debbug(' >> Format synchronization initialized << ', 'syncdata');
                         try {
+                            $this->debbug(' syncParams->' . print_r($sync_params, 1), 'syncdata');
                             $this->sl_variants->loadVariantImageSchema(
                                 $sync_params['conn_params']['data_schema']['product_formats']
                             );
@@ -3730,11 +3802,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     /**
      * Get System memory usage
      * @return array|null
-     * @throws Exception
      */
     private function getSystemMemInfo()
     {
-        $meminfo = Tools::file_get_contents('/proc/meminfo');
+        try {
+            $meminfo = Tools::file_get_contents('/proc/meminfo');
+        } catch (Exception $e) {
+            $this->debbug('##Error. Reed memory file exception: '.$e->getMessage());
+            $meminfo = false;
+        }
         if ($meminfo) {
             $data = explode("\n", $meminfo);
             $meminfo = [];
@@ -3757,7 +3833,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     /**
      * Function to create low memory warning
      * @return bool
-     * @throws Exception
      */
 
     public function checkFreeSpaceMemory()
@@ -4230,7 +4305,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
         $for_update = [];
         foreach ($prepare_input_compare as $colum_name => $value) {
-            if (is_numeric($value)) {
+            if (is_numeric($value) && is_int($value * 1)) {
                 $for_update[] = '`' . $colum_name . '` = ' . (int) $value . '';
             } else {
                 $for_update[] = '`' . $colum_name . "` = '" . $value . "'";

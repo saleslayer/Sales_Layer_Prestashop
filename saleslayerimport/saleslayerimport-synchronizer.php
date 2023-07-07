@@ -61,7 +61,7 @@ try {
         if (!$performance_limit) {
             $performance_limit = 4.00;
         }
-        echo 'entry process_item';
+        echo 'entry process_item'.PHP_EOL.'<br>';
         if ($type == 'category') {
             $SLimport->sl_catalogues = new SlCatalogues();
             $skip_duration = date("Y-m-d H:i:s", strtotime("-2 minutes"));

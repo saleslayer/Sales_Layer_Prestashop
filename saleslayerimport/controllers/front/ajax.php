@@ -203,9 +203,10 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
             $SLimport = new SalesLayerImport();
 
-            $resultDelete = $SLimport->sl_updater->deleteConnector($connector_id, true);
 
-            if (empty($resultDelete)) { // error
+            $resultDelete = $SLimport->deleteConnector($connector_id);
+
+            if (!$resultDelete) { // error
                 $return['message_type'] = 'error';
                 $return['message'] = 'Error in update this connector.';
             } else {
@@ -268,6 +269,34 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['message_type'] = 'success';
             $return['message'] = 'Deleted all from synchronization';
 
+            $return['server_time'] = 'Server time: ' . date('H:i');
+            die(json_encode($return));
+        }
+        if ($command == 'api_version') {
+            $SLimport = new SalesLayerImport();
+            $api_version = Tools::getValue('connector_id');
+            if (is_string($api_version) && in_array($api_version, ['1.17','1.18'])) {
+                $SLimport->saveConfiguration(['API_VERSION'=> $api_version]);
+                $return['message_type'] = 'success';
+                $return['message'] = 'Configured API version: '.$api_version;
+            } else {
+                $return['message_type'] = 'error';
+                $return['message'] = 'Error in API Version';
+            }
+            $return['server_time'] = 'Server time: ' . date('H:i');
+            die(json_encode($return));
+        }
+        if ($command == 'pagination') {
+            $SLimport = new SalesLayerImport();
+            $pagination = Tools::getValue('connector_id');
+            if (is_numeric($pagination) && $pagination > 0 && $pagination < 1000000 && is_int($pagination * 1)) {
+                $SLimport->saveConfiguration(['PAGINATION'=> $pagination]);
+                $return['message_type'] = 'success';
+                $return['message'] = 'Configured pagination: '.$pagination;
+            } else {
+                $return['message_type'] = 'error';
+                $return['message'] = 'Error set value for pagination to->'.$pagination;
+            }
             $return['server_time'] = 'Server time: ' . date('H:i');
             die(json_encode($return));
         }
@@ -335,7 +364,8 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                          */
 
                         try {
-                            $conn_extra_info = $SLimport->sl_updater->getConnectorExtraInfo($connector_id);
+                            $conn_extra_info = $SLimport->getConectors(['conn_extra'], ['conn_code'=>$connector_id]);
+
                             $need_save = false;
                             if (isset($conn_extra_info['shops']) && !empty($sting_toarray[1])) {
                                 foreach ($conn_extra_info['shops'] as $shop_key => $connector_shop) {
@@ -352,7 +382,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                             }
 
                             if ($need_save) {
-                                $SLimport->sl_updater->setConnectorExtraInfo($connector_id, $conn_extra_info);
+                                $SLimport->setConnectors($connector_id, ['conn_extra' => $conn_extra_info]);
                                 $return['message_type'] = 'success';
                                 $return['message'] = 'Changes saved successfully.';
                             } else {

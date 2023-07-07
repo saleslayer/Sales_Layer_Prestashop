@@ -88,8 +88,29 @@
         <button type="submit" name="savechanges" class="btn btn-success mar-10 mar-top-btt-40 right" onclick="isSubmiting();"><i class="fa fa-floppy-o" aria-hidden="true"></i> Save Changes</button>
       </div>
       <div class="btn-group-toggle">
-      <a href="https://github.com/saleslayer/Sales_Layer_Prestashop/blob/master/Sales%20Layer%20Prestashop%20manual%20(ES).pdf" title="Documentation ES" class="btn btn-success mar-top-btt-40 mar-5" target="_blank"><i class="fa fa-book fa-2x" aria-hidden="true"></i> ES</a>
-      <a href="https://github.com/saleslayer/Sales_Layer_Prestashop/blob/master/Sales%20Layer%20Prestashop%20manual%20(EN).pdf" title="Documentation EN" class="btn btn-success mar-top-btt-40 mar-5" target="_blank"><i class="fa fa-book fa-2x" aria-hidden="true"></i> EN</a>
+        <table class="table table-responsive table-hide-transparent">
+          <tbody>
+          <tr>
+            <td>
+                <a href="https://support.saleslayer.com/es/prestashop/notas-previas-del-conector" title="Documentation ES" class="btn btn-success mar-top-btt-40 mar-5" target="_blank"><i class="fa fa-book fa-2x" aria-hidden="true"></i> ES</a>
+                <a href="https://support.saleslayer.com/prestashop/important-notes-about-connector" title="Documentation EN" class="btn btn-success mar-top-btt-40 mar-5" target="_blank"><i class="fa fa-book fa-2x" aria-hidden="true"></i> EN</a>
+            </td>
+
+            <td>
+               <label>API Version</label>
+                <select class="min-wid-100" name="api_version" id="api_version" title="version of api used for download data" onchange="showPagination();update_command(this,'api_version');">
+                  {$api_version|escape:"quotes":"UTF-8"}
+                </select>
+            </td>
+            <td>
+              <label>Pagination</label>
+              <select class="min-wid-100" name="pagination" title="Number of items per page" id="pagination" onchange="update_command(this,'pagination');">
+                {$pagination|escape:"quotes":"UTF-8"}
+              </select>
+            </td>
+          </tr>
+          </tbody>
+        </table>
       </div>
     </div>
     </form>
@@ -181,6 +202,12 @@
           return false;
         }
       }
+      if(command == 'api_version'){
+        connector_id = connector_id.value;
+      }
+      if(command == 'pagination'){
+        connector_id = connector_id.value;
+      }
 
       jQuery.ajax({
         type: 'POST',
@@ -219,6 +246,14 @@
           }
           if(command == 'clear_syncronization') {
             document.getElementById('clear_syncronization').value = 1;
+            document.getElementById('form_sl_edit').submit();
+          }
+          if(command == 'api_version') {
+            document.getElementById('api_version').value = connector_id;
+            document.getElementById('form_sl_edit').submit();
+          }
+          if(command == 'pagination') {
+            document.getElementById('pagination').value = connector_id;
             document.getElementById('form_sl_edit').submit();
           }
 
@@ -305,6 +340,14 @@
           return 'success-msg';
         }
     }
+    function showPagination(){
+      var api_version = $('#api_version').val();
+      if(api_version == '1.18'){
+        document.getElementById('pagination').disabled = false;
+      }else{
+        document.getElementById('pagination').disabled = true;
+      }
+    }
 
     function showProgressBarSL(status, total, time = null,show_stat = '',speed = '') {
       var onePr = total / 100;
@@ -339,7 +382,7 @@
       document.getElementById('progressbar').innerHTML = div
     }
     function postFormEnable(){
-        showMessage('success', 'Before leaving please save your changes.')
+        showMessage('success', 'Before leaving please save your changes.');
         document.getElementById('submit_btt').classList.remove('hide');
           window.onbeforeunload = function(){
             return 'Before leaving please save your changes.';
@@ -361,7 +404,8 @@
       }, 12000)
     }
     document.addEventListener('DOMContentLoaded', function () {
-      check_status()
+      check_status();
+      showPagination();
     }, false)
 
   </script>

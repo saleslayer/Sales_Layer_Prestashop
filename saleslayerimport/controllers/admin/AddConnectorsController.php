@@ -106,10 +106,10 @@ class AddConnectorsController extends ModuleAdminController
             $api->setGroupMulticategory(true);
             $api->getInfo(time() - 5);
             if ($api->hasResponseError()) {
-                $error_MESSAGE = $this->SLimport->sl_updater->getResponseErrorMessage();
+                $error_MESSAGE = $api->getResponseErrorMessage();
 
                 $this->SLimport->debbug('## Error. Conexion error num->' . print_r(
-                    $this->SLimport->sl_updater->getResponseError(),
+                    $api->getResponseErrorMessage(),
                     1
                 ) . ' ->' . print_r($error_MESSAGE, 1), 'syncdata', true);
 
@@ -148,7 +148,7 @@ class AddConnectorsController extends ModuleAdminController
                 );
 
                 $this->SLimport->debbug('## Error. Conexion error num->' . print_r(
-                    $this->SLimport->sl_updater->getResponseError(),
+                    $api->getResponseErrorMessage(),
                     1
                 ) . ' ->' . print_r($error_MESSAGE, 1), 'syncdata', true);
 
@@ -165,7 +165,7 @@ class AddConnectorsController extends ModuleAdminController
 
                     $this->SLimport->debbug(
                         '## Error. Conexion error num->' . print_r(
-                            $this->SLimport->sl_updater->getResponseError(),
+                            $api->getResponseErrorMessage(),
                             1
                         ) . ' ->' . print_r($error_MESSAGE, 1) . ' version of connector from response ->' .
                         $response_connector_type . '  expected version -> ' .
@@ -215,20 +215,26 @@ class AddConnectorsController extends ModuleAdminController
                 } else {
                     try {
                         $this->SLimport->checkFreeSpaceMemory();
-                        $this->SLimport->sl_updater->setIdentification($conn_code, $conn_secret);
-                        $this->SLimport->sl_updater->getConnectorsInfo($conn_code);
+                        $conector_data = [
+                            'conn_code' => $conn_code,
+                            'conn_secret' => $conn_secret
+                        ];
                         try {
-                            $this->SLimport->sl_updater->update(true, null, true);
+	                        $this->SLimport->addConnectors($conector_data);
                         } catch (Exception $e) {
                             $this->SLimport->debbug('Error in update new connector ->' . print_r($e->getMessage(), 1) .
                                                     ' in line ->' . $e->getLine(), 'syncdata', true);
                         }
-                        $this->SLimport->setConnectorData($conn_code, 'last_update', 0);
+                      /*  $this->SLimport->setConnectorData($conn_code, 'last_update', 0);
+                        $this->SLimport->setConnectorData($conn_code, 'comp_id', $api->getResponseCompanyId());*/
+						$data = [
+							'last_update'=> 0,
+							'comp_id' => $api->getResponseCompanyId()
+						];
+
+	                    $this->SLimport->setConnectors($conn_code,$data);
 
 
-                        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_catalogue');
-                        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_product_formats');
-                        Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'slyr_products');
                     } catch (Exception $e) {
                         $this->SLimport->debbug('## Error. Adding new conector problem found->' . $e->getMessage());
                         $this->SLimport->debbug('## Error. track->' . print_r($e->getTrace(), 1));

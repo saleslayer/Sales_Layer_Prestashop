@@ -71,6 +71,9 @@ border:0 !important;
 .table-hide-bor > tbody > tr > td,.table-hide-bor > tbody > tr > td:hover {
   background-color: #fff !important;
 }
+.table-hide-transparent > tbody > tr > td,.table-hide-transparent > tbody > tr > td:hover {
+  background-color: transparent !important;
+}
 #messages {
   font-size: 17px !important;
   font-weight: 700;
@@ -214,7 +217,6 @@ border:0 !important;
 .headname {
   writing-mode: vertical-rl;
   font-size: 12px;
-  padding: 2px !important;
 }
 
 #progressbar {

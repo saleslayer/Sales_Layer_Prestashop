@@ -18,6 +18,25 @@ use PrestaShop\PrestaShop\Adapter\CoreException;
 class SalesLayerPimUpdate extends SalesLayerImport
 {
     public $prestashop_all_shops;
+    private $catalogue_items            = [];
+    private $product_items              = [];
+    private $product_formats_items      = [];
+    private $catalogue_items_del        = [];
+    private $product_items_del          = [];
+    private $product_formats_items_del  = [];
+
+    private $exist_categories           = false;
+    private $avoid_stock_update           = false;
+
+    private $arrayReturn                  = [
+                    'categories_to_sync'=>0,
+                    'products_to_sync'=>0,
+                    'product_formats_to_sync'=>0,
+                    'categories_to_delete'=>0,
+                    'products_to_delete'=>0,
+                    'products_formats_to_delete'=>0,
+
+    ];
 
 
     public function __construct()
@@ -27,7 +46,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->defaultLanguage = (int)Configuration::get('PS_LANG_DEFAULT');
         $this->prestashop_all_shops = Shop::getShops();
     }
-
     public function testDownloadingBlock($set_name)
     {
         $Downloading_block = $this->getConfiguration($set_name);
@@ -108,18 +126,23 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->debbug(
             'before update connector_id :' . print_r($connector_id, 1) . ' last_sync->' . print_r($last_sync, 1)
         );
-        $this->setConnectorData($connector_id, 'last_sync', $last_sync);
+
+        $this->setConnectors($connector_id, ['last_sync'=>$last_sync]);
 
         $update_all = microtime(1);
         $this->debbug(' Starting to synchronisation');
-        //$this->checkDB();
 
-        $conn_info = $this->sl_updater->getConnectorsInfo($connector_id);
+
+        $conn_info = $this->getConectors(['conn_secret','last_update','comp_id','avoid_stock_update'], ['conn_code'=>$connector_id]);
         $secret_key = $conn_info['conn_secret'];
         $last_update = $conn_info['last_update'];
         $comp_id = $conn_info['comp_id'];
-        $avoid_stock_update = $conn_info['avoid_stock_update'];
+        $this->avoid_stock_update = $conn_info['avoid_stock_update'];
 
+	    $pagination = $this->getConfiguration('PAGINATION');
+	    if (!$pagination) {
+		    $this->pagination = $this->default_api_pagination;
+	    }
 
         //Clear registers in Sales Layer table deleted in Prestashop
         $this->clearDeletedSlyrRegs();
@@ -129,17 +152,22 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->clearTempImages();
 
 
-
         $api = new SalesLayerConn($connector_id, $secret_key);
+        $api_version = $this->getConfiguration('API_VERSION');
+        $api_version = ($api_version) ? $api_version : $this->default_api_version;
 
-        // $api->set_API_version('1.16');
-        $api->setFirstLevelParentModifications(true);
+        $api->setApiVersion($api_version);
+        $api->setSameParentVariantsModifications(true);
         $api->setParentsCategoryTree(true);
         $api->setGroupMulticategory(true);
 
+        if ($api_version == '1.18') {
+            $api->setPagination($pagination);
+        }
+
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
-        ini_set('memory_limit', '-1');
+        ini_set('memory_limit', '50M');
         $this->checkFreeSpaceMemory();
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
@@ -159,457 +187,51 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->clearPreloadCache();
         $this->debbug('Language data ' . print_r($data_returned['schema']['languages'], 1));
 
-
-        $this->debbug('Language api_data iso codes  ->' . print_r($data_returned['schema']['languages'], 1));
-        $langIso = null;
-        try {
-            if (isset($data_returned['schema']['languages']) && !empty($data_returned['schema']['languages'])) {
-                foreach ($data_returned['schema']['languages'] as $lang) {
-                    $ps_id_lang = Language::getIdByIso($lang);
-                    if (in_array($ps_id_lang, $this->shop_languages, false)) {
-                        $langIso = $lang;
-                        break;
-                    }
-                }
-            } elseif (isset($data_returned['schema']['default_language'])
-                && $data_returned['schema']['default_language']
-            ) {
-                $id_lang = Language::getIdByIso($data_returned['schema']['default_language']);
-                if ($id_lang != null) {
-                    $langIso = $id_lang;
-                }
-            }
-        } catch (Exception $e) {
-            $this->debbug(
-                '## Error. Schema generation error->' . $e->getMessage() . ' trace->' . print_r($e->getTrace(), 1),
-                'syncdata'
-            );
-        }
-        if ($langIso != null) {
-            $this->currentLanguage = Language::getIdByIso($langIso);
-            ($this->currentLanguage == null || $this->currentLanguage == 0) ?
-                $this->currentLanguage = $this->defaultLanguage : false;
-        } else {
-            $this->currentLanguage = $this->defaultLanguage;
-        }
-
-
-        $this->debbug('currentLanguage->' . $this->currentLanguage . '  defaultLanguage ->' . $this->defaultLanguage);
-        Configuration::updateValue('CURRENT_LANGUAGE', $this->currentLanguage);
-
-
+        $this->processLanguages($data_returned);
         $this->clearDebugContent();
+        $this->connector_shops = $this->getConnectorShops($connector_id);
+      //  $contextShopID = Shop::getContextShopID();
 
-        $last_update_save = $api->getResponseTime('unix');
-        $data_schema = $this->getDataSchema($api);
-        $table_data = $api->getResponseTableData();
-        $exist_categories = false;
+        if (!empty($this->connector_shops)) {
+            $counter = 0;
 
-        if (isset($table_data['catalogue']['modified'], $data_returned['data_schema_info']['catalogue'])) {
-            $catalogue_items = $this->organizarIndicesTablas(
-                $table_data['catalogue']['modified'],
-                $data_returned['data_schema_info']['catalogue']
-            );
-            $exist_categories = true;
-        } else {
-            $catalogue_items = array();
-        }
-
-        if (isset($table_data['products']['modified'], $data_returned['data_schema_info']['products'])) {
-            $product_items = $this->organizarIndicesTablas(
-                $table_data['products']['modified'],
-                $data_returned['data_schema_info']['products']
-            );
-        } else {
-            $product_items = array();
-        }
-
-        if (isset($data_returned['data_schema_info']['product_formats'], $table_data['product_formats']['modified'])) {
-            $product_formats_items = $this->organizarIndicesTablas(
-                $table_data['product_formats']['modified'],
-                $data_returned['data_schema_info']['product_formats']
-            );
-        } else {
-            $product_formats_items = array();
-        }
+            $last_update_save = $api->getResponseTime('unix');
 
 
-        if (isset($table_data['catalogue']['deleted'])) {
-            $catalogue_items_del = $table_data['catalogue']['deleted'];
-            $catalogue_items_del = $this->organizarIndicesTablas(
-                $catalogue_items_del,
-                $data_returned['data_schema_info']['catalogue']
-            );
-        } else {
-            $catalogue_items_del = array();
-        }
+            $sync_params                                   = [];
+            $sync_params['conn_params']['comp_id']         = $comp_id;
+            $sync_params['conn_params']['connector_id']    = $connector_id;
+            $sync_params['conn_params']['shops']           = $this->connector_shops;
+            $sync_params['conn_params']['currentLanguage'] = $this->currentLanguage;
+            $sync_params['conn_params']['defaultLanguage'] = $this->defaultLanguage;
 
-        if (isset($table_data['products']['deleted'])) {
-            $product_items_del = $table_data['products']['deleted'];
-            $product_items_del = $this->organizarIndicesTablas(
-                $product_items_del,
-                $data_returned['data_schema_info']['products']
-            );
-        } else {
-            $product_items_del = array();
-        }
+            $data_schema = [];
 
-        if (isset($table_data['product_formats']['deleted'])) {
-            $product_formats_items_del = $table_data['product_formats']['deleted'];
-            $product_formats_items_del = $this->organizarIndicesTablas(
-                $product_formats_items_del,
-                $data_returned['data_schema_info']['product_formats']
-            );
-        } else {
-            $product_formats_items_del = array();
-        }
-        /*  $this->debbug('After organize table ->' . print_r($product_items, 1));
-          $this->removeDownloadingBlock('DOWNLOADING');
-          return false;*/
+            do {
+                $this->debbug('Page ' . $counter . '  ');
+                gc_enable();
+                gc_collect_cycles();
 
-        $sync_params = $arrayReturn = array();
-
-        $shops = $this->getConnectorShops($connector_id);
-
-        $this->connector_shops = $shops;
-
-        if (!empty($product_formats_items) && isset($data_returned['data_schema_info']['product_formats'])
-            && !empty($data_returned['data_schema_info']['product_formats'])
-        ) {
-            try {
-                $this->synchronizeAttributeGroup(
-                    $data_returned['data_schema_info']['product_formats'],
-                    $shops,
-                    $connector_id,
-                    $comp_id
-                );
-            } catch (Exception $e) {
-                $this->debbug('## Error.  synchronizeAttributeGroup->' . $e->getMessage());
-                $this->debbug('## Error.  trace->' . print_r($e->getTrace(), 1));
-            }
-        }
-
-        $sync_params['conn_params']['comp_id'] = $comp_id;
-        $sync_params['conn_params']['connector_id'] = $connector_id;
-        $sync_params['conn_params']['shops'] = $this->connector_shops;
-        $sync_params['conn_params']['currentLanguage'] = $this->currentLanguage;
-        $sync_params['conn_params']['defaultLanguage'] = $this->defaultLanguage;
-
-
-        $contextShopID = Shop::getContextShopID();
-
-        if (!empty($shops)) {
-            $this->debbug('Total count of elements to be deleted stored: ' . count($catalogue_items_del));
-
-            $timer_delete_data = microtime(1);
-
-            $sync_type = 'delete';
-            if (count($catalogue_items_del) > 0 || count($product_items_del) > 0
-                || count(
-                    $product_formats_items_del
-                ) > 0
-            ) {
-                $time_ini_store_items_delete = microtime(1);
-                if (!empty($catalogue_items_del)) {
-                    $item_type = 'category';
-                    $this->debbug('Total count of categories to be deleted stored: ' . count($catalogue_items_del));
-                    $this->debbug('Deleted category data to be stored: ' . print_r($catalogue_items_del, 1));
-                    $arrayReturn['categories_to_delete'] = count($catalogue_items_del);
-                    foreach ($catalogue_items_del as $catalog) {
-                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog)) {
-                            $item_data = [];
-                            $item_data['sl_id'] = $catalog;
-                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                                json_encode($item_data)
-                            ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
-                            $this->insertSyncdataSql();
-                        }
-                    }
+                $table_data = $api->getResponseTableData();
+                $this->organizeKeys($table_data, $data_returned);
+                if ($counter === 0) {
+                    $data_schema = $this->getDataSchema($api);
+                    $this->processAttributes($data_returned, $connector_id, $comp_id);
+                }
+                $count_items = $this->countItemsForSyncronize($table_data);
+                $this->debbug('page-> '.$counter.' content->' . print_r($count_items, 1) . ' ');
+                $this->processDeletes($sync_params);
+                $this->processDataForModify($data_returned, $data_schema, $sync_params);
+                gc_disable();
+                $continue = $api->haveNextPage();
+                if ($continue) {
+                    $api->getNextPageInfo();
                 }
 
-                if (!empty($product_items_del)) {
-                    $item_type = 'product';
-
-                    if ($this->debugmode > 1) {
-                        $this->debbug('Total count of deleted products to be stored: ' . count($product_items_del));
-                    }
-                    if ($this->debugmode > 1) {
-                        $this->debbug('Deleted product data to be stored: ' . print_r($product_items_del, 1));
-                    }
-                    $arrayReturn['products_to_delete'] = count($product_items_del);
-
-                    foreach ($product_items_del as $product) {
-                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $product)) {
-                            $item_data             = array();
-                            $item_data['sl_id']    = $product;
-                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                                json_encode($item_data)
-                            ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
-                            $this->insertSyncdataSql();
-                        }
-                    }
-                }
-
-                if (!empty($product_formats_items_del)) {
-                    $item_type = 'product_format';
-
-                    if ($this->debugmode > 1) {
-                        $this->debbug(
-                            'Total count of deleted product variants to be stored: ' . count($product_formats_items_del)
-                        );
-                    }
-                    if ($this->debugmode > 1) {
-                        $this->debbug(
-                            'Deleted product variant data to be stored: ' . print_r($product_formats_items_del, 1)
-                        );
-                    }
-                    $arrayReturn['product_formats_to_delete'] = count($product_formats_items_del);
-                    foreach ($product_formats_items_del as $product_format) {
-                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $product_format)) {
-                            $item_data             = array();
-                            $item_data['sl_id']    = $product_format;
-                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                                json_encode($item_data)
-                            ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
-                            $this->insertSyncdataSql();
-                        }
-                    }
-                }
-
-                $this->debbug(
-                    '#### time_store_items_delete - ' . $item_type . ': ' . (microtime(
-                        1
-                    ) - $time_ini_store_items_delete) . ' seconds.'
-                );
-            }
-
-            $this->insertSyncdataSql(true);
-
-            $this->debbug('After deleting apì data  ->' . (microtime(1) - $timer_delete_data) . 's');
-            $this->clearDebugContent();
-
-            $timer_sync_apidata = microtime(1);
-
-            if (count($catalogue_items) > 0 || count($product_items) > 0 || count($product_formats_items) > 0) {
-                if ($this->debugmode > 2) {
-                    $this->debbug('Total count of modified elements to be stored: ' . count($catalogue_items_del));
-                }
-                $sync_type = 'update';
-                // $time_ini_store_items_update = microtime(1);
-
-
-                $this->debbug(
-                    ' Starting synchronisation and sending information to the shops with ids: ->' . print_r(
-                        $shops,
-                        1
-                    )
-                );
-                /**
-                 * Sync Catalogues
-                 */
-
-                if (!empty($catalogue_items)) {
-                    $item_type = 'category';
-                    $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['catalogue'];
-                    $sync_params['conn_params']['data_schema'] = $data_schema;
-                    $defaultCategory = (int) Configuration::get('PS_HOME_CATEGORY');
-                    $defaultCategory = $this->checkDefaultCategory($defaultCategory);
-                    $catalogue_items = $this->firstReorganizeCategories($catalogue_items);
-
-                    if ($this->debugmode > 1) {
-                        $this->debbug('Total count of sync categories to store: ' . count($catalogue_items));
-                    }
-                    if ($this->debugmode > 2) {
-                        $this->debbug('Sync categories data to store: ' . print_r($catalogue_items, 1));
-                    }
-
-
-                    $arrayReturn['categories_to_sync'] = count($catalogue_items);
-                    foreach ($catalogue_items as $catalog) {
-                        $data_insert = array();
-                        $data_insert['sync_data'] = $catalog;
-                        $data_insert['defaultCategory'] = $defaultCategory;
-
-                        if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog, $data_insert)) {
-                            $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
-                            $sync_params_to_insert = json_encode($sync_params);
-
-                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                                $item_data_to_insert
-                            ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
-                            $this->insertSyncdataSql();
-                        }
-                    }
-                }
-                /**
-                 * Move variants to products (unify variants)
-                 */
-                if (!empty($product_formats_items)) {
-                    foreach ($product_formats_items as $key_variant => $product_formats_item) {
-                        if (isset($product_formats_item['ID_products'])) {
-                            if (isset($product_items[$product_formats_item['ID_products']])) {
-                                $product_items[$product_formats_item['ID_products']]['variants']
-                                [$product_formats_item['ID']]['item'] =
-                                    $product_formats_item;
-
-                                $product_items[$product_formats_item['ID_products']]['variants']
-                                [$product_formats_item['ID']]['schema'] =
-                                    $data_returned['data_schema_info']['product_formats'];
-                                unset($product_formats_items[$key_variant]);
-                            }
-                        }
-                    }
-                }
-
-                /**
-                 * Sync all Products
-                 */
-
-                if (!empty($product_items)) {
-                    if ($this->debugmode > 1) {
-                        $this->debbug('Total count of synced products to store: ' . count($product_items));
-                    }
-                    if ($this->debugmode > 2) {
-                        $this->debbug('Synced products data to store: ' . print_r($product_items, 1));
-                    }
-
-                    $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['products'];
-                    $sync_params['conn_params']['data_schema'] = $data_schema;
-                    $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
-                    $sync_params['conn_params']['sync_categories'] = $exist_categories;
-                    $arrayReturn['products_to_sync'] = count($product_items);
-                    foreach ($product_items as $product) {
-                        $item_type = 'product';
-                        $data_insert              = [];
-                        $data_insert['sync_data'] = $product;
-
-                        if ($this->checkChangesBeforeSave(
-                            $sync_type,
-                            $item_type,
-                            $product,
-                            $avoid_stock_update,
-                            $shops
-                        )
-                        ) {
-                            if (isset($product['variants']) && count($product['variants'])) {
-                                foreach ($product['variants'] as $variant_id => $variant) {
-                                    if (!$this->checkChangesBeforeSave(
-                                        $sync_type,
-                                        'product_format',
-                                        $variant['item'],
-                                        $avoid_stock_update,
-                                        $shops
-                                    )
-                                    ) {//variant without changes
-                                        unset($data_insert['sync_data']['variants'][$variant_id]);
-                                    }
-                                }
-                            }
-                            if (isset($data_insert['sync_data']['variants']) &&
-                                empty($data_insert['sync_data']['variants'])
-                            ) {
-                                unset($data_insert['sync_data']['variants']);
-                            }
-                            $num_variants = (isset($data_insert['sync_data']['variants'])?count($data_insert['sync_data']['variants']):0);
-                            $item_data_to_insert   = json_encode($data_insert); //html_entity_decode
-                            $sync_params_to_insert = json_encode($sync_params);
-                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                                $item_data_to_insert
-                            ) . "', '" . addslashes($sync_params_to_insert) . "','".$num_variants."')";
-                            $this->insertSyncdataSql();
-                        } else {
-                            //if product not have changes
-                            if (isset($product['variants']) && count($product['variants'])) {
-                                $item_type = 'product_format';
-                                foreach ($product['variants'] as $variant) {
-                                    $data_insert              = [];
-                                    $data_insert['sync_data'] = $variant['item'];
-                                    if ($this->checkChangesBeforeSave(
-                                        $sync_type,
-                                        $item_type,
-                                        $variant['item'],
-                                        $avoid_stock_update,
-                                        $shops
-                                    )
-                                    ) {
-                                        $sync_params['conn_params']['data_schema_info'] =
-                                            $data_returned['data_schema_info']['product_formats'];
-                                        $sync_params['conn_params']['data_schema'] = $data_schema;
-                                        $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
-                                        $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
-                                        $sync_params_to_insert = json_encode($sync_params);
-
-                                        $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" .
-                                                                 addslashes(
-                                                                     $item_data_to_insert
-                                                                 ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
-                                        $this->insertSyncdataSql();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                /**
-                 *
-                 *
-                 * Sync Variants
-                 */
-
-                if (!empty($product_formats_items)) {
-                    $item_type = 'product_format';
-
-                    if ($this->debugmode > 1) {
-                        $this->debbug(
-                            'Total count of synced product formats to store: ' . count($product_formats_items)
-                        );
-                    }
-                    if ($this->debugmode > 2) {
-                        $this->debbug('Product variants data: ' . print_r($product_formats_items, 1));
-                    }
-
-                    $sync_params['conn_params']['data_schema_info'] =
-                        $data_returned['data_schema_info']['product_formats'];
-                    $sync_params['conn_params']['data_schema'] = $data_schema['product_formats'];
-                    $sync_params['conn_params']['avoid_stock_update'] = $avoid_stock_update;
-                    /*   $product_formats_items = $this->reorganizeProductFormats(
-                           $product_formats_items
-                       );*/
-                    $arrayReturn['product_formats_to_sync'] = count($product_formats_items);
-
-
-                    foreach ($product_formats_items as $product_format) {
-                        $data_insert = array();
-                        $data_insert['sync_data'] = $product_format;
-
-                        if ($this->checkChangesBeforeSave(
-                            $sync_type,
-                            $item_type,
-                            $product_format,
-                            $avoid_stock_update,
-                            $shops
-                        )
-                        ) {
-                            $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
-                            $sync_params_to_insert = json_encode($sync_params);
-
-                            $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                                $item_data_to_insert
-                            ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
-                            $this->insertSyncdataSql();
-                        }
-                    }
-                }
-
-                $this->insertSyncdataSql(true);
-                Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
-
-
-                $this->debbug('After synchronizeApiData duration: ->' . (microtime(1) - $timer_sync_apidata) . 's');
-                unset($this->sl_catalogues, $this->sl_products, $this->sl_variants);
-            }
+                $counter ++;
+            } while ($continue);
         }
+       // Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
         $this->runWorkProcess('image-preloader');
         $this->removeDownloadingBlock('DOWNLOADING');
         $this->stopIndexer();
@@ -617,7 +239,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         if (!$api->hasResponseError()) {
             $this->debbug('Actualizando last update ->' . $last_update_save . ' ');
-            $this->sl_updater->setConnectorLastUpdate($connector_id, $last_update_save);
+            $this->setConnectors($connector_id, ['last_update' => $last_update_save]);
 
             //call to cron for sincronize all cached data
             if (!$onlystore && $this->checkRegistersForProccess()) {
@@ -646,16 +268,16 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
 
 
-        if (count($catalogue_items) > 0 || count($catalogue_items_del) > 0 || count($product_items) > 0
-            || count(
-                $product_items_del
-            ) > 0
-            || count($product_formats_items) > 0
-            || count($product_formats_items_del) > 0
+        if (count($this->catalogue_items)
+            || count($this->catalogue_items_del)
+            || count($this->product_items)
+            || count($this->product_items_del)
+            || count($this->product_formats_items)
+            || count($this->product_formats_items_del)
         ) {
             $this->clearDebugContent();
             $this->debbug(
-                'After connexion downloaded element for process ->' . print_r($arrayReturn, 1) .
+                'After connexion downloaded element for process ->' . print_r($this->arrayReturn, 1) .
                 ' from connector ->' . $connector_id . ' Petition last changes from  ->' . print_r($last_update, 1) .
                 ' at ->' .
                 date(
@@ -664,11 +286,460 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 '',
                 true
             );
-            return $arrayReturn;
+            return $this->arrayReturn;
         } else {
             return false;
         }
     }
+    public function countItemsForSyncronize($array)
+    {
+        $data_count = array( 'total' => 0 );
+        foreach ($array as $table => $tables_data) {
+            foreach ($tables_data as $action => $data_sync) {
+                if (is_array($data_sync)) {
+                    $count                           = count($data_sync);
+                    $data_count[ $table ][ $action ] = $count;
+                    $data_count['total']             += $count;
+                } else {
+                    //echo 'error in table '.$table.' action '.$action.' data_sync is not array<br>';
+                }
+            }
+        }
+        return $data_count;
+    }
+    private function processDeletes($sync_params)
+    {
+        $this->debbug('Total count of elements to be deleted stored: ' . count($this->catalogue_items_del));
+
+        $timer_delete_data = microtime(1);
+
+        if (count($this->catalogue_items_del)
+            || count($this->product_items_del)
+            || count($this->product_formats_items_del)
+        ) {
+            $time_ini_store_items_delete = microtime(1);
+
+            $this->processDeletesCategories($sync_params);
+            $this->processDeletesProducts($sync_params);
+            $this->processDeletesVariants($sync_params);
+
+            $this->debbug(
+                '#### time_store_items_delete : ' . (microtime(
+                    1
+                ) - $time_ini_store_items_delete) . ' seconds.'
+            );
+        }
+
+        $this->insertSyncdataSql(true);
+
+        $this->debbug('After deleting apì data  ->' . (microtime(1) - $timer_delete_data) . 's');
+        $this->clearDebugContent();
+    }
+    private function processDeletesCategories($sync_params)
+    {
+        $sync_type = 'delete';
+        if (!empty($this->catalogue_items_del)) {
+            $item_type = 'category';
+            $this->debbug('Total count of categories to be deleted stored: ' . count($this->catalogue_items_del));
+            $this->debbug('Deleted category data to be stored: ' . print_r($this->catalogue_items_del, 1));
+            $this->arrayReturn['categories_to_delete'] = count($this->catalogue_items_del);
+            foreach ($this->catalogue_items_del as $key => $catalog) {
+                if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog)) {
+                    $item_data = [];
+                    $item_data['sl_id'] = $catalog;
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                        json_encode($item_data)
+                    ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
+                    $this->insertSyncdataSql();
+                }
+                unset($this->catalogue_items_del[$key]);
+            }
+        }
+    }
+    private function processDeletesProducts($sync_params)
+    {
+        if (!empty($this->product_items_del)) {
+            $sync_type = 'delete';
+            $item_type = 'product';
+
+            if ($this->debugmode > 1) {
+                $this->debbug('Total count of deleted products to be stored: ' . count($this->product_items_del));
+            }
+            if ($this->debugmode > 1) {
+                $this->debbug('Deleted product data to be stored: ' . print_r($this->product_items_del, 1));
+            }
+            $this->arrayReturn['products_to_delete'] = count($this->product_items_del);
+
+            foreach ($this->product_items_del as $key => $product) {
+                if ($this->checkChangesBeforeSave($sync_type, $item_type, $product)) {
+                    $item_data             = array();
+                    $item_data['sl_id']    = $product;
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                        json_encode($item_data)
+                    ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
+                    $this->insertSyncdataSql();
+                }
+                unset($this->product_items_del[$key]);
+            }
+        }
+    }
+    private function processDeletesVariants($sync_params)
+    {
+        $sync_type = 'delete';
+        if (!empty($this->product_formats_items_del)) {
+            $item_type = 'product_format';
+
+            if ($this->debugmode > 1) {
+                $this->debbug(
+                    'Total count of deleted product variants to be stored: ' . count($this->product_formats_items_del)
+                );
+            }
+            if ($this->debugmode > 1) {
+                $this->debbug(
+                    'Deleted product variant data to be stored: ' . print_r($this->product_formats_items_del, 1)
+                );
+            }
+            $this->arrayReturn['product_formats_to_delete'] = count($this->product_formats_items_del);
+            foreach ($this->product_formats_items_del as $key => $product_format) {
+                if ($this->checkChangesBeforeSave($sync_type, $item_type, $product_format)) {
+                    $item_data             = array();
+                    $item_data['sl_id']    = $product_format;
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                        json_encode($item_data)
+                    ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
+                    $this->insertSyncdataSql();
+                }
+                unset($this->product_formats_items_del[$key]);
+            }
+        }
+    }
+
+
+    private function processDataForModify($data_returned, $data_schema, $sync_params)
+    {
+        $timer_sync_apidata = microtime(1);
+        if (count($this->catalogue_items) || count($this->product_items) || count($this->product_formats_items)) {
+            if ($this->debugmode > 2) {
+                $this->debbug('Total count of modified elements to be stored: ' . count($this->catalogue_items_del));
+            }
+            // $time_ini_store_items_update = microtime(1);
+
+            $this->debbug(
+                ' Starting synchronisation and sending information to the shops with ids: ->' . print_r(
+                    $this->connector_shops,
+                    1
+                )
+            );
+
+            $this->processSyncCategories($data_returned, $data_schema, $sync_params);
+            $this->unifyVariantsToProducts($data_returned);
+            $this->processSyncProducts($data_returned, $data_schema, $sync_params);
+            $this->processSyncVariants($data_returned, $data_schema, $sync_params);
+
+            $this->insertSyncdataSql(true);
+
+
+            $this->debbug('After synchronizeApiData duration: ->' . (microtime(1) - $timer_sync_apidata) . 's');
+            unset($this->sl_catalogues, $this->sl_products, $this->sl_variants);
+        }
+    }
+    private function processSyncCategories($data_returned, $data_schema, $sync_params)
+    {
+        if (!empty($this->catalogue_items)) {
+            $sync_type = 'update';
+            $item_type = 'category';
+            $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['catalogue'];
+            $sync_params['conn_params']['data_schema'] = $data_schema;
+            $defaultCategory = (int) Configuration::get('PS_HOME_CATEGORY');
+            $defaultCategory = $this->checkDefaultCategory($defaultCategory);
+           // $this->catalogue_items = $this->firstReorganizeCategories($this->catalogue_items);
+
+            if ($this->debugmode > 1) {
+                $this->debbug('Total count of sync categories to store: ' . count($this->catalogue_items));
+            }
+            if ($this->debugmode > 2) {
+                $this->debbug('Sync categories data to store: ' . print_r($this->catalogue_items, 1));
+            }
+
+
+            $this->arrayReturn['categories_to_sync'] += count($this->catalogue_items);
+            foreach ($this->catalogue_items as $key => $catalog) {
+                $data_insert = array();
+                $data_insert['sync_data'] = $catalog;
+                $data_insert['defaultCategory'] = $defaultCategory;
+
+                if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog, $data_insert)) {
+                    $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params);
+
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                        $item_data_to_insert
+                    ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
+                    $this->insertSyncdataSql();
+                }
+                unset($this->catalogue_items[$key]);
+            }
+        }
+    }
+    private function processSyncProducts($data_returned, $data_schema, $sync_params)
+    {
+        if (!empty($this->product_items)) {
+            if ($this->debugmode > 1) {
+                $this->debbug('Total count of synced products to store: ' . count($this->product_items));
+            }
+            if ($this->debugmode > 2) {
+                $this->debbug('Synced products data to store: ' . print_r($this->product_items, 1));
+            }
+
+            $sync_params['conn_params']['data_schema_info'] = $data_returned['data_schema_info']['products'];
+            $sync_params['conn_params']['data_schema'] = $data_schema;
+            $sync_params['conn_params']['avoid_stock_update'] = $this->avoid_stock_update;
+            $sync_params['conn_params']['sync_categories'] = $this->exist_categories;
+            $this->arrayReturn['products_to_sync'] += count($this->product_items);
+            foreach ($this->product_items as $key => $product) {
+                $sync_type = 'update';
+                $item_type = 'product';
+                $data_insert              = [];
+                $data_insert['sync_data'] = $product;
+
+                if ($this->checkChangesBeforeSave(
+                    $sync_type,
+                    $item_type,
+                    $product,
+                    $this->avoid_stock_update,
+                    $this->connector_shops
+                )
+                ) {
+                    if (isset($product['variants']) && count($product['variants'])) {
+                        foreach ($product['variants'] as $variant_id => $variant) {
+                            if (!$this->checkChangesBeforeSave(
+                                $sync_type,
+                                'product_format',
+                                $variant['item'],
+                                $this->avoid_stock_update,
+                                $this->connector_shops
+                            )
+                            ) {//variant without changes
+                                unset($data_insert['sync_data']['variants'][$variant_id]);
+                            }
+                        }
+                    }
+                    if (isset($data_insert['sync_data']['variants']) &&
+                        empty($data_insert['sync_data']['variants'])
+                    ) {
+                        unset($data_insert['sync_data']['variants']);
+                    }
+                    $num_variants = (isset($data_insert['sync_data']['variants']) ? count($data_insert['sync_data']['variants']) : 0);
+                    $item_data_to_insert   = json_encode($data_insert); //html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params);
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                        $item_data_to_insert
+                    ) . "', '" . addslashes($sync_params_to_insert) . "','".$num_variants."')";
+                    $this->insertSyncdataSql();
+                } else {
+                    //if product not have changes
+                    if (isset($product['variants']) && count($product['variants'])) {
+                        $item_type = 'product_format';
+                        foreach ($product['variants'] as $variant) {
+                            $data_insert              = [];
+                            $data_insert['sync_data'] = $variant['item'];
+                            if ($this->checkChangesBeforeSave(
+                                $sync_type,
+                                $item_type,
+                                $variant['item'],
+                                $this->avoid_stock_update,
+                                $this->connector_shops
+                            )
+                            ) {
+                                $sync_params['conn_params']['data_schema_info'] =
+                                    $data_returned['data_schema_info']['product_formats'];
+                                $sync_params['conn_params']['data_schema'] = $data_schema;
+                                $sync_params['conn_params']['avoid_stock_update'] = $this->avoid_stock_update;
+                                $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
+                                $sync_params_to_insert = json_encode($sync_params);
+
+                                $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" .
+                                                         addslashes(
+                                                             $item_data_to_insert
+                                                         ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
+                                $this->insertSyncdataSql();
+                            }
+                        }
+                    }
+                }
+                unset($this->product_items[$key]);
+            }
+        }
+    }
+    private function processSyncVariants($data_returned, $data_schema, $sync_params)
+    {
+        if (!empty($this->product_formats_items)) {
+            $item_type = 'product_format';
+            $sync_type = 'update';
+
+            if ($this->debugmode > 1) {
+                $this->debbug(
+                    'Total count of synced product formats to store: ' . count($this->product_formats_items)
+                );
+            }
+            if ($this->debugmode > 2) {
+                $this->debbug('Product variants data: ' . print_r($this->product_formats_items, 1));
+            }
+
+            $sync_params['conn_params']['data_schema_info'] =
+                $data_returned['data_schema_info']['product_formats'];
+            $sync_params['conn_params']['data_schema'] = $data_schema;
+            $sync_params['conn_params']['avoid_stock_update'] = $this->avoid_stock_update;
+            $this->arrayReturn['product_formats_to_sync'] += count($this->product_formats_items);
+
+
+            foreach ($this->product_formats_items as $key => $product_format) {
+                $data_insert = array();
+                $data_insert['sync_data'] = $product_format;
+
+                if ($this->checkChangesBeforeSave(
+                    $sync_type,
+                    $item_type,
+                    $product_format,
+                    $this->avoid_stock_update,
+                    $this->connector_shops
+                )
+                ) {
+                    $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params);
+
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                        $item_data_to_insert
+                    ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
+                    $this->insertSyncdataSql();
+                }
+                unset($this->product_formats_items[$key]);
+            }
+        }
+    }
+
+
+
+    private function processAttributes($data_returned, $connector_id, $comp_id)
+    {
+        if (!empty($this->product_formats_items) && isset($data_returned['data_schema_info']['product_formats'])
+            && !empty($data_returned['data_schema_info']['product_formats'])
+        ) {
+            try {
+                $this->synchronizeAttributeGroup(
+                    $data_returned['data_schema_info']['product_formats'],
+                    $this->connector_shops,
+                    $connector_id,
+                    $comp_id
+                );
+            } catch (Exception $e) {
+                $this->debbug('## Error.  synchronizeAttributeGroup->' . $e->getMessage());
+                $this->debbug('## Error.  trace->' . print_r($e->getTrace(), 1));
+            }
+        }
+    }
+
+    private function organizeKeys($table_data, $data_returned)
+    {
+
+        if (isset($table_data['catalogue']['modified'], $data_returned['data_schema_info']['catalogue'])) {
+            $this->catalogue_items = $this->organizarIndicesTablas(
+                $table_data['catalogue']['modified'],
+                $data_returned['data_schema_info']['catalogue']
+            );
+            $this->exist_categories = true;
+        }
+        if (isset($table_data['products']['modified'], $data_returned['data_schema_info']['products'])) {
+            $this->product_items = $this->organizarIndicesTablas(
+                $table_data['products']['modified'],
+                $data_returned['data_schema_info']['products']
+            );
+        }
+        if (isset($data_returned['data_schema_info']['product_formats'], $table_data['product_formats']['modified'])) {
+            $this->product_formats_items = $this->organizarIndicesTablas(
+                $table_data['product_formats']['modified'],
+                $data_returned['data_schema_info']['product_formats']
+            );
+        }
+        // organize deletes
+        if (isset($table_data['catalogue']['deleted'])) {
+            $this->catalogue_items_del = $this->organizarIndicesTablas(
+                $table_data['catalogue']['deleted'],
+                $data_returned['data_schema_info']['catalogue']
+            );
+        }
+
+        if (isset($table_data['products']['deleted'])) {
+            $this->product_items_del = $this->organizarIndicesTablas(
+                $table_data['products']['deleted'],
+                $data_returned['data_schema_info']['products']
+            );
+        }
+
+        if (isset($table_data['product_formats']['deleted'])) {
+            $this->product_formats_items_del = $this->organizarIndicesTablas(
+                $table_data['product_formats']['deleted'],
+                $data_returned['data_schema_info']['product_formats']
+            );
+        }
+    }
+    private function unifyVariantsToProducts($data_returned)
+    {
+        if (!empty($this->product_formats_items)) {
+            foreach ($this->product_formats_items as $key_variant => $product_formats_item) {
+                if (isset($product_formats_item['ID_products'])) {
+                    if (isset($this->product_items[$product_formats_item['ID_products']])) {
+                        $this->product_items[$product_formats_item['ID_products']]['variants']
+                        [$product_formats_item['ID']]['item'] =
+                            $product_formats_item;
+
+                        $this->product_items[$product_formats_item['ID_products']]['variants']
+                        [$product_formats_item['ID']]['schema'] =
+                            $data_returned['data_schema_info']['product_formats'];
+                        unset($this->product_formats_items[$key_variant]);
+                    }
+                }
+            }
+        }
+    }
+    private function processLanguages($data_returned)
+    {
+        $this->debbug('Language api_data iso codes  ->' . print_r($data_returned['schema']['languages'], 1));
+        $langIso = null;
+        try {
+            if (isset($data_returned['schema']['languages']) && !empty($data_returned['schema']['languages'])) {
+                foreach ($data_returned['schema']['languages'] as $lang) {
+                    $ps_id_lang = Language::getIdByIso($lang);
+                    if (in_array($ps_id_lang, $this->shop_languages, false)) {
+                        $langIso = $lang;
+                        break;
+                    }
+                }
+            } elseif (isset($data_returned['schema']['default_language'])
+                      && $data_returned['schema']['default_language']
+            ) {
+                $id_lang = Language::getIdByIso($data_returned['schema']['default_language']);
+                if ($id_lang != null) {
+                    $langIso = $id_lang;
+                }
+            }
+        } catch (Exception $e) {
+            $this->debbug(
+                '## Error. Schema generation error->' . $e->getMessage() . ' trace->' . print_r($e->getTrace(), 1),
+                'syncdata'
+            );
+        }
+        if ($langIso != null) {
+            $this->currentLanguage = Language::getIdByIso($langIso);
+            ($this->currentLanguage == null || $this->currentLanguage == 0) ?
+                $this->currentLanguage = $this->defaultLanguage : false;
+        } else {
+            $this->currentLanguage = $this->defaultLanguage;
+        }
+        $this->debbug('currentLanguage->' . $this->currentLanguage . '  defaultLanguage ->' . $this->defaultLanguage);
+        Configuration::updateValue('CURRENT_LANGUAGE', $this->currentLanguage);
+    }
+
 
     /**
      * remove accents from string
@@ -2522,7 +2593,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
     /**
      * Function to get data schema from the connector images.
-     * @param  $slconn array Sales Layer connector
+     * @param  $slconn object Sales Layer connector
      * @return array                connector's schema
      */
 
@@ -2530,9 +2601,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $slconn
     ) {
         $info = $slconn->getResponseTableInformation();
-
-        $schema = array();
-
+        $schema = [];
         foreach ($info as $table => $data) {
             if (isset($data['table_joins'])) {
                 $schema[$table]['table_joins'] = $data['table_joins'];
@@ -2542,12 +2611,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 foreach ($data['fields'] as $field => $struc) {
                     if (isset($struc['has_multilingual']) and $struc['has_multilingual']) {
                         if (!isset($schema[$table][$field])) {
-                            $schema[$table]['fields'][$struc['basename']] = array(
-
+                            $schema[$table]['fields'][$struc['basename']] = [
                                 'type' => $struc['type'],
                                 'has_multilingual' => 1,
                                 'multilingual_name' => $field,
-                            );
+                            ];
 
                             if ($struc['type'] == 'image') {
                                 $schema[$table]['fields']['image_sizes'] = $struc['image_sizes'];
