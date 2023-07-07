@@ -401,7 +401,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             }
             $this->arrayReturn['product_formats_to_delete'] = count($this->product_formats_items_del);
             foreach ($this->product_formats_items_del as $key => $product_format) {
-                if ($this->checkChangesBeforeSave($sync_type, $item_type, $product_format)) {
+                if ($this->checkChangesBeforeSave($sync_type, 'combination', $product_format)) {
                     $item_data             = array();
                     $item_data['sl_id']    = $product_format;
                     $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
