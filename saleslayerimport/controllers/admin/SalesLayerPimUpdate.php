@@ -139,10 +139,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $comp_id = $conn_info['comp_id'];
         $this->avoid_stock_update = $conn_info['avoid_stock_update'];
 
-	    $pagination = $this->getConfiguration('PAGINATION');
-	    if (!$pagination) {
-		    $this->pagination = $this->default_api_pagination;
-	    }
+        $pagination = $this->getConfiguration('PAGINATION');
+        $this->pagination = ($pagination? $pagination: $this->default_api_pagination);
+
 
         //Clear registers in Sales Layer table deleted in Prestashop
         $this->clearDeletedSlyrRegs();
@@ -167,8 +166,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
-        ini_set('memory_limit', '50M');
+        ini_set('memory_limit', ($pagination/2).'M');
         $this->checkFreeSpaceMemory();
+
+
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
         } else {
@@ -176,6 +177,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
 
         $data_returned = $api->getDataReturned();
+        $data_returned['data'] = [];
+       // unset($data_returned['data']);
+       
 
         if ($api->hasResponseError()) {
             $this->debbug('## Error. : ' . $api->getResponseError() . ' Msg: ' . $api->getResponseErrorMessage());
@@ -197,7 +201,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
             $last_update_save = $api->getResponseTime('unix');
 
-
             $sync_params                                   = [];
             $sync_params['conn_params']['comp_id']         = $comp_id;
             $sync_params['conn_params']['connector_id']    = $connector_id;
@@ -213,15 +216,18 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 gc_collect_cycles();
 
                 $table_data = $api->getResponseTableData();
+                $count_items = $this->countItemsForSyncronize($table_data);
                 $this->organizeKeys($table_data, $data_returned);
+                $table_data = [];
                 if ($counter === 0) {
                     $data_schema = $this->getDataSchema($api);
                     $this->processAttributes($data_returned, $connector_id, $comp_id);
                 }
-                $count_items = $this->countItemsForSyncronize($table_data);
                 $this->debbug('page-> '.$counter.' content->' . print_r($count_items, 1) . ' ');
                 $this->processDeletes($sync_params);
+                $this->clearDebugContent();
                 $this->processDataForModify($data_returned, $data_schema, $sync_params);
+                $this->clearDebugContent();
                 gc_disable();
                 $continue = $api->haveNextPage();
                 if ($continue) {
@@ -291,7 +297,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return false;
         }
     }
-    public function countItemsForSyncronize($array)
+
+	/**
+	 * @param $array
+	 *
+	 * @return int[]
+	 */
+	public function countItemsForSyncronize($array)
     {
         $data_count = array( 'total' => 0 );
         foreach ($array as $table => $tables_data) {
@@ -307,7 +319,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
         return $data_count;
     }
-    private function processDeletes($sync_params)
+
+	/**
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processDeletes($sync_params)
     {
         $this->debbug('Total count of elements to be deleted stored: ' . count($this->catalogue_items_del));
 
@@ -335,7 +353,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->debbug('After deleting apì data  ->' . (microtime(1) - $timer_delete_data) . 's');
         $this->clearDebugContent();
     }
-    private function processDeletesCategories($sync_params)
+
+	/**
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processDeletesCategories($sync_params)
     {
         $sync_type = 'delete';
         if (!empty($this->catalogue_items_del)) {
@@ -356,7 +380,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
             }
         }
     }
-    private function processDeletesProducts($sync_params)
+
+	/**
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processDeletesProducts($sync_params)
     {
         if (!empty($this->product_items_del)) {
             $sync_type = 'delete';
@@ -383,7 +413,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
             }
         }
     }
-    private function processDeletesVariants($sync_params)
+
+	/**
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processDeletesVariants($sync_params)
     {
         $sync_type = 'delete';
         if (!empty($this->product_formats_items_del)) {
@@ -415,7 +451,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
     }
 
 
-    private function processDataForModify($data_returned, $data_schema, $sync_params)
+	/**
+	 * @param $data_returned
+	 * @param $data_schema
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processDataForModify($data_returned, $data_schema, $sync_params)
     {
         $timer_sync_apidata = microtime(1);
         if (count($this->catalogue_items) || count($this->product_items) || count($this->product_formats_items)) {
@@ -443,7 +486,15 @@ class SalesLayerPimUpdate extends SalesLayerImport
             unset($this->sl_catalogues, $this->sl_products, $this->sl_variants);
         }
     }
-    private function processSyncCategories($data_returned, $data_schema, $sync_params)
+
+	/**
+	 * @param $data_returned
+	 * @param $data_schema
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processSyncCategories($data_returned, $data_schema, $sync_params)
     {
         if (!empty($this->catalogue_items)) {
             $sync_type = 'update';
@@ -478,10 +529,19 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $this->insertSyncdataSql();
                 }
                 unset($this->catalogue_items[$key]);
+                $this->clearDebugContent();
             }
         }
     }
-    private function processSyncProducts($data_returned, $data_schema, $sync_params)
+
+	/**
+	 * @param $data_returned
+	 * @param $data_schema
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processSyncProducts($data_returned, $data_schema, $sync_params)
     {
         if (!empty($this->product_items)) {
             if ($this->debugmode > 1) {
@@ -568,10 +628,19 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     }
                 }
                 unset($this->product_items[$key]);
+                $this->clearDebugContent();
             }
         }
     }
-    private function processSyncVariants($data_returned, $data_schema, $sync_params)
+
+	/**
+	 * @param $data_returned
+	 * @param $data_schema
+	 * @param $sync_params
+	 *
+	 * @return void
+	 */
+	private function processSyncVariants($data_returned, $data_schema, $sync_params)
     {
         if (!empty($this->product_formats_items)) {
             $item_type = 'product_format';
@@ -614,13 +683,20 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $this->insertSyncdataSql();
                 }
                 unset($this->product_formats_items[$key]);
+                $this->clearDebugContent();
             }
         }
     }
 
 
-
-    private function processAttributes($data_returned, $connector_id, $comp_id)
+	/**
+	 * @param $data_returned
+	 * @param $connector_id
+	 * @param $comp_id
+	 *
+	 * @return void
+	 */
+	private function processAttributes($data_returned, $connector_id, $comp_id)
     {
         if (!empty($this->product_formats_items) && isset($data_returned['data_schema_info']['product_formats'])
             && !empty($data_returned['data_schema_info']['product_formats'])
@@ -639,7 +715,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
     }
 
-    private function organizeKeys($table_data, $data_returned)
+	/**
+	 * @param $table_data
+	 * @param $data_returned
+	 *
+	 * @return void
+	 */
+	private function organizeKeys($table_data, $data_returned)
     {
 
         if (isset($table_data['catalogue']['modified'], $data_returned['data_schema_info']['catalogue'])) {
@@ -683,7 +765,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
             );
         }
     }
-    private function unifyVariantsToProducts($data_returned)
+
+	/**
+	 * @param $data_returned
+	 *
+	 * @return void
+	 */
+	private function unifyVariantsToProducts($data_returned)
     {
         if (!empty($this->product_formats_items)) {
             foreach ($this->product_formats_items as $key_variant => $product_formats_item) {
@@ -702,7 +790,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
             }
         }
     }
-    private function processLanguages($data_returned)
+
+	/**
+	 * @param $data_returned
+	 *
+	 * @return void
+	 */
+	private function processLanguages($data_returned)
     {
         $this->debbug('Language api_data iso codes  ->' . print_r($data_returned['schema']['languages'], 1));
         $langIso = null;
@@ -1217,7 +1311,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
         return str_replace($a, $b, $str);
     }
 
-    public function downloadImageToTemp(
+	/**
+	 * @param $url
+	 * @param $temp_dir
+	 * @param $get_hash
+	 *
+	 * @return false|string
+	 */
+	public function downloadImageToTemp(
         $url,
         $temp_dir = null,
         $get_hash = false
@@ -1276,7 +1377,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return false;
         }
     }
-    public function decodeUrl($url)
+
+	/**
+	 * @param $url
+	 *
+	 * @return string
+	 */
+	public function decodeUrl($url)
     {
         $url_parse = parse_url($url);
         $explode = explode('/', $url_parse['path']);
@@ -1288,7 +1395,15 @@ class SalesLayerPimUpdate extends SalesLayerImport
         return $newurl;
     }
 
-    public function urlSendCustomJson(
+	/**
+	 * @param $type
+	 * @param $url
+	 * @param $json
+	 * @param $wait_for_response
+	 *
+	 * @return array
+	 */
+	public function urlSendCustomJson(
         $type,
         $url,
         $json = null,
@@ -1365,7 +1480,12 @@ class SalesLayerPimUpdate extends SalesLayerImport
         return array($http_stat, $result, $httpcode);
     }
 
-    public function getExensionFile(
+	/**
+	 * @param $url
+	 *
+	 * @return false|string
+	 */
+	public function getExensionFile(
         $url
     ) {
         $url_array = explode('/', $url);
@@ -1553,47 +1673,79 @@ class SalesLayerPimUpdate extends SalesLayerImport
     /**
      * sort tables with a structure
      * Organiza los indices cambiando el nombre de un campo con lenguaje por el nombre base.
-     * @param array $tablas with tables to sort
+     * @param array $items with tables to sort
      * @param array $tablaStructure with order to sort by
      * @return array $tablas with tables sorted
      */
 
 
     protected function organizarIndicesTablas(
-        $tablas,
+        $items,
         $tablaStructure
     ) {
-        foreach ($tablaStructure as $keyStruct => $campoStruct) {
-            if (isset($campoStruct['basename'])) {
-                foreach ($tablas as $keyTab => $campoTabla) {
-                    if (isset($campoTabla['data']) && !empty($campoTabla['data'])) {
-                        if (array_key_exists($keyStruct, $campoTabla['data'])) {
+        $new_table = [];
+        foreach ($items as $keyItem => $item) {
+            foreach ($tablaStructure as $keyStruct => $campoStruct) {
+                if (isset($item['ID'])) {
+                    $key_new_tabla = $item['ID'];
+                } else {
+                    $this->debbug('##Error. Unexpected key, not have id for set to array->' . print_r($keyItem, 1));
+                    $key_new_tabla = $keyItem;
+                }
+                if (isset($item['ID'])) {
+                    $new_table[$key_new_tabla]['ID'] = $item['ID'];
+                }
+                if (isset($item['ID_PARENT'])) {
+                    $new_table[$key_new_tabla]['ID_PARENT'] = $item['ID_PARENT'];
+                }
+                if (isset($item['ID_products'])) {
+                    $new_table[$key_new_tabla]['ID_products'] = $item['ID_products'];
+                }
+                if (isset($item['ID_catalogue'])) {
+                    $new_table[$key_new_tabla]['ID_catalogue'] = $item['ID_catalogue'];
+                }
+                if (!isset($new_table[$key_new_tabla]['data'])) {
+                    $new_table[$key_new_tabla]['data'] = [];
+                }
+                if (isset($campoStruct['basename'])) {
+                    if (isset($item['data'])) {
+                        if (array_key_exists($keyStruct, $item['data'])) {
                             if (isset($campoStruct['language_code']) && !empty($campoStruct['language_code'])) {
                                 $index_name = $campoStruct['basename'] . '_' . $campoStruct['language_code'];
-                                $tablas[$keyTab]['data'][$index_name] =
-                                    $tablas[$keyTab]['data'][$keyStruct];
+                                $new_table[$key_new_tabla]['data'][$index_name] =
+                                    $item['data'][$keyStruct];
+                              /*  $this->debbug(
+                                    'This is multi-language ' . print_r(
+                                        $campoStruct['language_code'],
+                                        1
+                                    ) . ' $keyStruct[data]-> ' . print_r($keyStruct, 1)
+                                );*/
+                                unset($items[$keyItem]['data'][$keyStruct]);
                             } else {
-                                $this->debbug(
+                              /*  $this->debbug(
                                     'This is not multi-language ' . print_r(
                                         $campoStruct['language_code'],
                                         1
                                     ) . ' $keyStruct[data]-> ' . print_r($keyStruct, 1)
-                                );
-                                $tablas[$keyTab]['data'][$campoStruct['basename']] =
-                                    $tablas[$keyTab]['data'][$keyStruct];
+                                );*/
+                                $new_table[$key_new_tabla]['data'][$campoStruct['basename']] =
+                                $items[$keyItem]['data'][$keyStruct];
+                                unset($items[$keyItem]['data'][$keyStruct]);
                             }
                         }
+                    } else {
+                        $this->debbug('##Error. no data in item->' . print_r($item, 1));
+                    }
+                } else {//si no tiene basename es un campo que no es multilenguaje
+                    if (isset($item['data'][$keyStruct])) {
+                           $new_table[$key_new_tabla]['data'][$keyStruct] =
+                           $item['data'][$keyStruct];
+                           unset($item['data'][$keyStruct]);
+                        //  $this->debbug(' element copied to array->' .print_r($campoStruct, 1));
+                    } else {
+                        $new_table[$key_new_tabla][$keyStruct] = $item[$keyStruct];
                     }
                 }
-            }
-        }
-        $new_table = [];
-        foreach ($tablas as $campoTabla) {
-            if (isset($campoTabla['ID'])) {
-                $new_table[$campoTabla['ID']] = $campoTabla;
-            } else {
-                $new_table = $tablas;
-                break;
             }
         }
         return $new_table;

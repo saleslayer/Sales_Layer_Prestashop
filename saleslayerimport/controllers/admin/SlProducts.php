@@ -62,11 +62,6 @@ class SlProducts extends SalesLayerPimUpdate
         $sync_categories,
         $connector_id
     ) {
-        $this->debbug(
-            ' >>>>>>>>>>>>>>>>>>>>> Start Product ->' . $product['data']['product_reference'] .
-            ' time->' . date("H:i:s") . ' micro-time->' . microtime(true) . ' <<<<<<<<<<<<<<<<<<<<<<<<<<<',
-            'syncdata'
-        );
 
         $test_after_update = array();
         $mulilanguage = array();
@@ -80,6 +75,11 @@ class SlProducts extends SalesLayerPimUpdate
         } else {
             $occurence = ' ID :' . $product['ID'];
         }
+        $this->debbug(
+            ' >>>>>>>>>>>>>>>>>>>>> Start Product ->' . $occurence .
+            ' time->' . date("H:i:s") . ' micro-time->' . microtime(true) . ' <<<<<<<<<<<<<<<<<<<<<<<<<<<',
+            'syncdata'
+        );
         $this->sync_categories =  $sync_categories;
         $syncProduct = true;
         $additional_output = array();
@@ -6764,7 +6764,7 @@ class SlProducts extends SalesLayerPimUpdate
                                         $schema[$index_another_language]['title'];
                                 } else {
                                     $new_feature->name[$lang_sub['id_lang']] =
-	                                    $schema[$index_another_language]['basename'];
+                                        $schema[$index_another_language]['basename'];
                                 }
                             }
                         }

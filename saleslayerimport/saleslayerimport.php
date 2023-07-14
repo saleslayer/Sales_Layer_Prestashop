@@ -300,7 +300,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '2.0.0';
+        $this->version = '2.1.0';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -374,7 +374,11 @@ class SalesLayerImport extends Module
 
         $this->debugmode = $debugmode;
     }
-    public function errorSetup()
+
+	/**
+	 * @return void
+	 */
+	public function errorSetup()
     {
         ini_set('ignore_repeated_errors', 1);
         ini_set('display_errors', 0);
@@ -456,7 +460,11 @@ class SalesLayerImport extends Module
 
         return $resultado;
     }
-    public function loadLanguages()
+
+	/**
+	 * @return void
+	 */
+	public function loadLanguages()
     {
         $all_languages           = Language::getLanguages(false);
         $this->defaultLanguage   = (int)Configuration::get('PS_LANG_DEFAULT');
@@ -575,6 +583,16 @@ class SalesLayerImport extends Module
 
                 return false;
             } elseif (!$this->debugmode && !$force_print) {
+                if (count($this->debug_occurence) > 20) {
+                    $actual_limit = (int) (ini_get('memory_limit')??'320');
+                    $actual_use   = (int) (memory_get_usage(true) / 1024) / 1024;
+                    $actual_limit = ($actual_limit / 2);
+
+                    if ($actual_limit <= $actual_use) {
+                        $this->clearDebugContent();
+                    }
+                }
+
                 $this->debug_occurence[] = array($mensaje, $type_file);
 
                 return false;
@@ -1576,7 +1594,14 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         return $return;
     }
-    public function createSLPluginCronUrl($internal = false, $encoded = true)
+
+	/**
+	 * @param $internal
+	 * @param $encoded
+	 *
+	 * @return string
+	 */
+	public function createSLPluginCronUrl($internal = false, $encoded = true)
     {
         $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
         $task_url =
@@ -1593,7 +1618,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         return $task_url;
     }
 
-    public function testSlCronLatestRun()
+	/**
+	 * @return bool
+	 */
+	public function testSlCronLatestRun()
     {
         $latest = (int) $this->getConfiguration('LATEST_CRON_EXECUTION');
         if ($latest >= strtotime('-10 minutes')) {
@@ -1675,19 +1703,24 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->clearDataHashOfDeletedCategories();
         $this->clearDataHashOfDeletedProducts();
     }
-    private function clearDeletedCategoriesFromCache()
+
+	/**
+	 * @return void
+	 */
+	private function clearDeletedCategoriesFromCache()
     {
+        $pagination = $this->pagination;
         $start_limit = 0;
         do {
             $categoriesDelete = Db::getInstance()->executeS(
                 "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_category_product`  sl
             LEFT JOIN `' . _DB_PREFIX_ . "category`  ca ON (ca.id_category = sl.ps_id )
-            WHERE  sl.ps_type = 'slCatalogue' AND ca.id_category is null LIMIT ".$start_limit.','.$this->pagination
+            WHERE  sl.ps_type = 'slCatalogue' AND ca.id_category is null LIMIT ".$start_limit.','.$pagination
             );
 
             if (!empty($categoriesDelete)) {
-                //  $this->debbug(' delete this slCatalogue register but already deleted ' .
-                // print_r($categoriesDelete,1).' sql->'.$schemaCats);
+                /*  $this->debbug(' delete this slCatalogue register but already deleted ' .
+                 print_r($categoriesDelete, 1).' sql->'.$categoriesDelete);*/
                 foreach ($categoriesDelete as $categoryDelete) {
                     Db::getInstance()->execute(
                         sprintf(
@@ -1699,217 +1732,303 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 }
                 $start_limit += count($categoriesDelete);
             }
-        } while (count($categoriesDelete)>=$this->pagination);
+        } while (count($categoriesDelete)>= $pagination);
     }
-    private function clearDeletedProductsFromCache()
+
+	/**
+	 * @return void
+	 */
+	private function clearDeletedProductsFromCache()
     {
-        $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
                        " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
-                       " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
-        $productsDelete = Db::getInstance()->executeS($schemaProds);
+                       " WHERE  sl.ps_type = 'product' AND p.id_product is null LIMIT ".$start_limit.','.$pagination;
+            $productsDelete = Db::getInstance()->executeS($schemaProds);
 
-        if (!empty($productsDelete)) {
-            //  $this->debbug(' delete this product register but already deleted ' .
-            // print_r($productsDelete,1).' $sql->'.$schemaProds);
-            foreach ($productsDelete as $productDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"' .
-                        ' AND ps_type = "product" ',
-                        $productDelete['id']
-                    )
-                );
-            }
-        }
-    }
-    private function clearDeletedAttributesGroupFromCache()
-    {
-        $schemaAttrs = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
-                       " LEFT JOIN " . $this->attribute_group_table . " ag ON (ag.id_attribute_group = sl.ps_id ) " .
-                       " WHERE  sl.ps_type = 'product_format_field' AND ag.id_attribute_group is null ";
-        $attributesDelete = Db::getInstance()->executeS($schemaAttrs);
-
-        if (!empty($attributesDelete)) {
-            foreach ($attributesDelete as $attributeDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s" ' .
-                        ' AND ps_type = "product_format_field" ',
-                        $attributeDelete['id']
-                    )
-                );
-            }
-        }
-    }
-    private function clearAttributesValuesFromNonexistentGroupsInPrestashop()
-    {
-        $schemaAttributesGroup = 'SELECT at.id_attribute FROM ' . $this->attribute_table . ' AS at ' .
-                                 ' LEFT JOIN ' . $this->attribute_group_table . ' AS pa
-            ON (pa.id_attribute_group = at.id_attribute_group ) WHERE pa.id_attribute_group is null ';
-        $deleteAttributeGroup = Db::getInstance()->executeS($schemaAttributesGroup);
-
-        if (!empty($deleteAttributeGroup)) {
-            $this->debbug(
-                '## Warning. Attribute values are sent to delete because their group no longer exists ->' .
-                print_r(
-                    $deleteAttributeGroup,
-                    1
-                )
-            );
-            foreach ($deleteAttributeGroup as $Attribute) {
-                //$attributeValue = new AttributeCore($Attribute['id_attribute']);
-
-                if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
-                    // PrestaShop 8.0.0 y versiones posteriores
-                    $attributeValue = new ProductAttributeCore($Attribute['id_attribute']);
-                } else {
-                    // Versiones anteriores a PrestaShop 8.0.0
-                    $attributeValue = new AttributeCore($Attribute['id_attribute']);
+            if (!empty($productsDelete)) {
+                //  $this->debbug(' delete this product register but already deleted ' .
+                // print_r($productsDelete,1).' $sql->'.$schemaProds);
+                foreach ($productsDelete as $productDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"' .
+                            ' AND ps_type = "product" ',
+                            $productDelete['id']
+                        )
+                    );
                 }
-
-                $attributeValue->delete();
+                $start_limit += count($productsDelete);
             }
-        }
+        } while (count($productsDelete)>= $pagination);
     }
-    private function clearNonExistentAttributesValuesFromCache()
-    {
-        $schemaAttrVals = 'SELECT id FROM ' . _DB_PREFIX_ . 'slyr_category_product  AS sl ' .
-                          ' LEFT JOIN ' . $this->attribute_table . ' AS a ON (a.id_attribute = sl.ps_id ) ' .
-                          " WHERE  sl.ps_type = 'product_format_value' AND a.id_attribute is null ";
-        $attributeValuesDelete = Db::getInstance()->executeS($schemaAttrVals);
 
-        if (!empty($attributeValuesDelete)) {
-            //  $this->debbug(' delete this product_format_value register but already deleted ' .
-            //print_r($attributeValuesDelete,1).' sql->'.$schemaAttrVals);
-            foreach ($attributeValuesDelete as $attributeValueDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"' .
-                        ' AND ps_type = "product_format_value" ',
-                        $attributeValueDelete['id']
+	/**
+	 * @return void
+	 */
+	private function clearDeletedAttributesGroupFromCache()
+    {
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaAttrs = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_category_product`  sl " .
+                           " LEFT JOIN " . $this->attribute_group_table .
+                           " ag ON (ag.id_attribute_group = sl.ps_id ) " .
+                           " WHERE  sl.ps_type = 'product_format_field' " .
+                           " AND ag.id_attribute_group is null LIMIT ".$start_limit.','.$pagination;
+            $attributesDelete = Db::getInstance()->executeS($schemaAttrs);
+
+            if (!empty($attributesDelete)) {
+                foreach ($attributesDelete as $attributeDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s" ' .
+                            ' AND ps_type = "product_format_field" ',
+                            $attributeDelete['id']
+                        )
+                    );
+                }
+                $start_limit += count($attributesDelete);
+            }
+        } while (count($attributesDelete)>= $pagination);
+    }
+
+	/**
+	 * @return void
+	 */
+	private function clearAttributesValuesFromNonexistentGroupsInPrestashop()
+    {
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaAttributesGroup = 'SELECT at.id_attribute FROM ' . $this->attribute_table . ' AS at ' .
+                                 ' LEFT JOIN ' . $this->attribute_group_table . ' AS pa
+            ON (pa.id_attribute_group = at.id_attribute_group ) WHERE pa.id_attribute_group is null LIMIT '.$start_limit.','.$pagination;
+            $deleteAttributeGroup = Db::getInstance()->executeS($schemaAttributesGroup);
+
+            if (!empty($deleteAttributeGroup)) {
+                $this->debbug(
+                    '## Warning. Attribute values are sent to delete because their group no longer exists ->' .
+                    print_r(
+                        $deleteAttributeGroup,
+                        1
                     )
                 );
+                foreach ($deleteAttributeGroup as $Attribute) {
+                    //$attributeValue = new AttributeCore($Attribute['id_attribute']);
+
+                    if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
+                        // PrestaShop 8.0.0 y versiones posteriores
+                        $attributeValue = new ProductAttributeCore($Attribute['id_attribute']);
+                    } else {
+                        // Versiones anteriores a PrestaShop 8.0.0
+                        $attributeValue = new AttributeCore($Attribute['id_attribute']);
+                    }
+
+                    $attributeValue->delete();
+                }
+                $start_limit += count($deleteAttributeGroup);
             }
-        }
+        } while (count($deleteAttributeGroup)>= $pagination);
     }
-    private function clearDeletedVariantsFromCache()
+
+	/**
+	 * @return void
+	 */
+	private function clearNonExistentAttributesValuesFromCache()
     {
-        $schemaFeatures = " SELECT sl.id FROM " . _DB_PREFIX_ . "slyr_category_product  AS sl " .
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaAttrVals = 'SELECT id FROM ' . _DB_PREFIX_ . 'slyr_category_product  AS sl ' .
+                              ' LEFT JOIN ' . $this->attribute_table . ' AS a ON (a.id_attribute = sl.ps_id ) ' .
+                              " WHERE  sl.ps_type = 'product_format_value' AND a.id_attribute is null LIMIT ".$start_limit.','.$pagination;
+            $attributeValuesDelete = Db::getInstance()->executeS($schemaAttrVals);
+
+            if (!empty($attributeValuesDelete)) {
+                //  $this->debbug(' delete this product_format_value register but already deleted ' .
+                //print_r($attributeValuesDelete,1).' sql->'.$schemaAttrVals);
+                foreach ($attributeValuesDelete as $attributeValueDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"' .
+                            ' AND ps_type = "product_format_value" ',
+                            $attributeValueDelete['id']
+                        )
+                    );
+                }
+                $start_limit += count($attributeValuesDelete);
+            }
+        } while (count($attributeValuesDelete)>= $pagination);
+    }
+
+	/**
+	 * @return void
+	 */
+	private function clearDeletedVariantsFromCache()
+    {
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaFeatures = " SELECT sl.id FROM " . _DB_PREFIX_ . "slyr_category_product  AS sl " .
                           " LEFT JOIN " . $this->product_attribute_table .
                           " AS pa ON (pa.id_product_attribute = sl.ps_id ) " .
-                          " WHERE  sl.ps_type = 'combination' AND ( pa.id_product_attribute is null OR pa.id_product = 0) ";
-        $featuresDelete = Db::getInstance()->executeS($schemaFeatures);
+                          " WHERE  sl.ps_type = 'combination' AND " .
+                              " ( pa.id_product_attribute is null OR pa.id_product = 0) "
+                          ." LIMIT ".$start_limit.','.$pagination ;
+            $featuresDelete = Db::getInstance()->executeS($schemaFeatures);
 
-        if (!empty($featuresDelete)) {
-            //  $this->debbug(' delete this combination register but already deleted ' .
-            // print_r($featuresDelete,1).' sql->'.$schemaFeatures);
-            foreach ($featuresDelete as $featureDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"  ' .
-                        ' AND ps_type = "combination" ',
-                        $featureDelete['id']
-                    )
-                );
+            if (!empty($featuresDelete)) {
+                //  $this->debbug(' delete this combination register but already deleted ' .
+                // print_r($featuresDelete,1).' sql->'.$schemaFeatures);
+                foreach ($featuresDelete as $featureDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_category_product  WHERE id = "%s"  ' .
+                            ' AND ps_type = "combination" ',
+                            $featureDelete['id']
+                        )
+                    );
+                }
+                $start_limit += count($featuresDelete);
             }
-        }
+        } while (count($featuresDelete)>= $pagination);
     }
-    private function clearDataHashFromDeletedVariants()
+
+	/**
+	 * @return void
+	 */
+	private function clearDataHashFromDeletedVariants()
     {
-        $schemaFeatures = " SELECT sl.ps_id FROM " . _DB_PREFIX_ . "slyr_input_compare  AS sl " .
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaFeatures = " SELECT sl.ps_id FROM " . _DB_PREFIX_ . "slyr_input_compare  AS sl " .
                           " LEFT JOIN " . $this->product_attribute_table .
                           " AS pa ON (pa.id_product_attribute = sl.ps_id ) " .
                           " WHERE  sl.ps_type = 'product_format' AND " .
-                          " ( pa.id_product_attribute is null OR pa.id_product = 0) ";
-        $featuresDelete = Db::getInstance()->executeS($schemaFeatures);
+                          " ( pa.id_product_attribute is null OR pa.id_product = 0) " .
+                           " LIMIT ".$start_limit.','.$pagination ;
+            $featuresDelete = Db::getInstance()->executeS($schemaFeatures);
 
-        if (!empty($featuresDelete)) {
-            //  $this->debbug(' delete this combination register but already deleted ' .
-            // print_r($featuresDelete,1).' sql->'.$schemaFeatures);
-            foreach ($featuresDelete as $featureDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ .
-                        'slyr_input_compare WHERE ' .
-                        ' ps_type = "product_format" ' .
-                        ' AND ps_id = "%s"',
-                        $featureDelete['ps_id']
-                    )
-                );
+            if (!empty($featuresDelete)) {
+                //  $this->debbug(' delete this combination register but already deleted ' .
+                // print_r($featuresDelete,1).' sql->'.$schemaFeatures);
+                foreach ($featuresDelete as $featureDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ .
+                            'slyr_input_compare WHERE ' .
+                            ' ps_type = "product_format" ' .
+                            ' AND ps_id = "%s"',
+                            $featureDelete['ps_id']
+                        )
+                    );
+                }
+                $start_limit += count($featuresDelete);
             }
-        }
+        } while (count($featuresDelete)>= $pagination);
     }
-    private function clearDeletedImagesFromCache()
-    {
 
-        $schemaImages = " SELECT sl.id_image FROM " . _DB_PREFIX_ . "slyr_image AS sl " .
+	/**
+	 * @return void
+	 */
+	private function clearDeletedImagesFromCache()
+    {
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaImages = " SELECT sl.id_image FROM " . _DB_PREFIX_ . "slyr_image AS sl " .
                         " LEFT JOIN " . $this->image_shop_table . ' AS pa
-            ON (pa.id_image = sl.id_image ) WHERE pa.id_image is null ';
+            ON (pa.id_image = sl.id_image ) WHERE pa.id_image is null ' .
+                        " LIMIT ".$start_limit.','.$pagination ;
 
-        $deleteImages = Db::getInstance()->executeS($schemaImages);
+            $deleteImages = Db::getInstance()->executeS($schemaImages);
 
-        if (!empty($deleteImages)) {
-            $this->debbug('Enviando imagenes para eliminar de tabla SLYR que ya no existen en la
-             tabla de imagenes de prestashop $deleteImages->' . print_r($deleteImages, 1) .
-                          ' query->' . print_r($schemaImages, 1));
-            foreach ($deleteImages as $ImageforDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ . 'slyr_image WHERE id_image = "%s"',
-                        $ImageforDelete['id_image']
-                    )
-                );
+            if (!empty($deleteImages)) {
+               /* $this->debbug('Enviando imagenes para eliminar de tabla SLYR que ya no existen en la
+                 tabla de imagenes de prestashop $deleteImages->' . print_r($deleteImages, 1) .
+                          ' query->' . print_r($schemaImages, 1));*/
+                foreach ($deleteImages as $ImageforDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ . 'slyr_image WHERE id_image = "%s"',
+                            $ImageforDelete['id_image']
+                        )
+                    );
+                }
+                $start_limit += count($deleteImages);
             }
-        }
+        } while (count($deleteImages) >= $pagination);
     }
-    private function clearDataHashOfDeletedCategories()
+
+	/**
+	 * @return void
+	 */
+	private function clearDataHashOfDeletedCategories()
     {
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaCats = " SELECT sl.id FROM " . _DB_PREFIX_ . "slyr_input_compare  AS sl " .
+                          " LEFT JOIN " . _DB_PREFIX_ . "category  AS ca ON (ca.id_category = sl.ps_id ) " .
+                          " WHERE  sl.ps_type = 'category' AND ca.id_category is null " .
+                          " LIMIT ".$start_limit.','.$pagination ;
+            $categoriesDelete = Db::getInstance()->executeS($schemaCats);
 
-        $categoriesDelete = Db::getInstance()->executeS(
-            "SELECT sl.id FROM `" . _DB_PREFIX_ . 'slyr_input_compare`  sl
-            LEFT JOIN `' . _DB_PREFIX_ . "category`  ca ON (ca.id_category = sl.ps_id )
-            WHERE  sl.ps_type = 'category' AND ca.id_category is null"
-        );
-
-        if (!empty($categoriesDelete)) {
-            //  $this->debbug(' delete this slCatalogue register but already deleted ' .
-            // print_r($categoriesDelete,1).' sql->'.$schemaCats);
-            foreach ($categoriesDelete as $categoryDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ .
-                        'slyr_input_compare WHERE ' .
-                        ' ps_type = "category" ' .
-                        'AND id = "%s"',
-                        $categoryDelete['id']
-                    )
-                );
+            if (!empty($categoriesDelete)) {
+                //  $this->debbug(' delete this slCatalogue register but already deleted ' .
+                // print_r($categoriesDelete,1).' sql->'.$schemaCats);
+                foreach ($categoriesDelete as $categoryDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ .
+                            'slyr_input_compare WHERE ' .
+                            ' ps_type = "category" ' .
+                            'AND id = "%s"',
+                            $categoryDelete['id']
+                        )
+                    );
+                }
+                $start_limit += count($categoriesDelete);
             }
-        }
+        } while (count($categoriesDelete) >= $pagination);
     }
-    private function clearDataHashOfDeletedProducts()
-    {
-        $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_input_compare`  sl " .
-                       " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
-                       " WHERE  sl.ps_type = 'product' AND p.id_product is null ";
-        $productsDelete = Db::getInstance()->executeS($schemaProds);
 
-        if (!empty($productsDelete)) {
-            //  $this->debbug(' delete this product register but already deleted ' .
-            // print_r($productsDelete,1).' $sql->'.$schemaProds);
-            foreach ($productsDelete as $productDelete) {
-                Db::getInstance()->execute(
-                    sprintf(
-                        'DELETE FROM ' . _DB_PREFIX_ .
-                        'slyr_input_compare ' .
-                        ' WHERE ' .
-                        'ps_type = "product" ' .
-                        ' AND id = "%s"',
-                        $productDelete['id']
-                    )
-                );
+	/**
+	 * @return void
+	 */
+	private function clearDataHashOfDeletedProducts()
+    {
+        $pagination = $this->pagination;
+        $start_limit = 0;
+        do {
+            $schemaProds = " SELECT sl.id FROM `" . _DB_PREFIX_ . "slyr_input_compare`  sl " .
+                           " LEFT JOIN `" . $this->product_table . "` p ON (p.id_product = sl.ps_id ) " .
+                           " WHERE  sl.ps_type = 'product' AND p.id_product is null ".
+                           " LIMIT ".$start_limit.','.$pagination;
+            $productsDelete = Db::getInstance()->executeS($schemaProds);
+
+            if (!empty($productsDelete)) {
+                //  $this->debbug(' delete this product register but already deleted ' .
+                // print_r($productsDelete,1).' $sql->'.$schemaProds);
+                foreach ($productsDelete as $productDelete) {
+                    Db::getInstance()->execute(
+                        sprintf(
+                            'DELETE FROM ' . _DB_PREFIX_ .
+                            'slyr_input_compare ' .
+                            ' WHERE ' .
+                            'ps_type = "product" ' .
+                            ' AND id = "%s"',
+                            $productDelete['id']
+                        )
+                    );
+                }
+                $start_limit += count($productsDelete);
             }
-        }
+        } while (count($productsDelete) >= $pagination);
     }
 
 
@@ -2377,7 +2496,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         return $connectors;
     }
 
-    public function getConectors($columns = [], $where = [])
+	/**
+	 * @param $columns
+	 * @param $where
+	 *
+	 * @return array|bool|mixed|mysqli_result|PDOStatement|resource
+	 */
+	public function getConectors($columns = [], $where = [])
     {
         try {
             $where_sql = [];
@@ -2394,7 +2519,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
             foreach ($connectors as $num => $connector) {
                 foreach ($connector as $column => $values) {
-                    if (is_string($values) && !empty($values) && substr(trim($values), 0, 1) == '{' && substr(trim($values), -1) == '}') {
+                    if (is_string($values) && !empty($values) &&
+                        substr(trim($values), 0, 1) == '{'
+                        && substr(trim($values), -1) == '}') {
                         $values = stripslashes($values);
                         $connectors[$num][$column] = json_decode($values, true);
                     }
@@ -2575,7 +2702,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
 
         if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
-            $this->debbug('returned registers from '.$table.' ->' . print_r($items_processing['sl_cuenta_registros'], 1));
+            $this->debbug('returned registers from '.$table.' ->' .
+                          print_r($items_processing['sl_cuenta_registros'], 1));
             if ($return_num) {
                 return $items_processing['sl_cuenta_registros'];
             } else {
@@ -2589,7 +2717,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $items_processing = $this->slConnectionQuery('read', $sql_processing);
 
             if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
-                $this->debbug('returned registers from process ->' . print_r($items_processing['sl_cuenta_registros'], 1));
+                $this->debbug('returned registers from process ->' .
+                              print_r($items_processing['sl_cuenta_registros'], 1));
                 if ($return_num) {
                     $this->debbug('returned registers from ' . $table . ' ->' . print_r(
                         $items_processing['sl_cuenta_registros'],
@@ -3681,6 +3810,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->urlSendCustomJson('GET', $url_for_run, null, false);
 */
     }
+
+    /**
+     * @param $to
+     * @param $commands
+     *
+     * @return void
+     */
     public function callProcess($to = 'indexer', $commands = [])
     {
         try {
@@ -3854,7 +3990,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 print_r($showtotalMemory, 1) . ' Mb ' .
                            'Free Memory for usage->' .
                 print_r($showreal_usedMemory, 1) . ' Mb ' .
-                ' Free memory ->' . print_r($percentualyuse, 1) . '%'
+                ' used memory ->' . print_r($percentualyuse, 1) . '%'
             );
             $max_memory = $this->getConfiguration('MAX_MEMORY_USAGE');
             if ($max_memory) {
@@ -3918,12 +4054,22 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $v = $cleared;
         return $v;
     }
+
+    /**
+     * @return array
+     */
     public function createIntegrity()
     {
         $files = $this->checkIntegrity();
         $this->saveIntegrity($files);
         return $files;
     }
+
+    /**
+     * @param $files
+     *
+     * @return void
+     */
     private function saveIntegrity($files)
     {
         if (!file_exists($this->integrityPathDirectory)) {
@@ -3938,6 +4084,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         chmod($this->integrityPathDirectory . $this->integrityFile, 0775);
     }
 
+    /**
+     * @return array
+     */
     private function checkIntegrity()
     {
         try {
@@ -4077,6 +4226,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         return ($unix_a < $unix_b) ? -1 : 1;
     }
+
+    /**
+     * @param $string
+     *
+     * @return false|int
+     */
     public function strtotime($string)
     {
         $valuetm =  $this->fomatDate($string);
@@ -4184,6 +4339,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
         return false;
     }
+
+    /**
+     * @param $sync_type
+     * @param $item_type
+     * @param $item_data
+     * @param $avoid_stock_update
+     * @param $shops
+     *
+     * @return bool
+     */
     public function checkChangesBeforeSave($sync_type, $item_type, $item_data, $avoid_stock_update = false, $shops = [])
     {
         if ($sync_type == 'delete') {
@@ -4294,6 +4459,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                       ' type or undefined item type.');
         return true;
     }
+
+    /**
+     * @param $prepare_input_compare
+     * @param $table
+     *
+     * @return bool|void
+     */
     public static function setRegisterInputCompare($prepare_input_compare, $table = 'slyr_input_compare')
     {
         if (isset($prepare_input_compare['conn_id'])) {
@@ -4328,54 +4500,58 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             return false;
         }
     }
+
     /**
-     * Function to get ON DUPLICATE KEY UPDATE fields statement
-     * @param string $field         field name to get statement
-     * @return string field         statement
+     * @param $soft_clear
+     *
+     * @return void
      */
-    private static function getDuplicateKeys($field)
-    {
-        return $field.' = values('.$field.')';
-    }
     public function clearDataHash($soft_clear = true)
     {
         if ($soft_clear) {
             $tables = ['product','category'];
             try {
                 foreach ($tables as $table) {
-                    $query = 'SELECT pg.id_' . $table . ' FROM ' . _DB_PREFIX_  . 'slyr_input_compare ic
-                           inner join ' . _DB_PREFIX_ . $table . ' pg ON pg.id_' . $table . ' = ic.ps_id ' .
-                             ' WHERE ic.ps_type ="' . $table . '" AND pg.date_upd > ic.timestamp_modified';
-                    $result =    Db::getInstance()->executeS($query);
+                    $pagination = $this->pagination;
+                    $start_limit = 0;
+                    do {
+                        $query = 'SELECT pg.id_' . $table . ' FROM ' . _DB_PREFIX_  . 'slyr_input_compare ic
+	                           inner join ' . _DB_PREFIX_ . $table . ' pg ON pg.id_' . $table . ' = ic.ps_id ' .
+                                 ' WHERE ic.ps_type ="' . $table . '" AND pg.date_upd > ic.timestamp_modified ' .
+                                " LIMIT ".$start_limit.','.$pagination;
+                        $result =    Db::getInstance()->executeS($query);
 
-                    $this->debbug('Check if has been modified this product ->: ' .
-                                  print_r($query, 1));
-                    if (count($result)) {
-                        $result = array_column($result, 'id_' . $table);
+                        $this->debbug('Check if has been modified this product ->: ' .
+                                      print_r($query, 1));
+                        if (count($result)) {
+                            $result = array_column($result, 'id_' . $table);
 
-                        if ($table == 'product') {// delete variants hash if product has been modified
-                            foreach ($result as $id_product) {
-                                $this->debbug('Deleting from cache all variants of product ->: ' .
-                                              print_r($id_product, 1));
-                                $delete_variants_hash = 'DELETE FROM ' .  _DB_PREFIX_  . 'slyr_input_compare ' .
-                                                        ' WHERE ' .
-                                                        ' ps_type ="product_format" ' .
-                                                        'AND ps_id IN(' .
-                                                        'SELECT id_product_attribute FROM ' . _DB_PREFIX_ .
-                                                        'product_attribute ' .
-                                                        ' WHERE ' .
-                                                        ' id_product = "' . $id_product . '" 
-							                         ) ';
-                                Db::getInstance()->execute($delete_variants_hash);
+                            if ($table == 'product') {// delete variants hash if product has been modified
+                                foreach ($result as $id_product) {
+                                    $this->debbug('Deleting from cache all variants of product ->: ' .
+                                                  print_r($id_product, 1));
+                                    $delete_variants_hash = 'DELETE FROM ' .  _DB_PREFIX_  . 'slyr_input_compare ' .
+                                                            ' WHERE ' .
+                                                            ' ps_type ="product_format" ' .
+                                                            'AND ps_id IN(' .
+                                                            'SELECT id_product_attribute FROM ' . _DB_PREFIX_ .
+                                                            'product_attribute ' .
+                                                            ' WHERE ' .
+                                                            ' id_product = "' . $id_product . '" 
+								                         ) ';
+                                    Db::getInstance()->execute($delete_variants_hash);
+                                }
                             }
+                            $this->debbug('Deleting from cache input compare ' . $table .
+                                          ' ->: ' . print_r($result, 1));
+                            $delete_query = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ' .
+                                            ' WHERE ' .
+                                            'ps_type ="' . $table .
+                                            '" AND ps_id IN(' . implode(',', $result) . ') ';
+                            Db::getInstance()->execute($delete_query);
+                            $start_limit += count($result);
                         }
-                        $this->debbug('Deleting from cache input compare ' . $table . ' ->: ' . print_r($result, 1));
-                        $delete_query = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ' .
-                                        ' WHERE ' .
-                                        'ps_type ="' . $table .
-                                        '" AND ps_id IN(' . implode(',', $result) . ') ';
-                        Db::getInstance()->execute($delete_query);
-                    }
+                    } while (count($result)>= $pagination);
                 }
             } catch (Exception $e) {
                 $this->debbug('## Error. cleaning data hash: ' . $e->getMessage() .
@@ -4391,6 +4567,14 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
     }
+
+    /**
+     * @param $images
+     * @param $ps_type
+     * @param $sl_id
+     *
+     * @return void
+     */
     private function setImagesPreload($images, $ps_type, $sl_id)
     {
         $this->debbug('Saving images->' . print_r($images, 1));
