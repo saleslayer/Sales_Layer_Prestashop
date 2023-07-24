@@ -108,6 +108,12 @@
                 {$pagination|escape:"quotes":"UTF-8"}
               </select>
             </td>
+            <td>
+              <label>Full synchronization trigger</label>
+              <select class="min-wid-100" name="allow_refresh" title="Selecting 'Active' will trigger a full synchronization when connector's configuration changes." id="allow_refresh" onchange="update_command(this,'allow_refresh');">
+                {$allow_refresh|escape:"quotes":"UTF-8"}
+              </select>
+            </td>
           </tr>
           </tbody>
         </table>
@@ -208,6 +214,9 @@
       if(command == 'pagination'){
         connector_id = connector_id.value;
       }
+      if(command == 'allow_refresh'){
+        connector_id = connector_id.value;
+      }
 
       jQuery.ajax({
         type: 'POST',
@@ -254,6 +263,10 @@
           }
           if(command == 'pagination') {
             document.getElementById('pagination').value = connector_id;
+            document.getElementById('form_sl_edit').submit();
+          }
+          if(command == 'allow_refresh') {
+            document.getElementById('allow_refresh').value = connector_id;
             document.getElementById('form_sl_edit').submit();
           }
 
@@ -344,8 +357,10 @@
       var api_version = $('#api_version').val();
       if(api_version == '1.18'){
         document.getElementById('pagination').disabled = false;
+        document.getElementById('allow_refresh').disabled = false;
       }else{
         document.getElementById('pagination').disabled = true;
+        document.getElementById('allow_refresh').disabled = true;
       }
     }
 

@@ -70,7 +70,7 @@ class SalesLayerImport extends Module
 
     ###############################################################
 
-    public $i_am_a_developer = true;
+    public $i_am_a_developer = false;
 
     ###############################################################
 
@@ -5068,6 +5068,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->deleteConfiguration('SYNC_STATUS');
             $this->deleteConfiguration('LAST_CONNECTOR');
             $this->deleteConfiguration('TOTAL_STAT');
+            $this->deleteConfiguration('STOPPED');
             $this->startIndexer();
             sleep(10);
             $this->clearPreloadCache();

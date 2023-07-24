@@ -295,10 +295,27 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
 
         $pagination_options = '';
         $pagination_stat = $this->SLimport->getConfiguration('PAGINATION');
-        $pagination_stat = (!$pagination_stat? $this->SLimport->default_api_pagination: $pagination_stat);
+        $pagination_stat = (!$pagination_stat ? $this->SLimport->default_api_pagination: $pagination_stat);
 
-        foreach ($this->SLimport->api_pagination_values as $pagination_value) {
-            $pagination_options .= '<option value="'.$pagination_value.'" '.($pagination_stat == $pagination_value? 'selected="selected"': '').'>'.$pagination_value.'</option>';
+
+        foreach ($this->SLimport->api_pagination_values as $pagination_key => $pagination_value) {
+			if($pagination_key !== '-1' ? $pagination_key = $pagination_value: '');
+            $pagination_options .= '<option value="'.$pagination_key.'" '.($pagination_stat == $pagination_value? 'selected="selected"': '').'>'.$pagination_value.'</option>';
+        }
+
+        $allow_refresh_options = '';
+        $allow_refresh = $this->SLimport->getConfiguration('ALLOW_REFRESH');
+        $allow_refresh = (!$allow_refresh ? 'inactive': $allow_refresh);
+        $allow_refresh = ($api_version_selected == '1.17' ? 'active': $allow_refresh);
+
+
+        $allow_refresh_values = [
+            'inactive' => 'Inactive',
+            'active'  => 'Active'
+        ];
+
+        foreach ($allow_refresh_values as $refresh_key => $refresh_value) {
+            $allow_refresh_options .= '<option value="'.$refresh_key.'" '.($allow_refresh == $refresh_key? 'selected="selected"': '').'>'.$refresh_value.'</option>';
         }
 
         $this->context->smarty->assign(
@@ -338,6 +355,7 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                 'stop_syncronization' => $this->stopSyncronizacionButton(),
                 'api_version' => $api_versions_options,
                 'pagination' => $pagination_options,
+                'allow_refresh' => $allow_refresh_options,
             )
         );
 
@@ -403,7 +421,7 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                     try {
                         $this->SLimport->setConnectors($conector_id, $order_content[$conector_id]);
                     } catch (Exception $e) {
-                        $this->SLimport->debbug('##Error. In sve chages -> ' . $e->getMessage(), '');
+                        $this->SLimport->debbug('##Error. In sve changes -> ' . $e->getMessage(), '');
                     }
                 }
             }
@@ -421,7 +439,7 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                     $sync_libs = new SalesLayerPimUpdate();
                 } catch (Exception $e) {
                     $this->SLimport->debbug(
-                        '## Error. in luad  ' . $sync_conector . ' : ' .
+                        '## Error. in load  ' . $sync_conector . ' : ' .
                         $e->getMessage() . ' line->' . $e->getLine(),
                         'error'
                     );
@@ -455,14 +473,12 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                 );
                 if (is_string($api_version) && in_array($api_version, ['1.17','1.18'])) {
                     $this->SLimport->saveConfiguration(['API_VERSION'=>$api_version]);
-                    return true;
                 } else {
                     $this->SLimport->debbug(
                         '#Error. change configuration of api version to->' . print_r($api_version, 1)
                     );
-                    echo 'error unsuported value for api version: ' . $api_version;
+                    echo 'error unsupported value for api version: ' . $api_version;
                 }
-                return false;
             }
             $pagination = Tools::getValue('pagination');
             if ($pagination != '') {
@@ -471,14 +487,26 @@ to stop all synchronization stored." class="btn btn-danger" onclick=update_comma
                 );
                 if (is_numeric($pagination) && $pagination >= 0 && $pagination <= 1000000 && is_int($pagination + 0)) {
                     $this->SLimport->saveConfiguration(['PAGINATION'=>$pagination]);
-                    return true;
                 } else {
                     $this->SLimport->debbug(
                         '##Error. change configuration of pagination to->' . print_r($api_version, 1)
                     );
-                    echo 'error unsuported value for pagination: ' . $api_version;
+                    echo 'error unsupported value for pagination: ' . $api_version;
                 }
-                return false;
+            }
+            $allow_refresh = Tools::getValue('allow_refresh');
+            if ($allow_refresh != '') {
+                $this->SLimport->debbug(
+                    'change configuration of allow_refresh to->' . print_r($allow_refresh, 1)
+                );
+                if (in_array($allow_refresh, ['active','inactive'])) {
+                    $this->SLimport->saveConfiguration(['ALLOW_REFRESH'=>$allow_refresh]);
+                } else {
+                    $this->SLimport->debbug(
+                        '##Error. change configuration of allow_refresh to->' . print_r($allow_refresh, 1)
+                    );
+                    echo 'error unsupported value for allow_refresh: ' . $allow_refresh;
+                }
             }
         }
     }

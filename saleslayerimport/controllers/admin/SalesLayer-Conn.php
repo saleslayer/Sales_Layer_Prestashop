@@ -58,10 +58,10 @@ class SalesLayerConn
     public $response_input_errors;
     public $response_input_results;
 
-    public  $response_input_tracking          = '';
-    public  $response_input_tracking_status   = '';
-    public  $response_input_tracking_percent  = 0;
-    public  $response_input_tracking_message  = '';
+    public $response_input_tracking          = '';
+    public $response_input_tracking_status   = '';
+    public $response_input_tracking_percent  = 0;
+    public $response_input_tracking_message  = '';
     private $resonpse_last_time_check         = 0;
 
     private $__codeConn  = null;
@@ -71,6 +71,8 @@ class SalesLayerConn
     protected $__group_multicategory                    = false;
     protected $__get_same_parent_variants_modifications = false;
     protected $__get_parents_category_tree              = false;
+
+    protected $__get_force_update_only                  = false;
 
     private $__error_list = [
         '1'  => 'Validation error',
@@ -109,8 +111,12 @@ class SalesLayerConn
                 $this->setIdentification($codeConn, $secretKey);
             }
 
-            if ($SSL !== null) $this->setSslConnection($SSL);
-            if ($url !== null) $this->setUrlConnection($url);
+            if ($SSL !== null) {
+                $this->setSslConnection($SSL);
+            }
+            if ($url !== null) {
+                $this->setUrlConnection($url);
+            }
         }
     }
 
@@ -168,6 +174,9 @@ class SalesLayerConn
         }
         if (false !== $this->__get_parents_category_tree) {
             $URL .= '&parents_category_tree=1';
+        }
+        if (false !== $this->__get_force_update_only) {
+            $URL .= '&force_update_only=1';
         }
 
         return $URL;
@@ -292,6 +301,11 @@ class SalesLayerConn
         $this->__get_parents_category_tree = $enable;
     }
 
+    public function setForceUpdateOnly($enable)
+    {
+        $this->__get_force_update_only = $enable;
+    }
+
     /**
      * Check if Connector identification have been set.
      *
@@ -315,7 +329,6 @@ class SalesLayerConn
     public function getInfo($last_update = null, $params = null, $connector_type = null, $add_reference_files = false)
     {
         if ($this->hasConnector()) {
-
             if ($this->time_unlimit) {
                 set_time_limit(0);
             }
@@ -329,26 +342,20 @@ class SalesLayerConn
                 $params = [];
             }
             if ($add_reference_files) {
-
                 $params['get_file_refereneces'] = 1;
             }
             if ($this->output_pagination and !isset($params['pagination'])) {
-
                 $params['pagination'] = $this->output_pagination;
             }
 
             $stat = $this->call($this->getApiUrl($last_update), $params);
 
             if ($stat) {
-
-                if (   $connector_type
+                if ($connector_type
                     && isset($this->data_returned['schema']['connector_type'])
                     &&       $this->data_returned['schema']['connector_type'] != $connector_type) {
-
-                    $this->triggerError( 'Wrong connector type: ' . $this->data_returned['schema']['connector_type'], 105);
-
+                    $this->triggerError('Wrong connector type: ' . $this->data_returned['schema']['connector_type'], 105);
                 } else {
-
                     $this->cleanError();
 
                     return $this->parsingJsonReturned();
@@ -362,18 +369,18 @@ class SalesLayerConn
     /**
      * Set pagination data
      */
-     public function setPagination($pagination)
-     {
-         $this->output_pagination = $pagination;
-     }
+    public function setPagination($pagination)
+    {
+        $this->output_pagination = $pagination;
+    }
 
      /**
      * Get pagination
      */
-     public function getPagination()
-     {
-         return $this->output_pagination;
-     }
+    public function getPagination()
+    {
+        return $this->output_pagination;
+    }
 
     /**
      * Check for data paging
@@ -393,19 +400,15 @@ class SalesLayerConn
     public function getNextPageInfo()
     {
         if ($this->response_next_page) {
-
             $this->data_returned = null;
 
             $stat = $this->call($this->response_next_page);
 
             if ($stat) {
-
                 $this->cleanError();
 
                 return $this->parsingJsonReturned();
-
             } else {
-
                 $this->response_next_page = '';
             }
         }
@@ -430,10 +433,10 @@ class SalesLayerConn
      *
      * @return integer
      */
-     public function getPageLength()
-     {
-         return ($this->response_page_length ? $this->response_page_length : 0);
-     }
+    public function getPageLength()
+    {
+        return ($this->response_page_length ? $this->response_page_length : 0);
+    }
 
     /**
      * Set info to API
@@ -451,31 +454,33 @@ class SalesLayerConn
         $params = [];
 
         if ($this->hasConnector()) {
-
             if (is_array($update_items) && !empty($update_items)) {
-
                 $params['input_data'] = [];
 
                 foreach ($update_items as $table => &$items) {
-                    if (!empty($items)) { $params['input_data'][$table] = $items; }
+                    if (!empty($items)) {
+                        $params['input_data'][$table] = $items;
+                    }
                 }
                 unset($items);
             }
 
             if (is_array($delete_items) && !empty($delete_items)) {
-
                 $params['delete_data'] = [];
 
                 foreach ($delete_items as $table => &$items) {
-                    if (is_array($items) && !empty($items)) { $params['delete_data'][$table] = $items; }
+                    if (is_array($items) && !empty($items)) {
+                        $params['delete_data'][$table] = $items;
+                    }
                 }
                 unset($items);
             }
 
             if (is_array($extra_params) && !empty($extra_params)) {
-
                 foreach ($extra_params as $key => &$data) {
-                    if (!empty($data)) { $params[$key] = $data; }
+                    if (!empty($data)) {
+                        $params[$key] = $data;
+                    }
                 }
                 unset($data);
             }
@@ -483,7 +488,6 @@ class SalesLayerConn
             unset($update_items, $delete_items, $extra_params);
 
             if (!empty($params)) {
-
                 if ($this->time_unlimit) {
                     set_time_limit(0);
                 }
@@ -502,7 +506,6 @@ class SalesLayerConn
                 $stat = $this->call($this->getApiUrl(), $params);
 
                 if ($stat && is_array($this->data_returned)) {
-
                     $stat = $this->parsingJsonReturned();
 
                     return (floatval($this->connect_API_version) > 1.17 ? $stat : $this->data_returned['input_response']);
@@ -521,7 +524,6 @@ class SalesLayerConn
     public function getInputStatus()
     {
         if ($this->response_input_status) {
-
             return $this->response_input_status;
         }
 
@@ -556,7 +558,6 @@ class SalesLayerConn
     public function getInputErrors()
     {
         if ($this->response_input_status && is_array($this->response_input_errors) && !empty($this->response_input_errors)) {
-
             return $this->response_input_errors;
         }
 
@@ -592,18 +593,15 @@ class SalesLayerConn
     public function checkInputTracking()
     {
         if (!empty($this->response_input_tracking) && time() > $this->resonpse_last_time_check) {
-
             $stat = $this->call($this->response_input_tracking);
 
             $this->resonpse_last_time_check = time();
 
             if ($stat) {
-
                 $this->cleanError();
                 $this->parsingJsonReturned();
 
                 if (!$this->response_input_tracking_status) {
-
                     $this->response_input_tracking_status  = 'end';
                     $this->response_input_tracking_percent = 100;
                     $this->response_input_tracking_message = '';
@@ -615,12 +613,10 @@ class SalesLayerConn
             $this->response_input_tracking_status  = 'error';
             $this->response_input_tracking_percent = 0;
             $this->response_input_tracking_message = '';
-
-        } else if (   empty($this->response_input_tracking)
+        } elseif (empty($this->response_input_tracking)
                    &&       $this->response_input_tracking_status != 'error'
                    && isset($this->data_returned['input_response'])
                    &&       $this->data_returned['input_response']['result'] == 2) {
-
             $this->response_input_tracking_status  = 'error';
             $this->response_input_tracking_percent = 0;
             $this->response_input_tracking_message = '';
@@ -648,12 +644,12 @@ class SalesLayerConn
      * @return array info
      */
 
-     public function getInputTrackingPercent()
-     {
+    public function getInputTrackingPercent()
+    {
         $this->checkInputTracking();
 
         return $this->response_input_tracking_percent;
-     }
+    }
 
      /**
      * Get input tracking percentage from API
@@ -661,12 +657,12 @@ class SalesLayerConn
      * @return array info
      */
 
-     public function getInputTrackingMessage()
-     {
+    public function getInputTrackingMessage()
+    {
         $this->checkInputTracking();
 
         return $this->response_input_tracking_message;
-     }
+    }
 
     /**
      * CURL Request to retrieve information.
@@ -677,10 +673,10 @@ class SalesLayerConn
      *
      * @return array info or false (if error)
      */
-     public function call ($url, $params = []) {
+    public function call($url, $params = [])
+    {
 
         if ($url and preg_match('/^https?:\/\/'.preg_quote(preg_replace('/^([^\/?]+[\/?]).*$/', '\\1', $this->url), '/').'/i', $url)) {
-
             $ch = curl_init($url);
 
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->connection_timeout);
@@ -691,43 +687,39 @@ class SalesLayerConn
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
             if ($this->SSL && $this->SSL_Cert) {
-                curl_setopt($ch, CURLOPT_PORT,    443);
+                curl_setopt($ch, CURLOPT_PORT, 443);
                 curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
-                curl_setopt($ch, CURLOPT_SSLKEY,  $this->SSL_Key);
-                curl_setopt($ch, CURLOPT_CAINFO,  $this->SSL_CACert);
+                curl_setopt($ch, CURLOPT_SSLKEY, $this->SSL_Key);
+                curl_setopt($ch, CURLOPT_CAINFO, $this->SSL_CACert);
             }
 
             if (is_array($params) and !empty($params)) {
-
                 if (isset($params['compression']) && $params['compression']) {
                     curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
                 }
 
                 curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, (is_array($params) ? http_build_query($params) : $params)); unset($params);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, (is_array($params) ? http_build_query($params) : $params));
+                unset($params);
             }
 
             $response = curl_exec($ch);
 
             if (false !== $response) {
-
                 $this->data_returned = json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
 
                 if (false !== $this->data_returned && is_array($this->data_returned)) {
-
                     return true;
-
                 } else {
-                    $this->triggerError( 'Void response or malformed: ' . $response, 101);
+                    $this->triggerError('Void response or malformed: ' . $response, 101);
                 }
             } else {
-                $this->triggerError( 'Error connection: ' . curl_error($ch), 102);
+                $this->triggerError('Error connection: ' . curl_error($ch), 102);
             }
 
             curl_close($ch);
-
         } else {
-            $this->triggerError( 'Incorrect URL call: ' . $url, 100);
+            $this->triggerError('Incorrect URL call: ' . $url, 100);
         }
 
         return false;
@@ -738,18 +730,18 @@ class SalesLayerConn
      *
      * @return string or null
      */
-     public function getDataReturned()
-     {
-         return $this->data_returned;
-     }
+    public function getDataReturned()
+    {
+        return $this->data_returned;
+    }
 
      /**
       * Parsing received data.
       *
       * @return bool
       */
-     private function parsingJsonReturned()
-     {
+    private function parsingJsonReturned()
+    {
         $this->response_api_version        =
         $this->response_time               =
         $this->response_action             = null;
@@ -762,56 +754,43 @@ class SalesLayerConn
         $this->response_page_length        = 0;
 
         if (null !== $this->data_returned) {
-
             if (isset($this->data_returned['version'])) {
-
                 $this->response_api_version = $this->data_returned['version'];
             }
             if (isset($this->data_returned['time'])) {
-
                 $this->response_time = $this->data_returned['time'];
             }
             if (isset($this->data_returned['action'])) {
-
                 $this->response_action = $this->data_returned['action'];
             }
 
             if (isset($this->data_returned['error']) && $this->data_returned['error']) {
-
-                 if (isset($this->__error_list[$this->data_returned['error']])) {
-                     $message_error = $this->__error_list[$this->data_returned['error']];
-                 } else {
-                     $message_error = 'API error';
-                 }
+                if (isset($this->__error_list[$this->data_returned['error']])) {
+                    $message_error = $this->__error_list[$this->data_returned['error']];
+                } else {
+                    $message_error = 'API error';
+                }
 
                  $this->triggerError($message_error, $this->data_returned['error']);
-
             } else {
-
                 $status = false;
 
                 if (isset($this->data_returned['schema']['headings'])) {
-
                     $this->response_headings = $this->data_returned['schema']['headings'];
                 }
 
                 if (isset($this->data_returned['schema']['custom_parameters'])) {
-
                     $this->response_custom_parameters = $this->data_returned['schema']['custom_parameters'];
                 }
 
                 if (isset($this->data_returned['data'])) {
-
-                    if (      isset($this->data_returned['data_schema_info'])
+                    if (isset($this->data_returned['data_schema_info'])
                         && is_array($this->data_returned['data_schema_info'])
                         &&   !empty($this->data_returned['data_schema_info'])) {
-
                         $this->response_tables_info = [];
 
                         foreach ($this->data_returned['data_schema_info'] as $table => $info) {
-
                             foreach ($info as $field => $props) {
-
                                 $this->response_tables_info[$table]['fields'][$field] = [
                                     'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? ($props['type'] == 'list' ? 'multi-key' : 'key') : $props['type']),
                                     'sanitized'        => (isset($props['sanitized']) ? $props['sanitized'] : (isset($props['basename']) ? $props['basename'] : $field)),
@@ -846,17 +825,12 @@ class SalesLayerConn
                     }
 
                     if (isset($this->data_returned['data_schema'])) {
-
                         $this->response_tables_schema = $this->data_returned['data_schema'];
 
                         foreach ($this->data_returned['data_schema'] as $table => $info) {
-
                             foreach ($info as $ord => $fname) {
-
                                 if (is_string($fname)) {
-
                                     if (substr($fname, 0, 3) == 'ID_' and 'ID_PARENT' != $fname) {
-
                                         $this->response_tables_info[$table]['table_joins'][$fname] = preg_replace('/^ID_/', '', $fname);
                                     }
                                 }
@@ -869,57 +843,44 @@ class SalesLayerConn
                     }
 
                     if ($this->data_returned['data'] && !empty($this->response_tables_info)) {
-
                         $tables = array_keys($this->response_tables_info);
 
                         foreach ($tables as $table) {
-
                             $this->response_tables_data[$table]       = ['modified' => [], 'count_modified' => 0, 'deleted' => [], 'count_deleted' => 0];
                             $this->response_table_deleted_ids[$table] = [];
 
                             if (isset($this->data_returned['data'][$table]) && is_array($this->data_returned['data'][$table])) {
-
                                 foreach ($this->data_returned['data'][$table] as &$fields) {
-
                                     if (!empty($fields)) {
-
                                         if ('D' == $fields[0]) {
-
                                             $this->response_table_deleted_ids[$table][]      =
                                             $this->response_tables_data[$table]['deleted'][] = $fields[1];
                                             $this->response_tables_data[$table]['count_deleted'] ++;
-
                                         } else {
-
                                             $data                                        = [ 'data' => [] ];
                                             $this->response_table_modified_ids[$table][] = $data['ID'] = $fields[1];
 
                                             foreach ($this->response_tables_schema[$table] as $ord => $field) {
-
                                                 $fname = (!is_array($field)) ? $field : key($field);
 
                                                 if (!in_array($fname, ['STATUS', 'ID'])) {
-
                                                     if ('REF' == $fname or substr($fname, 0, 3) == 'ID_') {
-
                                                         $data[$fname] = (isset($fields[$ord]) ? $fields[$ord] : null);
-
-                                                    } else if (    isset($fields[$ord])
+                                                    } elseif (isset($fields[$ord])
                                                             and is_array($fields[$ord])
                                                             and    isset($this->response_tables_schema[$table][$ord][$fname])
                                                             and is_array($this->response_tables_schema[$table][$ord][$fname])) {
-
                                                         $data['data'][$fname] = [];
 
                                                         if (isset($fields[$ord][0]) and 'U' != $fields[$ord][0]) {
-
                                                             foreach ($fields[$ord] as $fsub) {
-
                                                                 if (is_array($fsub)) {
                                                                     foreach ($fsub as $k => $a) {
                                                                         if ($k > 1) {
                                                                             $ext = $this->response_tables_schema[$table][$ord][$fname][intval($k)];
-                                                                            if (is_array($ext)) { $ext = $ext['field']; }
+                                                                            if (is_array($ext)) {
+                                                                                $ext = $ext['field'];
+                                                                            }
                                                                             $data['data'][$fname][$fsub[1]][$ext] =
                                                                             $this->response_files_list[]          = $a;
                                                                         }
@@ -927,7 +888,6 @@ class SalesLayerConn
                                                                 }
                                                             }
                                                         }
-
                                                     } else {
                                                         $data['data'][$fname] = (isset($fields[$ord]) ? $fields[$ord] : '');
                                                     }
@@ -949,7 +909,6 @@ class SalesLayerConn
                     }
 
                     if (isset($this->data_returned['next_page'])) {
-
                         $this->response_next_page  = $this->data_returned['next_page'];
                         $this->response_page_count = $this->data_returned['page_count'];
                     }
@@ -960,22 +919,18 @@ class SalesLayerConn
                 }
 
                 if (isset($this->data_returned['input_response'])) {
-
-                    if (   isset($this->data_returned['input_response']['status_tracking'])
+                    if (isset($this->data_returned['input_response']['status_tracking'])
                         &&       $this->data_returned['input_response']['status_tracking']) {
-
                         $this->response_input_tracking = $this->data_returned['input_response']['status_tracking'];
                     }
 
                     if (isset($this->data_returned['input_response'])) {
-
                         $this->response_input_status  = $this->data_returned['input_response']['result'];
                         $this->response_input_errors  = (isset($this->data_returned['input_response']['errors']) ?  $this->data_returned['input_response']['errors'] :
                                                         (isset($this->data_returned['input_response']['error'])  ? [$this->data_returned['input_response']['error']] : []));
                         $this->response_input_results = [];
 
                         foreach (['items_affected', 'new_items', 'updated_items', 'deleted_items'] as $key) {
-
                             $this->response_input_results[$key] = (isset($this->data_returned['input_response'][$key]) ? $this->data_returned['input_response'][$key] : 0);
                         }
                     }
@@ -984,7 +939,6 @@ class SalesLayerConn
                 }
 
                 if (isset($this->data_returned['input_percent_completion'])) {
-
                     $this->response_input_tracking_status  = $this->data_returned['input_status'];
                     $this->response_input_tracking_percent = $this->data_returned['input_percent_completion'];
                     $this->response_input_tracking_message = $this->data_returned['input_action_message'];
@@ -993,7 +947,6 @@ class SalesLayerConn
                 }
 
                 if (empty($this->response_input_tracking) and empty($this->response_input_tracking_status)) {
-
                     $this->response_input_tracking_status  = 'end';
                     $this->response_input_tracking_percent = 100;
                     $this->response_input_tracking_message = '';
@@ -1004,7 +957,7 @@ class SalesLayerConn
         }
 
         return false;
-     }
+    }
 
     /**
      * Set the error code and message.
@@ -1136,8 +1089,8 @@ class SalesLayerConn
     public function getResponseTableDeletedIds($table = null)
     {
         return (null === $table) ? $this->response_table_deleted_ids
-							       :
-							       ((isset($this->response_table_deleted_ids[$table])) ? $this->response_table_deleted_ids[$table] : []);
+                                   :
+                                   ((isset($this->response_table_deleted_ids[$table])) ? $this->response_table_deleted_ids[$table] : []);
     }
 
     /**
@@ -1145,11 +1098,11 @@ class SalesLayerConn
      *
      * @return array
      */
-	public function getResponseTableModifiedIds($table = null)
+    public function getResponseTableModifiedIds($table = null)
     {
         return (null === $table ? $this->response_table_modified_ids
-	           :
-	           (isset($this->response_table_modified_ids[$table]) ? $this->response_table_modified_ids[$table] : []));
+               :
+               (isset($this->response_table_modified_ids[$table]) ? $this->response_table_modified_ids[$table] : []));
     }
 
     /**
@@ -1210,7 +1163,6 @@ class SalesLayerConn
     public function getResponseSanitizedTableNames()
     {
         if (null !== $this->data_returned and isset($this->data_returned['schema']) and isset($this->data_returned['schema']['sanitized_table_names'])) {
-
             return $this->data_returned['schema']['sanitized_table_names'];
         }
 
@@ -1224,7 +1176,6 @@ class SalesLayerConn
     public function getResponseTableTitles()
     {
         if (null !== $this->data_returned and isset($this->data_returned['schema']) and isset($this->data_returned['schema']['language_table_names'])) {
-
             return $this->data_returned['schema']['language_table_names'];
         }
 
@@ -1344,14 +1295,14 @@ class SalesLayerConn
      *
      * @return array
      */
-     public function getSchemaInformation()
-     {
-         if (isset($this->data_returned['data_schema_info'])) {
-             return $this->data_returned['data_schema_info'];
-         }
+    public function getSchemaInformation()
+    {
+        if (isset($this->data_returned['data_schema_info'])) {
+            return $this->data_returned['data_schema_info'];
+        }
 
-         return null;
-     }
+        return null;
+    }
 
     /**
      * Get number of images or files waiting in process.
@@ -1488,23 +1439,23 @@ class SalesLayerConn
      * @return array
      */
 
-    public function getHeadings($language, $table = null) {
+    public function getHeadings($language, $table = null)
+    {
 
         $headings         = [];
         $default_language = $this->data_returned['schema']['default_language'];
 
         if ($table) {
-
             if (isset($this->response_headings[$table])) {
-
                 foreach ($this->response_headings[$table] as $info) {
-
                     $title = $info['title'];
 
                     if (isset($info['titles'])) {
-
-                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
-                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                        if (isset($info['titles'][$language])         and $info['titles'][$language]) {
+                            $title = $info['titles'][$language];
+                        } elseif (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) {
+                            $title = $info['titles'][$default_language];
+                        }
                     }
 
                     $headings[] = [
@@ -1515,21 +1466,19 @@ class SalesLayerConn
                     ];
                 }
             }
-
         } else {
-
-            foreach ($this->response_headings as $table =>& $titles) {
-
+            foreach ($this->response_headings as $table => & $titles) {
                 $headings[$table] = [];
 
                 foreach ($titles as $info) {
-
                     $title = $info['title'];
 
                     if (isset($info['titles'])) {
-
-                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
-                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                        if (isset($info['titles'][$language])         and $info['titles'][$language]) {
+                            $title = $info['titles'][$language];
+                        } elseif (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) {
+                            $title = $info['titles'][$default_language];
+                        }
                     }
 
                     $headings[$table][] = [
@@ -1552,7 +1501,8 @@ class SalesLayerConn
      * @return value
      */
 
-    function getCustomParemeter($param) {
+    function getCustomParemeter($param)
+    {
 
         return (isset($this->response_custom_parameters[$param]) ? $this->response_custom_parameters[$param] : null);
     }

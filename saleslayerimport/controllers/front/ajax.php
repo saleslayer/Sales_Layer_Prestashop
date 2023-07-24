@@ -241,6 +241,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
          * Delete all products categories and images for testing from zero
          */
 
+
         if ($command == 'purge_all') {
             $SLimport = new SalesLayerImport();
             if ($SLimport->i_am_a_developer) {
@@ -261,6 +262,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
 
         if ($command == 'clear_syncronization') {
             $SLimport = new SalesLayerImport();
+            $SLimport->saveConfiguration(['STOPPED' =>  time()]);
             $sql_processing = "DELETE FROM " . _DB_PREFIX_ . 'slyr_syncdata';
             $SLimport->slConnectionQuery('-', $sql_processing);
             $SLimport->clearPreloadCache();
@@ -301,13 +303,28 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             die(json_encode($return));
         }
 
+        if ($command == 'allow_refresh') {
+            echo 'register de allow refresh';
+            $SLimport = new SalesLayerImport();
+            $ignore_refresh = Tools::getValue('connector_id');
+            if (in_array($ignore_refresh, ['inactive','active'])) {
+                $SLimport->saveConfiguration(['ALLOW_REFRESH'=> $ignore_refresh]);
+                $return['message_type'] = 'success';
+                $return['message'] = 'Configured full synchronization trigger: '.ucfirst($ignore_refresh);
+            } else {
+                $return['message_type'] = 'error';
+                $return['message'] = 'Error set value for full synchronization trigger to->'.$ignore_refresh;
+            }
+            $return['server_time'] = 'Server time: ' . date('H:i');
+            die(json_encode($return));
+        }
+
 
         /**
          *
          * Auto save data in conector
          */
         $return = array();
-        $permited_fields = array('auto_sync', 'auto_sync_hour', 'avoid_stock_update');
         $connector_id = Tools::getValue('connector_id');
         $field_name = Tools::getValue('field_name');
         $field_value = Tools::getValue('field_value');
