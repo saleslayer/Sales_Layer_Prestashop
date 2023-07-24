@@ -1931,6 +1931,16 @@ class SlProducts extends SalesLayerPimUpdate
                                                 }
                                             }
                                         }
+                                    } else {
+                                        $this->debbug(
+                                            '$category_shops_info empty -> ' .
+                                            print_r(
+                                                $category_shops_info,
+                                                1
+                                            ),
+                                            'syncdata'
+                                        );
+                                        $productObject->deleteCategory($category_product, true);
                                     }
                                 } else {// is the same category (unchanged)
                                     foreach ($arrayIdCategories as $key_cat => $cat_id) {
