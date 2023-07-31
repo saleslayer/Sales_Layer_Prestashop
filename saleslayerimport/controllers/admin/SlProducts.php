@@ -62,7 +62,6 @@ class SlProducts extends SalesLayerPimUpdate
         $sync_categories,
         $connector_id
     ) {
-
         $test_after_update = array();
         $mulilanguage = array();
         $occurence_found = false;

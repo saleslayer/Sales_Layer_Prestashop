@@ -20,6 +20,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
     public $prestashop_all_shops;
     private $catalogue_items            = [];
     private $product_items              = [];
+    private $product_unify_array       = [];
     private $product_formats_items      = [];
     private $catalogue_items_del        = [];
     private $product_items_del          = [];
@@ -113,11 +114,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
             );
             return false;
         }
-        if (!$this->testDownloadingBlock('STOPPED')) {
-            $this->debbug(
-                "IS already stopped 15 minutes."
-            );
-        }
 
         ini_set('max_execution_time', 14400);
         $this->sl_time_ini_process = microtime(1);
@@ -178,7 +174,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         ini_set('memory_limit', ($pagination/2).'M');
         $this->checkFreeSpaceMemory();
-
 
         if ($last_update != null && $last_update != 0) {
             $api->getInfo($last_update, null, null, true);
@@ -252,6 +247,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                 $counter ++;
             } while ($continue);
+            $this->unifyVariantsToProductsDb($data_returned['data_schema_info']['product_formats']);
         }
        // Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
         $this->runWorkProcess('image-preloader');
@@ -388,7 +384,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog)) {
                     $item_data = [];
                     $item_data['sl_id'] = $catalog;
-                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "',0,0,'" . addslashes(
                         json_encode($item_data)
                     ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
                     $this->insertSyncdataSql();
@@ -421,7 +417,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 if ($this->checkChangesBeforeSave($sync_type, $item_type, $product)) {
                     $item_data             = array();
                     $item_data['sl_id']    = $product;
-                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', 0,0,'" . addslashes(
                         json_encode($item_data)
                     ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
                     $this->insertSyncdataSql();
@@ -457,7 +453,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 if ($this->checkChangesBeforeSave($sync_type, 'combination', $product_format)) {
                     $item_data             = array();
                     $item_data['sl_id']    = $product_format;
-                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "',0 ,0,'" . addslashes(
                         json_encode($item_data)
                     ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
                     $this->insertSyncdataSql();
@@ -492,11 +488,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
             );
 
             $this->processSyncCategories($data_returned, $data_schema, $sync_params);
-            $this->unifyVariantsToProducts($data_returned);
+
+
             $this->processSyncProducts($data_returned, $data_schema, $sync_params);
             $this->processSyncVariants($data_returned, $data_schema, $sync_params);
 
             $this->insertSyncdataSql(true);
+
 
 
             $this->debbug('After synchronizeApiData duration: ->' . (microtime(1) - $timer_sync_apidata) . 's');
@@ -532,17 +530,20 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
             $this->arrayReturn['categories_to_sync'] += count($this->catalogue_items);
             foreach ($this->catalogue_items as $key => $catalog) {
-                $data_insert = array();
+                $data_insert = [];
                 $data_insert['sync_data'] = $catalog;
                 $data_insert['defaultCategory'] = $defaultCategory;
 
                 if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog, $data_insert)) {
                     $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
                     $sync_params_to_insert = json_encode($sync_params);
+                    $item_id = $catalog['ID'];
+                    $parent_id = $catalog['ID_PARENT'];
 
-                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                        $item_data_to_insert
-                    ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "','".$item_id.
+                                             "','".$parent_id."', '" . addslashes(
+                                                 $item_data_to_insert
+                                             ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
                     $this->insertSyncdataSql();
                 }
                 unset($this->catalogue_items[$key]);
@@ -609,9 +610,13 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $num_variants = (isset($data_insert['sync_data']['variants']) ? count($data_insert['sync_data']['variants']) : 0);
                     $item_data_to_insert   = json_encode($data_insert); //html_entity_decode
                     $sync_params_to_insert = json_encode($sync_params);
-                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                        $item_data_to_insert
-                    ) . "', '" . addslashes($sync_params_to_insert) . "','".$num_variants."')";
+                    $item_id = $product['ID'];
+                    $parent_id = 0;
+
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type .  "','".$item_id.
+                                             "','".$parent_id."', '" . addslashes(
+                                                 $item_data_to_insert
+                                             ) . "', '" . addslashes($sync_params_to_insert) . "','".$num_variants."')";
                     $this->insertSyncdataSql();
                 } else {
                     //if product not have changes
@@ -634,8 +639,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 $sync_params['conn_params']['avoid_stock_update'] = $this->avoid_stock_update;
                                 $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
                                 $sync_params_to_insert = json_encode($sync_params);
+                                $item_id = $variant['ID'];
+                                $parent_id = $variant['ID_products'];
 
-                                $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" .
+                                $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "','".$item_id.
+                                                         "','".$parent_id."', '" .
                                                          addslashes(
                                                              $item_data_to_insert
                                                          ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
@@ -693,10 +701,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 ) {
                     $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
                     $sync_params_to_insert = json_encode($sync_params);
+                    $item_id = $product_format['ID'];
+                    $parent_id = $product_format['ID_products'];
 
-                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', '" . addslashes(
-                        $item_data_to_insert
-                    ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
+
+                    $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type .  "','".$item_id.
+                                             "','".$parent_id."', '"  . addslashes(
+                                                 $item_data_to_insert
+                                             ) . "', '" . addslashes($sync_params_to_insert) . "','0')";
                     $this->insertSyncdataSql();
                 }
                 unset($this->product_formats_items[$key]);
@@ -762,27 +774,15 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
         // organize deletes
         if (isset($table_data['catalogue']['deleted'])) {
-           /* $this->catalogue_items_del = $this->organizarIndicesTablas(
-                $table_data['catalogue']['deleted'],
-                $data_returned['data_schema_info']['catalogue']
-            );*/
-	        $this->catalogue_items_del =$table_data['catalogue']['deleted'];
+            $this->catalogue_items_del =$table_data['catalogue']['deleted'];
         }
 
         if (isset($table_data['products']['deleted'])) {
-           /* $this->product_items_del = $this->organizarIndicesTablas(
-                $table_data['products']['deleted'],
-                $data_returned['data_schema_info']['products']
-            );*/
-	        $this->product_items_del = $table_data['products']['deleted'];
+            $this->product_items_del = $table_data['products']['deleted'];
         }
 
         if (isset($table_data['product_formats']['deleted'])) {
-           /* $this->product_formats_items_del = $this->organizarIndicesTablas(
-                $table_data['product_formats']['deleted'],
-                $data_returned['data_schema_info']['product_formats']
-            );*/
-	        $this->product_formats_items_del = $table_data['product_formats']['deleted'];
+            $this->product_formats_items_del = $table_data['product_formats']['deleted'];
         }
     }
 
@@ -808,6 +808,92 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     }
                 }
             }
+        }
+    }
+    /**
+     * @param $data_returned
+     *
+     * @return void
+     */
+    private function unifyVariantsToProductsDb($data_returned)
+    {
+        try {
+            $start_limit = 0;
+            $pagination = round($this->pagination / 5);
+            do {
+                $select_variants = Db::getInstance()->executeS('SELECT pfs.* FROM '._DB_PREFIX_.
+                                                           'slyr_syncdata pfs INNER JOIN '._DB_PREFIX_ . 'slyr_syncdata ps'.
+                                                            ' ON  ps.item_type = "product" AND pfs.parent_id = ps.item_id ' .
+                                                            ' WHERE pfs.item_type = "product_format"  AND ' .
+                                                           ' pfs.sync_type = "update" AND pfs.parent_id != 0  ' .
+                                                           ' ORDER BY pfs.parent_id  LIMIT '.$start_limit.','.$pagination);
+                if (!empty($select_variants)) {
+                    $this->debbug('selected rows for unify->' . print_r(count($select_variants), 1));
+
+
+                    foreach ($select_variants as $key_variant => $product_formats_item) {
+                        try {
+                            $product_formats_item['item_data'] = json_decode(stripslashes($product_formats_item['item_data']), 1);
+                            if (isset($product_formats_item['parent_id'])) {
+                                $this->debbug(' variant for unify ->' . print_r($product_formats_item, 1));
+
+                                    $this->product_unify_array[$product_formats_item['parent_id']]['variants']
+                                    [$product_formats_item['item_id']]['item'] =
+                                        $product_formats_item['item_data']['sync_data'];
+
+                                    $this->product_unify_array[$product_formats_item['parent_id']]['variants']
+                                    [$product_formats_item['item_id']]['schema'] = $data_returned;
+
+
+                                    Db::getInstance()->execute('DELETE FROM '._DB_PREFIX_.
+                                                           'slyr_syncdata WHERE item_type = "product_format" AND ' .
+                                                           ' sync_type = "update" AND id = ' . $product_formats_item['id'] . '  ' .
+                                                           ' ');
+                                    $this->debbug('deleted variant ->' . print_r($product_formats_item['id'], 1));
+                            }
+                        } catch (Exception $e) {
+                            $this->debbug('## Error.  unifyVariantsToProductsDb->' . $e->getMessage());
+                            $this->debbug('## Error. unifyVariantsToProductsDb trace->' . print_r($e->getTrace(), 1));
+                        }
+                    }
+                    $this->debbug('Prepared->' . print_r($this->product_unify_array, 1));
+                    foreach ($this->product_unify_array as $product_id => $product_data) {
+                        $product = Db::getInstance()->executeS('SELECT * FROM '._DB_PREFIX_.
+                                                           'slyr_syncdata WHERE item_type = "product" AND ' .
+                                                           ' sync_type = "update" AND item_id = ' . $product_id . '  ' .
+                                                           ' LIMIT 1 ');
+                        if (!$product) {
+                            $this->debbug('##Error. not founded product->' . print_r($product, 1)
+                                          . ' id->' . print_r($product_id, 1));
+                            continue;
+                        }
+	                    $this->debbug('before decode for concat ->' . print_r($product, 1));
+                        $sync_data = json_decode($product[0]['item_data'], 1);
+                        if (!isset($sync_data['sync_data']['variants'])) {
+                            $sync_data['sync_data']['variants'] = [];
+                        }
+                        $this->debbug('before concat data ->' . print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
+                         $sync_data['sync_data']['variants'] = array_merge($this->product_unify_array[$product_id]['variants'], $sync_data['sync_data']['variants']);
+                        if (isset($sync_data['sync_data']['data'])) {
+                            $this->debbug('after concat data ->' . print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
+                        }
+                        // unify variants to products and delete variants
+                        $num_variants = count($this->product_unify_array[$product_id]['variants']);
+
+                        Db::getInstance()->execute('UPDATE '._DB_PREFIX_.
+                                               'slyr_syncdata SET item_data = "' . addslashes(json_encode($sync_data)) .
+                                               '",num_variants ="' . $num_variants . '" WHERE item_type = "product" AND ' .
+                                               ' sync_type = "update" AND item_id = ' . $product_id . '  ' .
+                                               ' ');
+                        $this->debbug('Update num variants ->' . print_r($num_variants, 1).'$product_id->'.$product_id.' $sync_data->'.print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
+                        unset($this->product_unify_array[$product_id]);
+                    }
+                    $start_limit += count($select_variants);
+                }
+            } while (!empty($select_variants));
+        } catch (Exception $e) {
+            $this->debbug('## Error.  unifyVariantsToProductsDb->' . $e->getMessage());
+            $this->debbug('## Error. unifyVariantsToProductsDb trace->' . print_r($e->getTrace(), 1));
         }
     }
 

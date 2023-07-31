@@ -84,33 +84,40 @@ try {
                 print_r($for, 1).' limit -> '.print_r($limit, 1),
                 'syncdata'
             );
-            $sqlpre  = ' SET @id = null,@sync_type = null,@item_type = null,' .
-                      '@sync_tries = null,@item_data = null,@sync_params = null ';
+            $microtime = microtime(true);
+            $sqlpre = "SET @id = null, @sync_type = null, @item_type = null, @sync_tries = null,".
+                      " @item_data = null, @sync_params = null;";
+            Db::getInstance()->execute($sqlpre);
+
+            $sqlpre2 = "UPDATE " . _DB_PREFIX_ . "slyr_syncdata dest,
+           (SELECT A.id, A.sync_tries, @id := A.id, @sync_type := A.sync_type,
+           @item_type := A.item_type, @sync_tries := A.sync_tries,
+           @item_data := A.item_data, @sync_params := A.sync_params
+           FROM " . _DB_PREFIX_ . "slyr_syncdata A
+           WHERE A.id IN (
+               SELECT MIN(id) FROM " . _DB_PREFIX_ . "slyr_syncdata
+               WHERE sync_type = 'update' AND item_type = '" . $type . "'
+               AND (date_start <= '" . $skip_duration . "' OR date_start IS NULL)
+           )
+           LIMIT 1
+           ) src
+           SET dest.status = 'pr', dest.sync_tries = src.sync_tries + 1,
+           dest.date_start = '" . date("Y-m-d H:i:s") . "'
+           WHERE dest.id = src.id;";
+
+            Db::getInstance()->execute($sqlpre2);
+
+            $sqlpre3 = "SELECT @id AS id, @sync_type AS sync_type, @item_type AS item_type,
+           @sync_tries AS sync_tries, @item_data AS item_data, @sync_params AS sync_params;";
+            $items_to_update = Db::getInstance()->executeS($sqlpre3);
 
 
-            $sqlpre2 = "UPDATE " . _DB_PREFIX_ .
-                       "slyr_syncdata dest, (SELECT A.id, A.sync_tries, @id := A.id, " .
-                       "@sync_type := A.sync_type, @item_type := A.item_type, " .
-                       "@sync_tries := A.sync_tries, " .
-                       "@item_data := A.item_data, @sync_params := A.sync_params FROM " . _DB_PREFIX_ .
-                       "slyr_syncdata A WHERE A.id IN (" .
-                       "SELECT MIN(id) FROM " . _DB_PREFIX_ .
-                       "slyr_syncdata WHERE sync_type = 'update' AND item_type = '" . $type .
-                       "' AND (date_start <= '" . $skip_duration . "' OR date_start IS NULL)) " .
-                       "LIMIT 1) src " .
-                       "SET dest.status = 'pr', dest.sync_tries = src.sync_tries + 1, " .
-                       "dest.date_start = '" . date("Y-m-d H:i:s") . "'  WHERE  dest.id = src.id ";
 
 
-            $sqlpre3 = ' SELECT @id AS id,@sync_type AS sync_type,@item_type AS item_type , ' .
-                      ' @sync_tries AS sync_tries,@item_data AS item_data,@sync_params AS sync_params  ';
-
-            $SLimport->slConnectionQuery('-', $sqlpre);
-            $SLimport->slConnectionQuery('-', $sqlpre2);
-
-            $items_to_update = $SLimport->slConnectionQuery(
-                'read',
-                $sqlpre3
+            $SLimport->debbug(
+                'query for select one item for process -> ' .
+                print_r($sqlpre2, 1).' time -> '.print_r(microtime(true) - $microtime, 1).' data->'.print_r($items_to_update, 1),
+                'syncdata'
             );
 
             if (!empty($items_to_update)
@@ -121,7 +128,8 @@ try {
                     $SLimport->updateItems($items_to_update, $items_to_update[0]['id'], $pid);
                 } catch (Exception $e) {
                     $SLimport->debbug(' ##Error. in update items: ->' .
-                                      print_r($e->getMessage(), 1), 'syncdata');
+                                      print_r($e->getMessage(), 1).' line->'.$e->getLine().
+                                      ' trace->'.print_r($e->getTraceAsString(), 1), 'syncdata');
                 }
                 if ($for !=0 && $for < $limit) {
                     $SLimport->registerWorkProcess($process_name, $pid);
@@ -129,7 +137,7 @@ try {
             } else {
                 $SLimport->debbug(
                     'break but is without register to work -> ' .
-                    print_r($items_to_update[0], 1),
+                    print_r($items_to_update, 1),
                     'syncdata'
                 );
                 break;

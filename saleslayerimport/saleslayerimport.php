@@ -375,10 +375,10 @@ class SalesLayerImport extends Module
         $this->debugmode = $debugmode;
     }
 
-	/**
-	 * @return void
-	 */
-	public function errorSetup()
+    /**
+     * @return void
+     */
+    public function errorSetup()
     {
         ini_set('ignore_repeated_errors', 1);
         ini_set('display_errors', 0);
@@ -461,10 +461,10 @@ class SalesLayerImport extends Module
         return $resultado;
     }
 
-	/**
-	 * @return void
-	 */
-	public function loadLanguages()
+    /**
+     * @return void
+     */
+    public function loadLanguages()
     {
         $all_languages           = Language::getLanguages(false);
         $this->defaultLanguage   = (int)Configuration::get('PS_LANG_DEFAULT');
@@ -1284,6 +1284,23 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 		                    ADD PRIMARY KEY (`configname`)";
             Db::getInstance()->execute(sprintf($query_alter));
         }
+        $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
+                      " WHERE table_schema = '" . _DB_NAME_ . "' " .
+                      " AND table_name = '" . _DB_PREFIX_ . "slyr_syncdata' " .
+                      " AND column_name = 'item_id'";
+
+        $shops_info = Db::getInstance()->executeS($query_read);
+
+        if (empty($shops_info)) {
+            $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_syncdata ' .
+                           "ADD COLUMN `item_id` BIGINT(20) NOT NULL DEFAULT '0' AFTER `item_type`, " .
+                           "ADD COLUMN `parent_id` BIGINT(20) NOT NULL DEFAULT '0' AFTER `item_id`, " .
+                           'ADD INDEX `ID` (`item_id` ASC), ' .
+                           'ADD INDEX `parent` (`parent_id` ASC), ' .
+                           'ADD INDEX `idx_sync_type_item_type_date_start` (sync_type, item_type, date_start)';
+
+            Db::getInstance()->execute(sprintf($query_alter));
+        }
     }
 
     /**
@@ -1595,13 +1612,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         return $return;
     }
 
-	/**
-	 * @param $internal
-	 * @param $encoded
-	 *
-	 * @return string
-	 */
-	public function createSLPluginCronUrl($internal = false, $encoded = true)
+    /**
+     * @param $internal
+     * @param $encoded
+     *
+     * @return string
+     */
+    public function createSLPluginCronUrl($internal = false, $encoded = true)
     {
         $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
         $task_url =
@@ -1618,10 +1635,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         return $task_url;
     }
 
-	/**
-	 * @return bool
-	 */
-	public function testSlCronLatestRun()
+    /**
+     * @return bool
+     */
+    public function testSlCronLatestRun()
     {
         $latest = (int) $this->getConfiguration('LATEST_CRON_EXECUTION');
         if ($latest >= strtotime('-10 minutes')) {
@@ -1704,10 +1721,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->clearDataHashOfDeletedProducts();
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDeletedCategoriesFromCache()
+    /**
+     * @return void
+     */
+    private function clearDeletedCategoriesFromCache()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1735,10 +1752,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($categoriesDelete)>= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDeletedProductsFromCache()
+    /**
+     * @return void
+     */
+    private function clearDeletedProductsFromCache()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1765,10 +1782,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($productsDelete)>= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDeletedAttributesGroupFromCache()
+    /**
+     * @return void
+     */
+    private function clearDeletedAttributesGroupFromCache()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1795,10 +1812,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($attributesDelete)>= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearAttributesValuesFromNonexistentGroupsInPrestashop()
+    /**
+     * @return void
+     */
+    private function clearAttributesValuesFromNonexistentGroupsInPrestashop()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1834,10 +1851,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($deleteAttributeGroup)>= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearNonExistentAttributesValuesFromCache()
+    /**
+     * @return void
+     */
+    private function clearNonExistentAttributesValuesFromCache()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1864,10 +1881,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($attributeValuesDelete)>= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDeletedVariantsFromCache()
+    /**
+     * @return void
+     */
+    private function clearDeletedVariantsFromCache()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1897,10 +1914,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($featuresDelete)>= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDataHashFromDeletedVariants()
+    /**
+     * @return void
+     */
+    private function clearDataHashFromDeletedVariants()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1932,10 +1949,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($featuresDelete)>= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDeletedImagesFromCache()
+    /**
+     * @return void
+     */
+    private function clearDeletedImagesFromCache()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1964,10 +1981,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($deleteImages) >= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDataHashOfDeletedCategories()
+    /**
+     * @return void
+     */
+    private function clearDataHashOfDeletedCategories()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -1997,10 +2014,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         } while (count($categoriesDelete) >= $pagination);
     }
 
-	/**
-	 * @return void
-	 */
-	private function clearDataHashOfDeletedProducts()
+    /**
+     * @return void
+     */
+    private function clearDataHashOfDeletedProducts()
     {
         $pagination = $this->pagination;
         $start_limit = 0;
@@ -2051,7 +2068,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $sql_to_insert = implode(',', $this->sql_to_insert);
             try {
                 $sql_query_to_insert = 'INSERT INTO ' . _DB_PREFIX_ . 'slyr_syncdata' .
-                    ' ( sync_type, item_type, item_data, sync_params, num_variants ) VALUES ' .
+                    ' ( sync_type, item_type,item_id,parent_id, item_data, sync_params, num_variants ) VALUES ' .
                     $sql_to_insert;
                 $this->slConnectionQuery('insert', $sql_query_to_insert);
             } catch (Exception $e) {
@@ -2496,13 +2513,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         return $connectors;
     }
 
-	/**
-	 * @param $columns
-	 * @param $where
-	 *
-	 * @return array|bool|mixed|mysqli_result|PDOStatement|resource
-	 */
-	public function getConectors($columns = [], $where = [])
+    /**
+     * @param $columns
+     * @param $where
+     *
+     * @return array|bool|mixed|mysqli_result|PDOStatement|resource
+     */
+    public function getConectors($columns = [], $where = [])
     {
         try {
             $where_sql = [];
@@ -2870,10 +2887,18 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         }
                     }
                 }
+                $this->debbug(
+                    'Before update accessory ' .
+                    'product_id-> ' . $product_id . ' accessories ->' . print_r(
+                        $accessories,
+                        1
+                    ) . ' $decode_json->' . print_r($decode_json, 1).' $res->'.print_r($res, 1),
+                    'syncdata'
+                );
                 $sl_query_flag_to_insert = " UPDATE " . _DB_PREFIX_ . "slyr_accessories " .
                                        " SET accessories = '" . addslashes(
                                            json_encode($accessories)
-                                       ) . "' WHERE id ='" . $decode_json['id'] . "' ";
+                                       ) . "' WHERE id ='" . $res[0]['id'] . "' ";
                 $this->slConnectionQuery('-', $sl_query_flag_to_insert);
             }
 
@@ -2909,7 +2934,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $accessories,
                     1
                 ) . ' message->' . $e->getMessage() . ' track->' .
-                print_r($e->getTrace(), 1),
+                print_r($e->getTrace(), 1).' line->'.$e->getLine(),
                 'syncdata'
             );
         }
@@ -3463,6 +3488,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function checkSqlItemsDelete(
         $force_delete = false
     ) {
+
         if (count($this->sql_items_delete) >= $this->sql_insert_limit
             || ($force_delete
                 && count(
@@ -3473,7 +3499,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
             $sql_delete = " DELETE FROM " . _DB_PREFIX_ . "slyr_syncdata" .
                 " WHERE id IN (" . $sql_items_to_delete . ")";
-
+            $this->debbug(
+                "Deleting processed rows: " . print_r($sql_delete, 1),
+                'syncdata'
+            );
             $this->slConnectionQuery('-', $sql_delete);
 
             $this->sql_items_delete = array();
