@@ -92,6 +92,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $last_sync = null,
         $onlystore = false
     ) {
+        $this->errorSetup();
         $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " . _DB_PREFIX_ . "slyr_syncdata";
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
 
@@ -135,7 +136,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->debbug(' Starting to synchronisation');
 
 
-        $conn_info = $this->getConectors(['conn_secret','last_update','comp_id','avoid_stock_update'], ['conn_code'=>$connector_id]);
+        $conn_info = $this->getConectors(
+            ['conn_secret','last_update','comp_id','avoid_stock_update'],
+            ['conn_code'=>$connector_id]
+        );
         $secret_key = $conn_info['conn_secret'];
         $last_update = $conn_info['last_update'];
         $comp_id = $conn_info['comp_id'];
@@ -172,7 +176,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
-        ini_set('memory_limit', ($pagination/2).'M');
+        ini_set('memory_limit', $pagination.'M');
         $this->checkFreeSpaceMemory();
 
         if ($last_update != null && $last_update != 0) {
@@ -201,7 +205,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->clearDebugContent();
         $this->connector_shops = $this->getConnectorShops($connector_id);
       //  $contextShopID = Shop::getContextShopID();
-
+        $last_update_save = '';
         if (!empty($this->connector_shops)) {
             $counter = 0;
 
@@ -233,6 +237,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $this->processDeletes($sync_params);
                 $this->clearDebugContent();
                 $this->processDataForModify($data_returned, $data_schema, $sync_params);
+                $this->unifyVariantsToProductsDb($data_returned['data_schema_info']['product_formats']);
                 $this->clearDebugContent();
                 gc_disable();
                 $continue = $api->haveNextPage();
@@ -247,7 +252,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                 $counter ++;
             } while ($continue);
-            $this->unifyVariantsToProductsDb($data_returned['data_schema_info']['product_formats']);
         }
        // Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
         $this->runWorkProcess('image-preloader');
@@ -867,7 +871,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                           . ' id->' . print_r($product_id, 1));
                             continue;
                         }
-	                    $this->debbug('before decode for concat ->' . print_r($product, 1));
+                        $this->debbug('before decode for concat ->' . print_r($product, 1));
                         $sync_data = json_decode($product[0]['item_data'], 1);
                         if (!isset($sync_data['sync_data']['variants'])) {
                             $sync_data['sync_data']['variants'] = [];
@@ -1581,6 +1585,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             }
         }
         curl_close($ch);
+        $ch = null;
         unset($ch, $url, $json);
 
         return array($http_stat, $result, $httpcode);

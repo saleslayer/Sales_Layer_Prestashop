@@ -62,6 +62,7 @@ try {
             $performance_limit = 4.00;
         }
         echo 'entry process_item'.PHP_EOL.'<br>';
+        $added_query = "";
         if ($type == 'category') {
             $SLimport->sl_catalogues = new SlCatalogues();
             $skip_duration = date("Y-m-d H:i:s", strtotime("-2 minutes"));
@@ -73,6 +74,10 @@ try {
         } elseif ($type == 'product_format') {
             $SLimport->sl_variants = new SlVariants();
             $skip_duration = date("Y-m-d H:i:s", strtotime("-5 minutes"));
+            $parent_id = Tools::getValue('parent_id');
+            if ($parent_id != '') {
+                $added_query = " AND parent_id = '".$parent_id."'";
+            }
         } else {
             $skip_duration = date("Y-m-d H:i:s", strtotime("-5 minutes"));
         }
@@ -97,8 +102,8 @@ try {
            WHERE A.id IN (
                SELECT MIN(id) FROM " . _DB_PREFIX_ . "slyr_syncdata
                WHERE sync_type = 'update' AND item_type = '" . $type . "'
-               AND (date_start <= '" . $skip_duration . "' OR date_start IS NULL)
-           )
+               AND (date_start <= '" . $skip_duration . "' OR date_start IS NULL) " .$added_query .
+                       " )
            LIMIT 1
            ) src
            SET dest.status = 'pr', dest.sync_tries = src.sync_tries + 1,
@@ -111,14 +116,11 @@ try {
            @sync_tries AS sync_tries, @item_data AS item_data, @sync_params AS sync_params;";
             $items_to_update = Db::getInstance()->executeS($sqlpre3);
 
-
-
-
-            $SLimport->debbug(
+          /*  $SLimport->debbug(
                 'query for select one item for process -> ' .
                 print_r($sqlpre2, 1).' time -> '.print_r(microtime(true) - $microtime, 1).' data->'.print_r($items_to_update, 1),
                 'syncdata'
-            );
+            );*/
 
             if (!empty($items_to_update)
                 && isset($items_to_update[0]['id'])

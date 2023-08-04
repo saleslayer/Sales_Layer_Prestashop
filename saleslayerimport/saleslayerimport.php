@@ -167,7 +167,7 @@ class SalesLayerImport extends Module
         'update' => [
             'category'       => 1,
             'product'        => 100,
-            'product_format' => 5,
+            'product_format' => 100,
             'accessories'    => 1
         ]
     ];
@@ -531,7 +531,14 @@ class SalesLayerImport extends Module
 
         if (!$force_print) {
             //$loc_funcs = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $GLOBALS['FCONF_local_server']);
-            $func = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
+            try {
+                $func = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
+            } catch (Exception $e) {
+                echo ' error->'.$e->getMessage().' trace->'.$e->getTraceAsString().' line->'.print_r($e->getLine(), 1);
+                debbug(' error->'.$e->getMessage().' trace->'.$e->getTraceAsString().' line->'.print_r($e->getLine(), 1), $type_file, $force_print);
+                $func = [];
+            }
+
             $methods = ['debbug', 'debbug_error', 'include', 'require', 'query_db', 'halt'];
             if (isset($func[1]['function']) and !in_array($func[1]['function'], $methods, false)
             ) {
@@ -1072,7 +1079,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $shops_info = Db::getInstance()->executeS($query_read);
 
         if (empty($shops_info)) {
-            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr____api_config" .
+            $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr___api_config" .
                 " ADD COLUMN `avoid_stock_update` INT(2) NOT NULL DEFAULT 0 AFTER `auto_sync_hour` ";
             Db::getInstance()->execute($query_alter);
         }
@@ -3879,7 +3886,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             );
         }
         try {
+            gc_enable();
+            gc_collect_cycles();
             $this->urlSendCustomJson('GET', $url, null, false);
+            gc_disable();
         } catch (Exception $e) {
             $this->debbug(
                 'Connection error-> ' . $e->getMessage() .
@@ -4109,7 +4119,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if (file_exists($this->integrityPathDirectory . $this->integrityFile)) {
             unlink($this->integrityPathDirectory . $this->integrityFile);
         }
-        file_put_contents($this->integrityPathDirectory . $this->integrityFile, json_encode($files), FILE_APPEND);
+        natsort($files);
+        file_put_contents($this->integrityPathDirectory . $this->integrityFile, json_encode($files, JSON_PRETTY_PRINT), FILE_APPEND);
         chmod($this->integrityPathDirectory . $this->integrityFile, 0775);
     }
 
@@ -4865,7 +4876,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      */
     public function runBalancer()
     {
-
+        $this->errorSetup();
         $this->debbug("==== Sync Data INIT " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . "  ====", 'balancer');
         if (!$this->testDownloadingBlock('BALANCER')) {
             $this->debbug(
@@ -4883,6 +4894,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->end_process = false;
         $this->recalculateDurationOfSyncronizationProcess($result);
         $this->clearWorkProcessBalancer('synchronizer');
+        $this->allocateMemory();
+        $used_parent_ids= [];
+        $used_parent_ids_str = '';
 
 
         /**
@@ -5075,6 +5089,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             );
                         }
                     } elseif ($process == 'update') {
+                        $this->allocateMemory();
                         if (($this->cpu_max_limit_for_retry_call / 2) < $load[0]) {
                             $this->limit_per_process = 1;
                         } elseif ($load[0] > ($this->cpu_max_limit_for_retry_call  / 4)) {
@@ -5083,10 +5098,69 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             $this->limit_per_process = 5;
                         }
 
+                        $command = ['type' => $item_type, 'limit' => $this->limit_per_process];
+                        if ($item_type == 'product_format') {
+                            $this->debbug('used parent ids ids-> ' .
+                                          print_r($used_parent_ids, 1), 'balancer');
+                            if (empty($used_parent_ids)) {
+                                $this->debbug('empty get more ids of runned ids-> ' .
+                                              print_r($used_parent_ids, 1), 'balancer');
+                                $load_runned_ids_sql = "SELECT DISTINCT parent_id FROM " . _DB_PREFIX_ .
+                                               "slyr_syncdata WHERE item_type = 'product_format' AND date_start <= '"
+                                                       . date("Y-m-d H:i:s", strtotime("-5 minutes")) . "'";
+                                $result_runned_ids =    Db::getInstance()->executes($load_runned_ids_sql);
+                                if ($result_runned_ids) {
+                                    $used_parent_ids_extracted = array_map(
+                                        'intval',
+                                        array_column($result_runned_ids, 'parent_id')
+                                    );
+                                    $used_parent_ids = array_merge($used_parent_ids_extracted, $used_parent_ids);
+                                    $this->debbug('Rows loaded as executed in latest 5 minutes-> ' .
+                                                  print_r($used_parent_ids, 1), 'balancer');
+                                }
+                            }
+                            if (empty($used_parent_ids)) {
+                                $used_parent_ids = [999999999999999];
+                            }
+
+                            // selecionar una parent_id de una item_type = "product_format"
+                            // que no tenga parent_id ya utilizados y numero de filas que tienen el mismo parent_id
+
+
+                                $used_parent_ids_str = implode(',', $used_parent_ids);
+
+                            $sql_rows = "SELECT A.parent_id, COUNT(*) AS variants 
+							             FROM "._DB_PREFIX_."slyr_syncdata A
+							             LEFT JOIN (
+							                 SELECT parent_id, COUNT(*) AS variant_count
+							                 FROM "._DB_PREFIX_."slyr_syncdata
+							                 WHERE item_type = 'product_format'
+							                 GROUP BY parent_id
+							             ) C ON A.parent_id = C.parent_id
+							             WHERE A.item_type = 'product_format'
+							             AND (A.parent_id NOT IN ($used_parent_ids_str) OR A.parent_id = 0)
+							             GROUP BY A.parent_id
+							             ORDER BY variants ASC
+							             LIMIT 1";
+
+                            $result_rows = Db::getInstance()->executeS($sql_rows);
+                            $this->debbug('returned ids for check-> ' .
+                                          print_r($result_rows, 1), 'balancer');
+                            if ($result_rows) {
+                                $command['limit']     = $result_rows[0]['variants'];
+                                $command['parent_id'] = $result_rows[0]['parent_id'];
+                                $used_parent_ids[]    = (int) $command['parent_id'];
+                            } else {
+                                $this->debbug('without ids to group-> ' .
+                                              print_r($result_rows, 1), 'balancer');
+                            }
+                        }
+
+
                         $this->checkProcessTime();
                         $this->callProcess(
                             'synchronizer',
-                            ['type' => $item_type, 'limit' => $this->limit_per_process]
+                            $command
                         );
                     }
                 } while (!$this->end_process);

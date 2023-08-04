@@ -158,7 +158,9 @@ class SalesLayerConn
             $get = '';
         }
 
-        $URL = 'http'.($this->SSL ? 's' : '').'://'.$this->url.(strpos($this->url, '?') !== false ? '&' : '?').'code='.urlencode($this->__codeConn).$get;
+        $URL = 'http'.($this->SSL ? 's' : '').'://'.$this->url.
+               (strpos($this->url, '?') !== false ? '&' : '?').
+               'code='.urlencode($this->__codeConn).$get;
 
         if ($last_update) {
             $URL .= '&last_update=' . (!is_numeric($last_update) ? strtotime($last_update) : $last_update);
@@ -354,7 +356,8 @@ class SalesLayerConn
                 if ($connector_type
                     && isset($this->data_returned['schema']['connector_type'])
                     &&       $this->data_returned['schema']['connector_type'] != $connector_type) {
-                    $this->triggerError('Wrong connector type: ' . $this->data_returned['schema']['connector_type'], 105);
+                    $this->triggerError('Wrong connector type: ' .
+                                        $this->data_returned['schema']['connector_type'], 105);
                 } else {
                     $this->cleanError();
 
