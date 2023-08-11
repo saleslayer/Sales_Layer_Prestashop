@@ -77,6 +77,8 @@ try {
             $parent_id = Tools::getValue('parent_id');
             if ($parent_id != '') {
                 $added_query = " AND parent_id = '".$parent_id."'";
+            } else {
+                $added_query = " AND parent_id = '0' ";
             }
         } else {
             $skip_duration = date("Y-m-d H:i:s", strtotime("-5 minutes"));

@@ -1697,9 +1697,9 @@ class SlCatalogues extends SalesLayerPimUpdate
                         $cat         = new Category($catalog_ps_id, null, $shop);
                         $cat->active = 0;
                         $this->debbug(
-                            'Deactivate only category Category ID: ' . $catalog . ' $shop->' .
+                            'Deactivate only Category ID: ' . $catalog . ' $shop->' .
                             print_r($shop, 1) .
-                            ' Is posible que is implement globaly for all stores in any versions.',
+                            ' Is posible deactivate category for all stores.',
                             'syncdata'
                         );
                         /*  $cat->cleanGroups();

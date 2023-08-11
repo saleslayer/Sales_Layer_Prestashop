@@ -40,6 +40,7 @@ try {
 
 if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
     ini_set('max_execution_time', 144000);
+    $start_time = time();
     $SLimport->registerWorkProcess($process_name);
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
     $pimUpdate = new SalesLayerPimUpdate();
@@ -78,6 +79,7 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
                                   ' line->' . $e->getLine(), 'indexer');
             }
 
+            $SLimport->checkTheRuntime($start_time);
             $SLimport->clearDebugContent();
         } while (count($registers) > 0);
     } catch (Exception $e) {

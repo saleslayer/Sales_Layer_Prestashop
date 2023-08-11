@@ -838,7 +838,14 @@ class SlVariants extends SalesLayerPimUpdate
                 }
             }
 
-
+            $this->debbug(
+                $occurrence . ' before check by attributes ->'
+                . print_r($productAttributes, 1) . '  $this->shop_languages->' . print_r(
+                    $this->shop_languages,
+                    1
+                ),
+                'syncdata'
+            );
 
 
             if (count($productAttributes) > 0) {
@@ -926,7 +933,16 @@ class SlVariants extends SalesLayerPimUpdate
                                     $sl_product_format_id = $value['id_product_attribute'];
                                     break 2;
                                 }
+                            } else {
+                                $this->debbug($occurrence . 'Combination not founded by attributes ->' .
+                                              print_r($check_sl_product_format_id, 1).' diff attributes ->' .
+                                              print_r($attributes, 1) .
+                                              ' $attributes_val->' . print_r($attributes_val, 1), 'syncdata');
                             }
+                        } else {
+                            $this->debbug($occurrence . 'Combination not founded by attributes in query ->'.
+                                          print_r($check_sl_product_format_id, 1).'  $schemaAttrs ->'.
+                                          print_r($schemaAttrs, 1), 'syncdata');
                         }
                     }// lang
                 }
@@ -940,6 +956,8 @@ class SlVariants extends SalesLayerPimUpdate
 
                 // $combination_changed = false;
                 if ($check_sl_product_format_id != 0) {
+                    $this->debbug($occurrence . 'Combination exist ->'.
+                                  print_r($check_sl_product_format_id, 1), 'syncdata');
                     $existing_combination = new CombinationCore($check_sl_product_format_id, null, $shop_id);
                     try {
                         $combination_option_values = $existing_combination->getWsProductOptionValues();
@@ -951,7 +969,8 @@ class SlVariants extends SalesLayerPimUpdate
                     }
 
                     $combination_attributes_values = array();
-
+                    $this->debbug($occurrence . 'Combination $combination_option_values ->'.
+                                  print_r($combination_option_values, 1), 'syncdata');
 
                     if (!empty($combination_option_values)) {
                         foreach ($combination_option_values as $combination_option_value) {
@@ -993,6 +1012,10 @@ class SlVariants extends SalesLayerPimUpdate
 
                     if ($check_sl_product_format_id != $sl_product_format_id && $sl_product_format_id != '') {
                         try {
+                            $this->debbug($occurrence . 'Updating register $sl_product_format_id->'
+                                          .$sl_product_format_id.
+                                          ' $check_sl_product_format_id->'.$check_sl_product_format_id.
+                                          ' $product_format_id->'.print_r($product_format_id, 1), 'syncdata');
                             Db::getInstance()->execute(
                                 sprintf(
                                     'UPDATE `' . _DB_PREFIX_ . 'slyr_category_product` sl
@@ -1010,7 +1033,10 @@ class SlVariants extends SalesLayerPimUpdate
                         }
                     }
                 } else {
-                    if ($sl_product_format_id != '') {
+
+                    if ($sl_product_format_id !== 0) {
+	                    $this->debbug($occurrence . 'Combination not exist ->'.
+	                                  print_r($check_sl_product_format_id, 1), 'syncdata');
                         $old_sl_product_format_id = (int)Db::getInstance()->getValue(
                             sprintf(
                                 'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
@@ -1034,6 +1060,10 @@ class SlVariants extends SalesLayerPimUpdate
                                     $comp_id
                                 )
                             );
+                            $this->debbug($occurrence . 'Updating register level 2 $sl_product_format_id->'.
+                                          $sl_product_format_id.
+                                          ' $check_sl_product_format_id->'.$check_sl_product_format_id.
+                                          ' $product_format_id->'.print_r($product_format_id, 1), 'syncdata');
                         } else {
                             Db::getInstance()->execute(
                                 sprintf(
@@ -1046,22 +1076,32 @@ class SlVariants extends SalesLayerPimUpdate
                                     $comp_id
                                 )
                             );
+                            $this->debbug($occurrence . 'Insert register $sl_product_format_id->'
+                                          .$sl_product_format_id.
+                                          ' $check_sl_product_format_id->'.$check_sl_product_format_id.
+                                          ' $product_format_id->'.print_r($product_format_id, 1), 'syncdata');
                         }
+                    }else{
+	                    $this->debbug($occurrence . ' Without create relation $sl_product_format_id is 0 ->'.
+	                                  print_r($sl_product_format_id, 1), 'syncdata');
                     }
                 }
-
+                $sql_combination = 'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
+						WHERE sl.slyr_id = "' . $product_format_id . '" AND sl.comp_id = "' . $comp_id . '"
+						AND sl.ps_type = "combination"';
                 $id_product_attribute = (int)Db::getInstance()->getValue(
-                    sprintf(
-                        'SELECT sl.ps_id FROM ' . _DB_PREFIX_ . 'slyr_category_product sl
-                         WHERE sl.slyr_id = "%s" AND sl.comp_id = "%s" AND sl.ps_type = "combination"',
-                        $product_format_id,
-                        $comp_id
-                    )
+                    $sql_combination
                 );
 
                 $stock = 0;
 
                 $combination_generated = false;
+                $this->debbug(
+                    $occurrence . ' variant founded?->' .
+                    ' $id_product_attribute->' . print_r($id_product_attribute, 1) .
+                    ' $sql_combination->' . print_r($sql_combination, 1),
+                    'syncdata'
+                );
                 if ($id_product_attribute) {
                     $this->debbug(
                         $occurrence . ' Load existing combination load from' .
@@ -3064,6 +3104,7 @@ class SlVariants extends SalesLayerPimUpdate
                                             }
 
                                             if ($name_of_product_save != '' &&
+                                                isset($image_cover->legend[$shop_language['id_lang']]) &&
                                                          trim(
                                                              $image_cover->legend[$shop_language['id_lang']]
                                                          ) != trim($name_of_product_save)

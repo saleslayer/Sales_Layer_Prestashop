@@ -14,7 +14,7 @@
  */
 
 use PrestaShop\PrestaShop\Adapter\CoreException;
-
+require_once _PS_MODULE_DIR_.'saleslayerimport/saleslayerimport.php';
 class SalesLayerPimUpdate extends SalesLayerImport
 {
     public $prestashop_all_shops;
@@ -35,8 +35,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     'product_formats_to_sync'=>0,
                     'categories_to_delete'=>0,
                     'products_to_delete'=>0,
-                    'products_formats_to_delete'=>0,
-
+                    'products_formats_to_delete'=>0
     ];
 
 
@@ -95,9 +94,9 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $this->errorSetup();
         $sql_processing = "SELECT count(*) as sl_cuenta_registros FROM " . _DB_PREFIX_ . "slyr_syncdata";
         $items_processing = $this->slConnectionQuery('read', $sql_processing);
-
+        $start_time = time();
         $items_processing['sl_cuenta_registros'] = $this->checkRegistersForProccess(true, 'syncdata', true);
-        $this->saveConfiguration(['LAST_CONNECTOR' => $connector_id . '_' . time()]);
+        $this->saveConfiguration(['LAST_CONNECTOR' => $connector_id . '_' . $start_time]);
         $this->debbug(" reading from table  " . print_r($items_processing, 1));
         if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
             $this->debbug(
@@ -176,7 +175,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
-        ini_set('memory_limit', $pagination.'M');
+        ini_set('memory_limit', ($pagination * 2 ).'M');
         $this->checkFreeSpaceMemory();
 
         if ($last_update != null && $last_update != 0) {
@@ -219,37 +218,54 @@ class SalesLayerPimUpdate extends SalesLayerImport
             $sync_params['conn_params']['defaultLanguage'] = $this->defaultLanguage;
 
             $data_schema = [];
+            $total = 0;
 
             do {
+                $microtime = microtime(1);
                 $this->debbug('Page ' . $counter . '  ');
                 gc_enable();
                 gc_collect_cycles();
 
                 $table_data = $api->getResponseTableData();
                 $count_items = $this->countItemsForSyncronize($table_data);
+                $total += $count_items['total'];
                 $this->organizeKeys($table_data, $data_returned);
                 $table_data = [];
                 if ($counter === 0) {
                     $data_schema = $this->getDataSchema($api);
                     $this->processAttributes($data_returned, $connector_id, $comp_id);
                 }
-                $this->debbug('page-> '.$counter.' content->' . print_r($count_items, 1) . ' ');
+
                 $this->processDeletes($sync_params);
                 $this->clearDebugContent();
                 $this->processDataForModify($data_returned, $data_schema, $sync_params);
-                $this->unifyVariantsToProductsDb($data_returned['data_schema_info']['product_formats']);
+
+                $this->debbug('page-> '.$counter.' content->' . print_r($count_items, 1) .
+                              ' microtime->' . (microtime(1) - $microtime));
+
+                if (isset($count_items['product_formats']['modified']) &&
+                    $count_items['product_formats']['modified'] > 0) {
+                    $microtime = microtime(true);
+                    $this->unifyVariantsToProductsDb($data_returned['data_schema_info']['product_formats']);
+                    $this->debbug('after product unify->' .
+                                  ' microtime->' . (microtime(1) - $microtime));
+                }
+                
                 $this->clearDebugContent();
                 gc_disable();
                 $continue = $api->haveNextPage();
                 if ($continue) {
                     $api->getNextPageInfo();
                 }
-                $stopped = $this->getConfiguration('STOPPED');
-                if ($stopped != null) {
-                    $this->debbug('Download data has been stopped by user.');
-                    break;
-                }
 
+                $stopped = $this->getConfiguration('STOPPED');
+                $this->checkTheRuntime($start_time);
+                if ($stopped != null) {
+                    $this->debbug('##Warning.Download data has been stopped by user.');
+                    break;
+                } else {
+                    $this->saveConfiguration(['TOTAL_STAT'=>$total,'DOWNLOADING'=>time()]);
+                }
                 $counter ++;
             } while ($continue);
         }
@@ -267,8 +283,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
             //call to cron for sincronize all cached data
             if (!$onlystore && $this->checkRegistersForProccess()) {
                 $this->verifyRetryCall(true);
-            } else {
-                $this->deleteConfiguration('LAST_CONNECTOR');
             }
         }
 
@@ -336,6 +350,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         }
         return $data_count;
     }
+
 
     /**
      * @param $sync_params
@@ -871,13 +886,20 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                           . ' id->' . print_r($product_id, 1));
                             continue;
                         }
-                        $this->debbug('before decode for concat ->' . print_r($product, 1));
+
                         $sync_data = json_decode($product[0]['item_data'], 1);
                         if (!isset($sync_data['sync_data']['variants'])) {
                             $sync_data['sync_data']['variants'] = [];
                         }
                         $this->debbug('before concat data ->' . print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
-                         $sync_data['sync_data']['variants'] = array_merge($this->product_unify_array[$product_id]['variants'], $sync_data['sync_data']['variants']);
+                        if (count($sync_data['sync_data']['variants'])) {
+                            foreach ($product_data['variants'] as $variant_id => $variant_data) {
+                                    $sync_data['sync_data']['variants'][$variant_id] = $variant_data;
+                            }
+                        } else {
+                            $sync_data['sync_data']['variants'] = $product_data['variants'];
+                        }
+
                         if (isset($sync_data['sync_data']['data'])) {
                             $this->debbug('after concat data ->' . print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
                         }
@@ -1505,91 +1527,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         return $newurl;
     }
 
-    /**
-     * @param $type
-     * @param $url
-     * @param $json
-     * @param $wait_for_response
-     *
-     * @return array
-     */
-    public function urlSendCustomJson(
-        $type,
-        $url,
-        $json = null,
-        $wait_for_response = true
-    ) {
-        //  $time_ini_urlsendcustomjson = microtime(1);
-        if (strpos($url, 'cloudfront') !== false) {
-            $url =  $this->decodeUrl($url);
-        }
-        $ch = curl_init($url);
-        $agent = 'SALES-LAYER PIM, Connector Prestashop->' . $this->name . ', Sync-Data';
-        curl_setopt($ch, CURLOPT_USERAGENT, $agent);
-        if ($json !== null) {
-            curl_setopt(
-                $ch,
-                CURLOPT_HTTPHEADER,
-                array(
-                    'Content-Type: application/json',
-                    'Content-Length: ' . Tools::strlen($json),
-                )
-            );
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
-        }
-        if (!$wait_for_response) {
-            $this->debbug('run short connection without wait response->' .
-                          $this->timeout_for_run_process_connections, 'balancer');
-            curl_setopt($ch, CONNECTION_TIMEOUT, $this->timeout_for_run_process_connections);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout_for_run_process_connections);
-            curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->timeout_for_run_process_connections);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
-        } else {
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        }
-        //curl_setopt($ch, CURLOPT_FAILONERROR, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $type);
-        curl_setopt($ch, CURLOPT_HEADER, false);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_ENCODING, 'UTF-8');
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 
-        $result = curl_exec($ch);
-
-        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-
-        if ($httpcode >= 200 && $httpcode < 300) {
-            $http_stat = true;
-        } else {
-            if ($wait_for_response) {
-                if ($httpcode == 0) {
-                    $this->debbug(' ## Error. curl problem connection result  ' . curl_error($ch), 'balancer');
-                }
-                $this->debbug(
-                    '## Error. result connection http:' . $httpcode . ' -> ' . print_r(
-                        $result,
-                        1
-                    ) . ' type :' . $type . '   json decoded-> ' . print_r(
-                        json_decode($json, 1),
-                        1
-                    ) . ' URL -> ' . $url . ' curl_error ->' .
-                    print_r(curl_error($ch), 1) .
-                    ' $result->' . print_r($result, 1),
-                    'balancer'
-                );
-                $http_stat = false;
-            } else {
-                $http_stat = true;
-            }
-        }
-        curl_close($ch);
-        $ch = null;
-        unset($ch, $url, $json);
-
-        return array($http_stat, $result, $httpcode);
-    }
 
     /**
      * @param $url

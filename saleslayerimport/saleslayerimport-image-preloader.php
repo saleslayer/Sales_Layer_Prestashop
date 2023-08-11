@@ -16,6 +16,7 @@
 include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
 $process_name = 'image-preloader';
+$start_time = time();
 /* Check security token */
 
 if (!Module::isInstalled('saleslayerimport')
@@ -151,6 +152,7 @@ if ($SLimport->checkRegistersForProccess(false, 'image_preloader')) {
                 $SLimport->debbug('## Error. Preloader error : ' . $e->getMessage() .
                                   ' line->' . $e->getLine(), 'image_preloader');
             }
+            $SLimport->checkTheRuntime($start_time);
             $SLimport->clearDebugContent();
             $counter++;
         } while (!empty($image));

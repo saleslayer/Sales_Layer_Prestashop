@@ -292,8 +292,9 @@ class SalesLayerImport extends Module
 
     public function __construct()
     {
-        require_once 'controllers/admin/SalesLayerPimUpdate.php';
-        require_once 'controllers/admin/SlCatalogues.php';
+
+	    require_once 'controllers/admin/SalesLayerPimUpdate.php';
+	    require_once 'controllers/admin/SlCatalogues.php';
         require_once 'controllers/admin/SlProducts.php';
         require_once 'controllers/admin/SlProductDelete.php';
         require_once 'controllers/admin/SlVariants.php';
@@ -747,7 +748,7 @@ class SalesLayerImport extends Module
      */
     public function saveCronExecutionTime()
     {
-        $old_execution_time =  $this->getConfiguration('LATEST_CRON_EXECUTION'); //check old time of execution from slyr table
+        $old_execution_time =  $this->getConfiguration('LATEST_CRON_EXECUTION');
         $timetosave = time();
         $timetosave_db = Db::getInstance()->executeS('SELECT UNIX_TIMESTAMP() as time');
         if (isset($timetosave_db[0]['time'])) {
@@ -1665,8 +1666,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function createSlcronRegister(
         $config_task
     ) {
-        ;
-
         $description = 'Registration required for Sales layer catalog synchronization.';
         $task = $config_task['task'];
         $hour = $config_task['hour'];
@@ -1714,7 +1713,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function clearDeletedSlyrRegs()
     {
         $this->debbug(
-            'Reasync deleted content and remove all from sl table if not exist in prestashop'
+            'Reasync deleted content and remove all from sl table if not exist in prestashop',
+            'cleaner'
         );
         $this->clearDeletedCategoriesFromCache();
         $this->clearDeletedProductsFromCache();
@@ -1829,7 +1829,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         do {
             $schemaAttributesGroup = 'SELECT at.id_attribute FROM ' . $this->attribute_table . ' AS at ' .
                                  ' LEFT JOIN ' . $this->attribute_group_table . ' AS pa
-            ON (pa.id_attribute_group = at.id_attribute_group ) WHERE pa.id_attribute_group is null LIMIT '.$start_limit.','.$pagination;
+            ON (pa.id_attribute_group = at.id_attribute_group ) 
+            WHERE pa.id_attribute_group is null LIMIT '.$start_limit.','.$pagination;
             $deleteAttributeGroup = Db::getInstance()->executeS($schemaAttributesGroup);
 
             if (!empty($deleteAttributeGroup)) {
@@ -1838,7 +1839,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     print_r(
                         $deleteAttributeGroup,
                         1
-                    )
+                    ),
+                    'cleaner'
                 );
                 foreach ($deleteAttributeGroup as $Attribute) {
                     //$attributeValue = new AttributeCore($Attribute['id_attribute']);
@@ -1868,7 +1870,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         do {
             $schemaAttrVals = 'SELECT id FROM ' . _DB_PREFIX_ . 'slyr_category_product  AS sl ' .
                               ' LEFT JOIN ' . $this->attribute_table . ' AS a ON (a.id_attribute = sl.ps_id ) ' .
-                              " WHERE  sl.ps_type = 'product_format_value' AND a.id_attribute is null LIMIT ".$start_limit.','.$pagination;
+                              " WHERE  sl.ps_type = 'product_format_value' AND a.id_attribute is null 
+                              LIMIT ".$start_limit.','.$pagination;
             $attributeValuesDelete = Db::getInstance()->executeS($schemaAttrVals);
 
             if (!empty($attributeValuesDelete)) {
@@ -2344,8 +2347,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->sl_time_ini_auto_sync_process = microtime(1);
 
         try {
-            require_once 'controllers/admin/SalesLayerPimUpdate.php';
-
             $sync_libs = new SalesLayerPimUpdate();
             $all_connectors = $this->getAllConnectors();
             $now = time();
@@ -4562,14 +4563,14 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         $result =    Db::getInstance()->executeS($query);
 
                         $this->debbug('Check if has been modified this product ->: ' .
-                                      print_r($query, 1));
+                                      print_r($query, 1), 'cleaner');
                         if (count($result)) {
                             $result = array_column($result, 'id_' . $table);
 
                             if ($table == 'product') {// delete variants hash if product has been modified
                                 foreach ($result as $id_product) {
                                     $this->debbug('Deleting from cache all variants of product ->: ' .
-                                                  print_r($id_product, 1));
+                                                  print_r($id_product, 1), 'cleaner');
                                     $delete_variants_hash = 'DELETE FROM ' .  _DB_PREFIX_  . 'slyr_input_compare ' .
                                                             ' WHERE ' .
                                                             ' ps_type ="product_format" ' .
@@ -4583,7 +4584,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 }
                             }
                             $this->debbug('Deleting from cache input compare ' . $table .
-                                          ' ->: ' . print_r($result, 1));
+                                          ' ->: ' . print_r($result, 1), 'cleaner');
                             $delete_query = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ' .
                                             ' WHERE ' .
                                             'ps_type ="' . $table .
@@ -4595,15 +4596,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 }
             } catch (Exception $e) {
                 $this->debbug('## Error. cleaning data hash: ' . $e->getMessage() .
-                              ' line ->' . print_r($e->getLine(), 1));
+                              ' line ->' . print_r($e->getLine(), 1), 'cleaner');
             }
         } else {
             try {
                 $delete_query = 'DELETE FROM ' . _DB_PREFIX_ . 'slyr_input_compare ';
                 Db::getInstance()->execute($delete_query);
             } catch (Exception $e) {
-                $this->debbug('## Error. Delete alll registers form input_compare table: ' . $e->getMessage() .
-                              ' line ->' . print_r($e->getLine(), 1));
+                $this->debbug('## Error. Delete all registers form input_compare table: ' . $e->getMessage() .
+                              ' line ->' . print_r($e->getLine(), 1), 'cleaner');
             }
         }
     }
@@ -4752,14 +4753,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $data = ['prc_type'=>$process_name,'prc_time'=>date('Y-m-d H:i:s'),'pid'=>$pid];
             $this->debbug(
                 'Rewrite this process register process  : ' .
-                print_r($data, 1),
-                'syncdata'
+                print_r($data, 1)
             );
             SalesLayerImport::setRegisterInputCompare($data, 'slyr_process');
         } catch (Exception $e) {
             $this->debbug('## Error. register process  : ' . $e->getMessage() .
                           ' line->' . $e->getLine() . ' query data->' .
-                          print_r($data, 1), 'syncdata');
+                          print_r($data, 1));
         }
     }
     public function clearWorkProcess($process_name = null, $pid = null)
@@ -5167,7 +5167,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
         }
 
-        if (!$this->checkRegistersForProccess()) {
+        if (!$this->checkRegistersForProccess() && !$this->getConfiguration('DOWNLOADING')) {
             $this->deleteConfiguration('SYNC_STATUS');
             $this->deleteConfiguration('LAST_CONNECTOR');
             $this->deleteConfiguration('TOTAL_STAT');
@@ -5202,5 +5202,104 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $this->start_sync_timestamp =  $register[1];
             }
         }
+    }
+    public function checkTheRuntime($start_at)
+    {
+        $actual_limit = ini_get('max_execution_time');
+        $this->debbug('actual limit : ' . print_r($actual_limit, 1).
+                      ' start at '.print_r($start_at, 1).' now '.print_r(time(), 1));
+        $actual =    time() - $start_at ;
+
+        $actual_limit = $actual + 3600;
+
+        if ($actual_limit > 3600) {
+            $this->debbug('new limit '.print_r($actual_limit, 1));
+            ini_set('max_execution_time', $actual_limit);
+        }
+    }
+    /**
+     * @param $type
+     * @param $url
+     * @param $json
+     * @param $wait_for_response
+     *
+     * @return array
+     */
+    public function urlSendCustomJson(
+        $type,
+        $url,
+        $json = null,
+        $wait_for_response = true
+    ) {
+        //  $time_ini_urlsendcustomjson = microtime(1);
+        if (strpos($url, 'cloudfront') !== false) {
+            $url =  $this->decodeUrl($url);
+        }
+        $ch = curl_init($url);
+        $agent = 'SALES-LAYER PIM, Connector Prestashop->' . $this->name . ', Sync-Data';
+        curl_setopt($ch, CURLOPT_USERAGENT, $agent);
+        if ($json !== null) {
+            curl_setopt(
+                $ch,
+                CURLOPT_HTTPHEADER,
+                array(
+                    'Content-Type: application/json',
+                    'Content-Length: ' . Tools::strlen($json),
+                )
+            );
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+        }
+        if (!$wait_for_response) {
+            $this->debbug('run short connection without wait response->' .
+                          $this->timeout_for_run_process_connections, 'balancer');
+            curl_setopt($ch, CONNECTION_TIMEOUT, $this->timeout_for_run_process_connections);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout_for_run_process_connections);
+            curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->timeout_for_run_process_connections);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+        } else {
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        }
+        //curl_setopt($ch, CURLOPT_FAILONERROR, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $type);
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_ENCODING, 'UTF-8');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+        $result = curl_exec($ch);
+
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+
+        if ($httpcode >= 200 && $httpcode < 300) {
+            $http_stat = true;
+        } else {
+            if ($wait_for_response) {
+                if ($httpcode == 0) {
+                    $this->debbug(' ## Error. curl problem connection result  ' . curl_error($ch), 'balancer');
+                }
+                $this->debbug(
+                    '## Error. result connection http:' . $httpcode . ' -> ' . print_r(
+                        $result,
+                        1
+                    ) . ' type :' . $type . '   json decoded-> ' . print_r(
+                        json_decode($json, 1),
+                        1
+                    ) . ' URL -> ' . $url . ' curl_error ->' .
+                    print_r(curl_error($ch), 1) .
+                    ' $result->' . print_r($result, 1),
+                    'balancer'
+                );
+                $http_stat = false;
+            } else {
+                $http_stat = true;
+            }
+        }
+        curl_close($ch);
+        $ch = null;
+        unset($ch, $url, $json);
+
+        return array($http_stat, $result, $httpcode);
     }
 }

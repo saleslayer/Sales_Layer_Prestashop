@@ -16,6 +16,7 @@
 include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
 $process_name = 'stock_update';
+$start_time = time();
 /* Check security token */
 
 if (!Module::isInstalled('saleslayerimport')
@@ -103,6 +104,7 @@ if ($SLimport->checkRegistersForProccess(false, 'stock_update')) {
                                                   ' line->' . $e->getLine(), 'update-stock');
                         break;
                     }
+                    $SLimport->checkTheRuntime($start_time);
                     $SLimport->clearDebugContent();
                 } while (count($registers) > 0);
             }

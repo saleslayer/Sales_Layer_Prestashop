@@ -73,6 +73,7 @@ if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
 } else {
     try {
         $SLimport->autoSyncConnectors();
+        $SLimport->callProcess('cleaner');
     } catch (Exception $e) {
         $SLimport->debbug('## Error. Auto-sync connectors in cron start : ' . $e->getMessage(), 'error');
     }
