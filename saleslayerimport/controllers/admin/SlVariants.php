@@ -2200,8 +2200,9 @@ class SlVariants extends SalesLayerPimUpdate
                             }
                             $attribute->name[$id_lang] = $att_value;
                             if ($id_lang != $this->defaultLanguage) {
-                                if ($attribute->name[$this->defaultLanguage] == null
-                                    || $attribute->name[$this->defaultLanguage] == ''
+                                if (!isset($attribute->name[$this->defaultLanguage]) ||
+                                    $attribute->name[$this->defaultLanguage] == null ||
+                                    $attribute->name[$this->defaultLanguage] == ''
                                 ) {
                                     $attribute->name[$this->defaultLanguage] = $att_value;
                                 }

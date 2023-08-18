@@ -14,6 +14,7 @@
  */
 
 use PrestaShop\PrestaShop\Adapter\CoreException;
+
 require_once _PS_MODULE_DIR_.'saleslayerimport/saleslayerimport.php';
 class SalesLayerPimUpdate extends SalesLayerImport
 {
@@ -187,7 +188,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
         $data_returned = $api->getDataReturned();
         $data_returned['data'] = [];
        // unset($data_returned['data']);
-       
+
 
         if ($api->hasResponseError()) {
             $this->debbug('## Error. : ' . $api->getResponseError() . ' Msg: ' . $api->getResponseErrorMessage());
@@ -250,7 +251,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $this->debbug('after product unify->' .
                                   ' microtime->' . (microtime(1) - $microtime));
                 }
-                
+
                 $this->clearDebugContent();
                 gc_disable();
                 $continue = $api->haveNextPage();
@@ -758,7 +759,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 );
             } catch (Exception $e) {
                 $this->debbug('## Error.  synchronizeAttributeGroup->' . $e->getMessage());
-                $this->debbug('## Error.  trace->' . print_r($e->getTrace(), 1));
+                $this->debbug('## Error.  trace->' . print_r($e->getTrace(), 1)
+                              .' line->'.print_r($e->getLine(), 1));
             }
         }
     }
@@ -1826,7 +1828,6 @@ class SalesLayerPimUpdate extends SalesLayerImport
     ) {
         $this->debbug(' Entered with shops ->' . print_r($conn_shops, 1));
 
-
         $formats_update_shops = array();
 
         foreach ($tablaStructure as $keyStruct => $campoStruct) {
@@ -1849,7 +1850,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
             $fieldNamePublic = ucwords(str_replace('_', ' ', $fieldName));
 
-            $format_exists = (int)Db::getInstance()->getValue(
+            $format_exists = (int) Db::getInstance()->getValue(
                 sprintf(
                     'SELECT gl.id_attribute_group
                             FROM `' . _DB_PREFIX_ . 'attribute_group_lang` gl
@@ -1860,7 +1861,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $fieldName
                 )
             );
-
+            $this->debbug(' $format_exists->' . print_r($format_exists, 1) .
+                                  ' $fieldName ->' . print_r($fieldName, 1));
             if ($format_exists) {
                 //Almacenamos id de formato para actualizar las tiendas
                 //array_push($formats_update_shops, $format_exists);
@@ -1890,27 +1892,35 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $this->debbug('Name of group attribute exist ->' . print_r($keyStruct, 1));
 
                 if (isset($tablaStructure[$keyStruct]['language_code'])) {
+                    $this->debbug('Fill attribute with multi-lang field-> ' . print_r($tablaStructure[$keyStruct], 1));
                     foreach ($this->shop_languages as $lang_sub) {
                         $attribute_search_index = $fieldName . '_' . $lang_sub['iso_code'];
+                        $this->debbug('check if exist name -> ' . print_r($attribute_search_index, 1));
                         if (isset($tablaStructure[$attribute_search_index]['language_code'])) {
                             $fieldName = $tablaStructure[$attribute_search_index]['basename'];
                             $fieldNamePublic = $tablaStructure[$attribute_search_index]['basename'];
+                            $this->debbug('exist -> ' . print_r($attribute_search_index, 1).' name->'.$fieldName);
 
                             if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
                                 $attGroup->name[$lang_sub['id_lang']] == null ||
                                 $attGroup->name[$lang_sub['id_lang']] == ''
                             ) {
-                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
+                                $this->debbug('writing attribute name -> ' . print_r($tablaStructure[$attribute_search_index]['title'], 1));
+                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
                             }
                             if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
                                 $attGroup->public_name[$lang_sub['id_lang']] == null ||
                                 $attGroup->public_name[$lang_sub['id_lang']] == ''
                             ) {
-                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
+                                $this->debbug('writing attribute with multi-lang field with $fieldNamePublic->' .
+                                              print_r($tablaStructure[$attribute_search_index]['title'], 1).' lang->'.print_r($lang_sub['id_lang'], 1));
+                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
                             }
 
 
-                            if ($lang_sub['id_lang'] != $this->defaultLanguage) {
+                           /* if ($lang_sub['id_lang'] != $this->defaultLanguage) {
+                                $this->debbug('Fill attribute with multilang field in another language with basename-> '
+                            . print_r($lang_sub['id_lang'], 1));
                                 if (!isset($attGroup->name[$this->defaultLanguage]) ||
                                     $attGroup->name[$this->defaultLanguage] == null ||
                                     $attGroup->name[$this->defaultLanguage] == ''
@@ -1925,33 +1935,37 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                         $fieldNamePublic
                                     );
                                 }
-                            }
+                            }*/
+                        } else {
+                            $this->debbug('not exist ->' . print_r($attribute_search_index, 1));
                         }
                     }
                 } else {
                     if (isset($tablaStructure[$keyStruct]['titles'])) {
+                        $this->debbug('Fill all languages with titles-> ' .
+                                      print_r($tablaStructure[$keyStruct]['titles'], 1));
                         foreach ($this->shop_languages as $lang_sub) {
                             if (isset($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']])) {
-                                $fieldName = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];
-                                $fieldNamePublic = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];
-                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
-                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
+                               /* $fieldName = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];
+                                $fieldNamePublic = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];*/
+                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
+                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
                             } else {
                                 if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
                                     $attGroup->name[$lang_sub['id_lang']] == null ||
                                     $attGroup->name[$lang_sub['id_lang']] == ''
                                 ) {
-                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
+                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
                                 }
                                 if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
                                     $attGroup->public_name[$lang_sub['id_lang']] == null ||
                                     $attGroup->public_name[$lang_sub['id_lang']] == ''
                                 ) {
-                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
+                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
                                 }
                             }
 
-                            if ($lang_sub['id_lang'] != $this->defaultLanguage) {
+                           /* if ($lang_sub['id_lang'] != $this->defaultLanguage) {
                                 if (!isset($attGroup->name[$this->defaultLanguage]) ||
                                     $attGroup->name[$this->defaultLanguage] == null ||
                                     $attGroup->name[$this->defaultLanguage] == ''
@@ -1966,9 +1980,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                         $fieldNamePublic
                                     );
                                 }
-                            }
+                            }*/
                         }
                     } else {
+                        $this->debbug('Fill all languages with same name in update '
+                                      . print_r($fieldName, 1));
                         foreach ($this->shop_languages as $lang_sub) {
                             if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
                                 $attGroup->name[$lang_sub['id_lang']] == null ||
@@ -1982,7 +1998,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             ) {
                                 $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
                             }
-                            if ($lang_sub['id_lang'] != $this->defaultLanguage) {
+                          /*  if ($lang_sub['id_lang'] != $this->defaultLanguage) {
                                 if (!isset($attGroup->name[$this->defaultLanguage]) ||
                                     $attGroup->name[$this->defaultLanguage] == null ||
                                     $attGroup->name[$this->defaultLanguage] == ''
@@ -1997,22 +2013,24 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                         $fieldNamePublic
                                     );
                                 }
-                            }
+                            }*/
                         }
                     }
                 }
-
+                $this->debbug('object before update  ->' .
+                              print_r($attGroup->name, 1));
 
                 try {
                     $attGroup->save();
                 } catch (Exception $e) {
-                    $this->debbug('Error update AttributeGroup->' . print_r($e->getMessage(), 1));
+                    $this->debbug('Error update AttributeGroup->' .
+                                  print_r($e->getMessage(), 1));
                 }
 
 
                 Shop::setContext(Shop::CONTEXT_SHOP, $contextShopID);
             } else {
-                $this->debbug('Name of newest attribute group  ->' . print_r($keyStruct, 1));
+                $this->debbug('Creating new group of attributes  ->' . print_r($keyStruct, 1));
 
                 $schemaAttrGroup = " SELECT agl.`id_attribute_group`, name, public_name " .
                     " FROM " . $this->attribute_group_lang_table . " AS agl " .
@@ -2071,7 +2089,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         )
                     );
                 } else {
-                    $this->debbug('Name of newest group attribute ->' . print_r($keyStruct, 1));
+                    $this->debbug('Creating name of group of attribute  ->' . print_r($keyStruct, 1));
                     $in_search = array('color', 'texture','textura');
                     $is_color_attribute = false;
 
@@ -2084,102 +2102,78 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
 
                     if (isset($tablaStructure[$keyStruct]['language_code'])) {
+                        $this->debbug('Fill all languages with titile defined in field' .
+                                      print_r($tablaStructure[$keyStruct], 1));
                         foreach ($this->shop_languages as $lang_sub) {
                             $attribute_search_index = $fieldName . '_' . $lang_sub['iso_code'];
                             if (isset($tablaStructure[$attribute_search_index]['language_code'])) {
                                 if (isset($tablaStructure[$attribute_search_index]['title']) &&
                                     !empty($tablaStructure[$attribute_search_index]['title'])
                                 ) {
-                                    $fieldName = $tablaStructure[$attribute_search_index]['title'];
-                                    $fieldNamePublic = $tablaStructure[$attribute_search_index]['title'];
-                                }
-
-                                if (in_array(Tools::strtolower($fieldName), $in_search, false)) {
-                                    $is_color_attribute = true;
-                                }
-
-                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
-                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
-
-                                if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                    if ($attGroup->name[$this->defaultLanguage] == null ||
-                                        $attGroup->name[$this->defaultLanguage] == ''
-                                    ) {
-                                        $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
+                                    if (in_array(Tools::strtolower($tablaStructure[$attribute_search_index]['title']), $in_search, false)) {
+                                        $is_color_attribute = true;
                                     }
-                                    if ($attGroup->public_name[$this->defaultLanguage] == null ||
-                                        $attGroup->public_name[$this->defaultLanguage] == ''
-                                    ) {
-                                        $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
-                                            $fieldNamePublic
-                                        );
-                                    }
+                                    $this->debbug('Fill lang ' . print_r($lang_sub['iso_code'], 1) .
+                                                  ' id->' . print_r($lang_sub['id_lang'], 1).
+                                                  ' with titile defined in field. ->' . print_r($fieldName, 1));
+
+                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
+                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
                                 }
                             }
                         }
                     } else {
                         if (isset($tablaStructure[$keyStruct]['titles'])) {
+                            $this->debbug('Fill all languages with titiles defined ' .
+                                          print_r($tablaStructure[$keyStruct]['titles'], 1));
                             foreach ($this->shop_languages as $lang_sub) {
                                 if (isset($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']])) {
-                                    $fieldName = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];
-                                    $fieldNamePublic = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];
-                                }
+                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
+                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
 
-                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
-                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
-
-                                if (in_array(Tools::strtolower($fieldName), $in_search, false)) {
-                                    $is_color_attribute = true;
-                                }
-
-                                if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                    if ($attGroup->name[$this->defaultLanguage] == null ||
-                                        $attGroup->name[$this->defaultLanguage] == ''
-                                    ) {
-                                        $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
-                                    }
-                                    if ($attGroup->public_name[$this->defaultLanguage] == null ||
-                                        $attGroup->public_name[$this->defaultLanguage] == ''
-                                    ) {
-                                        $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
-                                            $fieldNamePublic
-                                        );
+                                    if (in_array(Tools::strtolower($fieldName), $in_search, false)) {
+                                        $is_color_attribute = true;
                                     }
                                 }
                             }
                         } else {
+                            $this->debbug('Fill all languages with same lang ' . $fieldName);
                             foreach ($this->shop_languages as $lang_sub) {
                                 $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                                 $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
 
                                 if (in_array(Tools::strtolower($fieldName), $in_search, false)) {
                                     $is_color_attribute = true;
-                                }
-
-                                if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                    if ($attGroup->name[$this->defaultLanguage] == null ||
-                                        $attGroup->name[$this->defaultLanguage] == ''
-                                    ) {
-                                        $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
-                                    }
-                                    if ($attGroup->public_name[$this->defaultLanguage] == null ||
-                                        $attGroup->public_name[$this->defaultLanguage] == ''
-                                    ) {
-                                        $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
-                                            $fieldNamePublic
-                                        );
-                                    }
                                 }
                             }
                         }
                     }
 
+                    if (empty($attGroup->name[$this->defaultLanguage])) {
+                        $this->debbug('auto - Fill default language with ->' . $fieldName);
+                        if ($attGroup->name[$this->defaultLanguage] == null ||
+                                $attGroup->name[$this->defaultLanguage] == ''
+                            ) {
+                            $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
+                        }
+                        if ($attGroup->public_name[$this->defaultLanguage] == null ||
+                                $attGroup->public_name[$this->defaultLanguage] == ''
+                            ) {
+                            $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
+                                $fieldNamePublic
+                            );
+                        }
+                    }
+
+
+                    $this->debbug('creating new group with this names  ' . $fieldName.
+                                  ' names->' .print_r($attGroup->name, 1));
                     if ($is_color_attribute) {
-                        $this->debbug('Creating a color attribute ' . $fieldName, 'syncdata');
+                        $this->debbug('Creating a color attribute ' . $fieldName);
                         $attGroup->is_color_group = true;
                         $attGroup->group_type = 'color';
                     } else {
-                        $this->debbug('Creating a select attribute ' . $fieldName, 'syncdata');
+                        $this->debbug('Creating a select attribute ' . $fieldName);
                         $attGroup->is_color_group = false;
                         $attGroup->group_type = 'select';
                     }
@@ -2289,8 +2283,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     }
                 } else {
                     $this->debbug(
-                        'Invalid slyr register when updating shops for the variant with ID: ' . $format_id,
-                        'error'
+                        'Invalid slyr register when updating shops for the variant with ID: ' . $format_id
                     );
                 }
 

@@ -966,7 +966,9 @@ class SlCatalogues extends SalesLayerPimUpdate
                 if (isset($catalog['data'][$meta_title_index]) && $catalog['data'][$meta_title_index] != '') {
                     $meta_title = $catalog['data'][$meta_title_index];
                 } else {
-                    if (isset($catalog['data'][$section_name_index]) && !empty($catalog['data'][$section_name_index]) &&
+                    if (isset($catalog['data'][$section_name_index]) &&
+                        !empty($catalog['data'][$section_name_index]) &&
+                        isset($cat->meta_title[$lang['id_lang']]) &&
                         $cat->meta_title[$lang['id_lang']] == ''
                     ) {
                         $meta_title = $this->clearForMetaData($catalog['data'][$section_name_index]);

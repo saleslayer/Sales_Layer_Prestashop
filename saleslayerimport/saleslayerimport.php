@@ -293,8 +293,8 @@ class SalesLayerImport extends Module
     public function __construct()
     {
 
-	    require_once 'controllers/admin/SalesLayerPimUpdate.php';
-	    require_once 'controllers/admin/SlCatalogues.php';
+        require_once 'controllers/admin/SalesLayerPimUpdate.php';
+        require_once 'controllers/admin/SlCatalogues.php';
         require_once 'controllers/admin/SlProducts.php';
         require_once 'controllers/admin/SlProductDelete.php';
         require_once 'controllers/admin/SlVariants.php';
@@ -951,7 +951,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 `id_lang` int(11) DEFAULT NULL,
                                 `shops_info` text,
                                 PRIMARY KEY (`id`),
-                                INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),								
+                                INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),
                                 INDEX `indice_2` (`ps_id` ASC, `comp_id` ASC, `ps_type` ASC,`ps_attribute_group_id` ASC)
                                 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 
@@ -5208,13 +5208,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $actual_limit = ini_get('max_execution_time');
         $this->debbug('actual limit : ' . print_r($actual_limit, 1).
                       ' start at '.print_r($start_at, 1).' now '.print_r(time(), 1));
-        $actual =    time() - $start_at ;
+        $actual =   time() - $start_at ;
+        $actual_limit =  $actual_limit - $actual ;
 
-        $actual_limit = $actual + 3600;
-
-        if ($actual_limit > 3600) {
-            $this->debbug('new limit '.print_r($actual_limit, 1));
-            ini_set('max_execution_time', $actual_limit);
+        if ($actual_limit < 14400) {
+            $this->debbug('new limit '.print_r($actual + 14400, 1).
+                          ' actual limit-> '.print_r($actual_limit, 1));
+            ini_set('max_execution_time', $actual + 14400);
         }
     }
     /**
