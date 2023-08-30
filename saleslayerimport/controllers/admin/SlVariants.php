@@ -1033,10 +1033,9 @@ class SlVariants extends SalesLayerPimUpdate
                         }
                     }
                 } else {
-
                     if ($sl_product_format_id !== 0) {
-	                    $this->debbug($occurrence . 'Combination not exist ->'.
-	                                  print_r($check_sl_product_format_id, 1), 'syncdata');
+                        $this->debbug($occurrence . 'Combination not exist ->'.
+                                      print_r($check_sl_product_format_id, 1), 'syncdata');
                         $old_sl_product_format_id = (int)Db::getInstance()->getValue(
                             sprintf(
                                 'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
@@ -1081,9 +1080,9 @@ class SlVariants extends SalesLayerPimUpdate
                                           ' $check_sl_product_format_id->'.$check_sl_product_format_id.
                                           ' $product_format_id->'.print_r($product_format_id, 1), 'syncdata');
                         }
-                    }else{
-	                    $this->debbug($occurrence . ' Without create relation $sl_product_format_id is 0 ->'.
-	                                  print_r($sl_product_format_id, 1), 'syncdata');
+                    } else {
+                        $this->debbug($occurrence . ' Without create relation $sl_product_format_id is 0 ->'.
+                                      print_r($sl_product_format_id, 1), 'syncdata');
                     }
                 }
                 $sql_combination = 'SELECT sl.ps_id FROM `' . _DB_PREFIX_ . 'slyr_category_product` sl
@@ -3129,7 +3128,8 @@ class SlVariants extends SalesLayerPimUpdate
                                                     'Image is the same, image alt attribute not is not required ' .
                                                     ' update this image info ->' .
                                                             print_r(
-                                                                $image_cover->legend[$shop_language['id_lang']],
+                                                                (isset($image_cover->legend[$shop_language['id_lang']])?
+                                                                    $image_cover->legend[$shop_language['id_lang']]:''),
                                                                 1
                                                             ) .
                                                             '  ==  ' .
