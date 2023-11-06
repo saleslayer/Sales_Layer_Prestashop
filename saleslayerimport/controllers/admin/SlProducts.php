@@ -93,7 +93,8 @@ class SlProducts extends SalesLayerPimUpdate
             $data_clear['ID_catalogue'] = $product['ID_catalogue'];
         }
         $data_clear['shops'] = $shops;
-        $json_clear = json_encode($data_clear);
+        $json_clear = json_encode($data_clear,
+	        JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
         $data_hash = (string) hash($this->hash_algorithm_comparator, $json_clear);
 
         $this->debbug(

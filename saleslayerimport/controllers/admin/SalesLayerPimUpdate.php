@@ -116,7 +116,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return false;
         }
 
-        ini_set('max_execution_time', 14400);
+        @ini_set('max_execution_time', 14400);
         $this->sl_time_ini_process = microtime(1);
 
         $this->debbug(" ==== Store Sync Data INIT ==== ");
@@ -176,7 +176,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
         $this->debbug('last_update: ' . $last_update . ' date: ' . date('Y-m-d', $last_update));
 
-        ini_set('memory_limit', ($pagination * 2 ).'M');
+        @ini_set('memory_limit', ($pagination * 2 ).'M');
+        @ini_set('serialize_precision', -1);
         $this->checkFreeSpaceMemory();
 
         if ($last_update != null && $last_update != 0) {
@@ -405,8 +406,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $item_data = [];
                     $item_data['sl_id'] = $catalog;
                     $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "',0,0,'" . addslashes(
-                        json_encode($item_data)
-                    ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
+                        json_encode($item_data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)
+                    ) . "', '" . addslashes(json_encode($sync_params, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)) . "','0')";
                     $this->insertSyncdataSql();
                 }
                 unset($this->catalogue_items_del[$key]);
@@ -438,8 +439,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $item_data             = array();
                     $item_data['sl_id']    = $product;
                     $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', 0,0,'" . addslashes(
-                        json_encode($item_data)
-                    ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
+                        json_encode($item_data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)
+                    ) . "', '" . addslashes(json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)) . "','0')";
                     $this->insertSyncdataSql();
                 }
                 unset($this->product_items_del[$key]);
@@ -474,8 +475,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $item_data             = array();
                     $item_data['sl_id']    = $product_format;
                     $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "',0 ,0,'" . addslashes(
-                        json_encode($item_data)
-                    ) . "', '" . addslashes(json_encode($sync_params)) . "','0')";
+                        json_encode($item_data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)
+                    ) . "', '" . addslashes(json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)) . "','0')";
                     $this->insertSyncdataSql();
                 }
                 unset($this->product_formats_items_del[$key]);
@@ -555,8 +556,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $data_insert['defaultCategory'] = $defaultCategory;
 
                 if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog, $data_insert)) {
-                    $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
-                    $sync_params_to_insert = json_encode($sync_params);
+                    $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                     $item_id = $catalog['ID'];
                     $parent_id = $catalog['ID_PARENT'];
 
@@ -628,8 +629,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         unset($data_insert['sync_data']['variants']);
                     }
                     $num_variants = (isset($data_insert['sync_data']['variants']) ? count($data_insert['sync_data']['variants']) : 0);
-                    $item_data_to_insert   = json_encode($data_insert); //html_entity_decode
-                    $sync_params_to_insert = json_encode($sync_params);
+                    $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); //html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                     $item_id = $product['ID'];
                     $parent_id = 0;
 
@@ -657,8 +658,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                     $data_returned['data_schema_info']['product_formats'];
                                 $sync_params['conn_params']['data_schema'] = $data_schema;
                                 $sync_params['conn_params']['avoid_stock_update'] = $this->avoid_stock_update;
-                                $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
-                                $sync_params_to_insert = json_encode($sync_params);
+                                $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
+                                $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                                 $item_id = $variant['ID'];
                                 $parent_id = $variant['ID_products'];
 
@@ -719,8 +720,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $this->connector_shops
                 )
                 ) {
-                    $item_data_to_insert   = json_encode($data_insert); // html_entity_decode
-                    $sync_params_to_insert = json_encode($sync_params);
+                    $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                     $item_id = $product_format['ID'];
                     $parent_id = $product_format['ID_products'];
 
@@ -909,7 +910,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $num_variants = count($this->product_unify_array[$product_id]['variants']);
 
                         Db::getInstance()->execute('UPDATE '._DB_PREFIX_.
-                                               'slyr_syncdata SET item_data = "' . addslashes(json_encode($sync_data)) .
+                                               'slyr_syncdata SET item_data = "' . addslashes(json_encode($sync_data, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_PRESERVE_ZERO_FRACTION)) .
                                                '",num_variants ="' . $num_variants . '" WHERE item_type = "product" AND ' .
                                                ' sync_type = "update" AND item_id = ' . $product_id . '  ' .
                                                ' ');

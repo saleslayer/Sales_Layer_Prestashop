@@ -91,7 +91,10 @@ class SlVariants extends SalesLayerPimUpdate
         $data_clear['data'] = $product_format['data'];
         unset($data_clear['data']['quantity']);
         $data_clear['shops'] = $conn_shops;
-        $json_clear = json_encode($data_clear);
+        $json_clear = json_encode(
+            $data_clear,
+            JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION
+        );
         $data_hash = (string) hash($this->hash_algorithm_comparator, $json_clear);
 
 

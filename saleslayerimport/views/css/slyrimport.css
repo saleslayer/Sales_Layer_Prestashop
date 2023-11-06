@@ -222,6 +222,7 @@ border:0 !important;
 #progressbar {
   position: relative;
   height: 30px;
+  margin:20px;
 }
 
 #progressbar > div {
