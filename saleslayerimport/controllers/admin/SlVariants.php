@@ -2001,11 +2001,11 @@ class SlVariants extends SalesLayerPimUpdate
                         }
 
                         if ($count_end == $counter) {
-                            $left_group_value .= " ( al.`name` LIKE '" . addslashes($att_value) .
-                                                 "' AND al.`id_lang` = '" . $id_lang . "' ) ";
+                            $left_group_value .= " ( al.`id_lang` = '" . $id_lang . "' AND  " .
+                                                " al.`name` LIKE '" . addslashes($att_value)."' ) ";
                         } else {
-                            $left_group_value .= " ( al.`name` LIKE '" . addslashes($att_value) .
-                                                 "' AND al.`id_lang` = '" . $id_lang . "'  ) OR ";
+                            $left_group_value .= " (al.`id_lang` = '" . $id_lang . "' AND  .
+                                                al.`name` LIKE '" . addslashes($att_value). "' ) OR ";
                         }
                         $counter++;
                     }

@@ -93,8 +93,10 @@ class SlProducts extends SalesLayerPimUpdate
             $data_clear['ID_catalogue'] = $product['ID_catalogue'];
         }
         $data_clear['shops'] = $shops;
-        $json_clear = json_encode($data_clear,
-	        JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
+        $json_clear = json_encode(
+            $data_clear,
+            JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION
+        );
         $data_hash = (string) hash($this->hash_algorithm_comparator, $json_clear);
 
         $this->debbug(
@@ -3818,7 +3820,7 @@ class SlProducts extends SalesLayerPimUpdate
             }
 
             try {
-                $this->syncFeatures($product_exists, $product, $schema);
+                $this->syncFeatures($product_exists, $product, $schema, $shops);
             } catch (Exception $e) {
                 $this->general_error = true;
                 $this->debbug('## Error. ' . $occurence . ' Sync Features: ' . $e->getMessage(), 'syncdata');
@@ -5895,7 +5897,8 @@ class SlProducts extends SalesLayerPimUpdate
     protected function syncFeatures(
         $id_product,
         &$product,
-        $schema
+        $schema,
+        $shops
     ) {
         Shop::setContext(shop::CONTEXT_ALL);
         if (isset($product['data']['product_reference']) && !empty($product['data']['product_reference'])) {
@@ -5989,7 +5992,7 @@ class SlProducts extends SalesLayerPimUpdate
 
                         if (!array_key_exists($feature_index_selected, $product['data'])) {
                             $this->debbug(
-                                'That feature has not been found in the oroduct information->'
+                                'That feature has not been found in the product information->'
                                 . $lang['id_lang'] . ' lg_code -> ' . print_r(
                                     $lang['iso_code'],
                                     1
@@ -5999,7 +6002,7 @@ class SlProducts extends SalesLayerPimUpdate
                             //No existe la característica en el producto.
                             continue;
                         } else {
-                            $this->debbug('Feature found in product array ', 'syncdata');
+                            $this->debbug('Feature '.$feature_index_selected.' found in product array ', 'syncdata');
                             $count_values = 0;
 
                             $ids_feature_values = Db::getInstance()->executeS(
@@ -6017,6 +6020,31 @@ class SlProducts extends SalesLayerPimUpdate
                                 ),
                                 'syncdata'
                             );
+
+                            if ($id_feature) {
+                                foreach ($shops as $shop_id) {
+                                    $test_feature_store =  Db::getInstance()->executeS(
+                                        sprintf(
+                                            'SELECT id_feature_value FROM ' . $this->feature_shop_table . '
+                                    where id_feature = "%s"  AND id_shop = "%s" ',
+                                            $id_feature,
+                                            $shop_id
+                                        )
+                                    );
+                                    if (!$test_feature_store) {
+                                        Db::getInstance()->execute(
+                                            sprintf(
+                                                'INSERT INTO ' . $this->feature_shop_table . '
+									(id_feature, id_shop)
+									VALUES("%s", "%s")',
+                                                $id_feature,
+                                                $shop_id
+                                            )
+                                        );
+                                    }
+                                }
+                            }
+
 
                             if (count($ids_feature_values)) {
                                 foreach ($ids_feature_values as $num_of_position => $featureValue) {

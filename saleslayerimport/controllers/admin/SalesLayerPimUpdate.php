@@ -439,8 +439,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $item_data             = array();
                     $item_data['sl_id']    = $product;
                     $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "', 0,0,'" . addslashes(
-                        json_encode($item_data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)
-                    ) . "', '" . addslashes(json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)) . "','0')";
+                        json_encode(
+                            $item_data,
+                            JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION
+                        )
+                    ) . "', '" . addslashes(json_encode(
+                        $sync_params,
+                        JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION
+                    )) . "','0')";
                     $this->insertSyncdataSql();
                 }
                 unset($this->product_items_del[$key]);
@@ -475,8 +481,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $item_data             = array();
                     $item_data['sl_id']    = $product_format;
                     $this->sql_to_insert[] = "('" . $sync_type . "', '" . $item_type . "',0 ,0,'" . addslashes(
-                        json_encode($item_data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)
-                    ) . "', '" . addslashes(json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)) . "','0')";
+                        json_encode($item_data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)
+                    ) . "', '" . addslashes(json_encode($sync_params, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION)) . "','0')";
                     $this->insertSyncdataSql();
                 }
                 unset($this->product_formats_items_del[$key]);
@@ -556,8 +562,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                 $data_insert['defaultCategory'] = $defaultCategory;
 
                 if ($this->checkChangesBeforeSave($sync_type, $item_type, $catalog, $data_insert)) {
-                    $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
-                    $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
+                    $item_data_to_insert   = json_encode($data_insert, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                     $item_id = $catalog['ID'];
                     $parent_id = $catalog['ID_PARENT'];
 
@@ -629,8 +635,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         unset($data_insert['sync_data']['variants']);
                     }
                     $num_variants = (isset($data_insert['sync_data']['variants']) ? count($data_insert['sync_data']['variants']) : 0);
-                    $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); //html_entity_decode
-                    $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
+                    $item_data_to_insert   = json_encode($data_insert, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); //html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                     $item_id = $product['ID'];
                     $parent_id = 0;
 
@@ -658,8 +664,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                     $data_returned['data_schema_info']['product_formats'];
                                 $sync_params['conn_params']['data_schema'] = $data_schema;
                                 $sync_params['conn_params']['avoid_stock_update'] = $this->avoid_stock_update;
-                                $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
-                                $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
+                                $item_data_to_insert   = json_encode($data_insert, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
+                                $sync_params_to_insert = json_encode($sync_params, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                                 $item_id = $variant['ID'];
                                 $parent_id = $variant['ID_products'];
 
@@ -720,8 +726,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     $this->connector_shops
                 )
                 ) {
-                    $item_data_to_insert   = json_encode($data_insert,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
-                    $sync_params_to_insert = json_encode($sync_params,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
+                    $item_data_to_insert   = json_encode($data_insert, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION); // html_entity_decode
+                    $sync_params_to_insert = json_encode($sync_params, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                     $item_id = $product_format['ID'];
                     $parent_id = $product_format['ID_products'];
 
@@ -1899,44 +1905,34 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         $this->debbug('check if exist name -> ' . print_r($attribute_search_index, 1));
                         if (isset($tablaStructure[$attribute_search_index]['language_code'])) {
                             $fieldName = $tablaStructure[$attribute_search_index]['basename'];
-                            $fieldNamePublic = $tablaStructure[$attribute_search_index]['basename'];
+                            if (isset($tablaStructure[$attribute_search_index]['title'])) {
+                                $fieldNamePublic = $tablaStructure[$attribute_search_index]['title'];
+                            } else {
+                                $fieldNamePublic = $tablaStructure[$attribute_search_index]['basename'];
+                            }
+
                             $this->debbug('exist -> ' . print_r($attribute_search_index, 1).' name->'.$fieldName);
-
-                            if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
-                                $attGroup->name[$lang_sub['id_lang']] == null ||
-                                $attGroup->name[$lang_sub['id_lang']] == ''
-                            ) {
-                                $this->debbug('writing attribute name -> ' . print_r($tablaStructure[$attribute_search_index]['title'], 1));
-                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
-                            }
-                            if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
-                                $attGroup->public_name[$lang_sub['id_lang']] == null ||
-                                $attGroup->public_name[$lang_sub['id_lang']] == ''
-                            ) {
-                                $this->debbug('writing attribute with multi-lang field with $fieldNamePublic->' .
-                                              print_r($tablaStructure[$attribute_search_index]['title'], 1).' lang->'.print_r($lang_sub['id_lang'], 1));
-                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
-                            }
-
-
-                           /* if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                $this->debbug('Fill attribute with multilang field in another language with basename-> '
-                            . print_r($lang_sub['id_lang'], 1));
-                                if (!isset($attGroup->name[$this->defaultLanguage]) ||
-                                    $attGroup->name[$this->defaultLanguage] == null ||
-                                    $attGroup->name[$this->defaultLanguage] == ''
+                            if (!empty($fieldName)) {
+                                if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
+                                    $attGroup->name[$lang_sub['id_lang']] == null ||
+                                    $attGroup->name[$lang_sub['id_lang']] == ''
                                 ) {
-                                    $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
+                                    $this->debbug('writing attribute name -> ' .
+                                                  print_r($fieldName, 1));
+                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                                 }
-                                if (!isset($attGroup->public_name[$this->defaultLanguage]) ||
-                                    $attGroup->public_name[$this->defaultLanguage] == null ||
-                                    $attGroup->public_name[$this->defaultLanguage] == ''
+                            }
+                            if (!empty($fieldNamePublic)) {
+                                if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
+                                    $attGroup->public_name[$lang_sub['id_lang']] == null ||
+                                    $attGroup->public_name[$lang_sub['id_lang']] == ''
                                 ) {
-                                    $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
-                                        $fieldNamePublic
-                                    );
+                                    $this->debbug('writing attribute with multi-lang field with $fieldNamePublic->' .
+                                                  print_r($fieldNamePublic, 1)
+                                                  .' lang->'.print_r($lang_sub['id_lang'], 1));
+                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
                                 }
-                            }*/
+                            }
                         } else {
                             $this->debbug('not exist ->' . print_r($attribute_search_index, 1));
                         }
@@ -1949,39 +1945,31 @@ class SalesLayerPimUpdate extends SalesLayerImport
                             if (isset($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']])) {
                                /* $fieldName = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];
                                 $fieldNamePublic = $tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']];*/
-                                $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
-                                $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
+                                if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
+                                    $attGroup->name[$lang_sub['id_lang']] == null ||
+                                    $attGroup->name[$lang_sub['id_lang']] == ''
+                                ) {
+                                    $attGroup->name[$lang_sub['id_lang']] =
+                                        Tools::ucfirst($fieldName);
+                                }
+                                $attGroup->public_name[$lang_sub['id_lang']] =
+                                    Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
                             } else {
                                 if (!isset($attGroup->name[$lang_sub['id_lang']]) ||
                                     $attGroup->name[$lang_sub['id_lang']] == null ||
                                     $attGroup->name[$lang_sub['id_lang']] == ''
                                 ) {
-                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
+                                    $attGroup->name[$lang_sub['id_lang']] =
+                                        Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
                                 }
                                 if (!isset($attGroup->public_name[$lang_sub['id_lang']]) ||
                                     $attGroup->public_name[$lang_sub['id_lang']] == null ||
                                     $attGroup->public_name[$lang_sub['id_lang']] == ''
                                 ) {
-                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
+                                    $attGroup->public_name[$lang_sub['id_lang']] =
+                                        Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
                                 }
                             }
-
-                           /* if ($lang_sub['id_lang'] != $this->defaultLanguage) {
-                                if (!isset($attGroup->name[$this->defaultLanguage]) ||
-                                    $attGroup->name[$this->defaultLanguage] == null ||
-                                    $attGroup->name[$this->defaultLanguage] == ''
-                                ) {
-                                    $attGroup->name[$this->defaultLanguage] = Tools::ucfirst($fieldName);
-                                }
-                                if (!isset($attGroup->public_name[$this->defaultLanguage]) ||
-                                    $attGroup->public_name[$this->defaultLanguage] == null ||
-                                    $attGroup->public_name[$this->defaultLanguage] == ''
-                                ) {
-                                    $attGroup->public_name[$this->defaultLanguage] = Tools::ucfirst(
-                                        $fieldNamePublic
-                                    );
-                                }
-                            }*/
                         }
                     } else {
                         $this->debbug('Fill all languages with same name in update '
@@ -2108,18 +2096,28 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         foreach ($this->shop_languages as $lang_sub) {
                             $attribute_search_index = $fieldName . '_' . $lang_sub['iso_code'];
                             if (isset($tablaStructure[$attribute_search_index]['language_code'])) {
+                                $fieldName = $tablaStructure[$attribute_search_index]['basename'];
+                                if (isset($tablaStructure[$attribute_search_index]['title'])) {
+                                    $fieldNamePublic = $tablaStructure[$attribute_search_index]['title'];
+                                } else {
+                                    $fieldNamePublic = $tablaStructure[$attribute_search_index]['basename'];
+                                }
+
                                 if (isset($tablaStructure[$attribute_search_index]['title']) &&
                                     !empty($tablaStructure[$attribute_search_index]['title'])
                                 ) {
-                                    if (in_array(Tools::strtolower($tablaStructure[$attribute_search_index]['title']), $in_search, false)) {
+                                    if (preg_match(
+                                        '/' . implode('|', $in_search) . '/',
+                                        Tools::strtolower($tablaStructure[$attribute_search_index]['title'])
+                                    )) {
                                         $is_color_attribute = true;
                                     }
                                     $this->debbug('Fill lang ' . print_r($lang_sub['iso_code'], 1) .
                                                   ' id->' . print_r($lang_sub['id_lang'], 1).
                                                   ' with titile defined in field. ->' . print_r($fieldName, 1));
 
-                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
-                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$attribute_search_index]['title']);
+                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
+                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
                                 }
                             }
                         }
@@ -2129,10 +2127,14 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                           print_r($tablaStructure[$keyStruct]['titles'], 1));
                             foreach ($this->shop_languages as $lang_sub) {
                                 if (isset($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']])) {
-                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
-                                    $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
+                                    $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
+                                    $attGroup->public_name[$lang_sub['id_lang']] =
+                                        Tools::ucfirst($tablaStructure[$keyStruct]['titles'][$lang_sub['iso_code']]);
 
-                                    if (in_array(Tools::strtolower($fieldName), $in_search, false)) {
+                                    if (preg_match(
+                                        '/' . implode('|', $in_search) . '/',
+                                        Tools::strtolower($fieldName)
+                                    )) {
                                         $is_color_attribute = true;
                                     }
                                 }
@@ -2143,7 +2145,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
                                 $attGroup->name[$lang_sub['id_lang']] = Tools::ucfirst($fieldName);
                                 $attGroup->public_name[$lang_sub['id_lang']] = Tools::ucfirst($fieldNamePublic);
 
-                                if (in_array(Tools::strtolower($fieldName), $in_search, false)) {
+                                if (preg_match(
+                                    '/' . implode('|', $in_search) . '/',
+                                    Tools::strtolower($fieldName)
+                                )) {
                                     $is_color_attribute = true;
                                 }
                             }
@@ -2168,7 +2173,10 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
 
                     $this->debbug('creating new group with this names  ' . $fieldName.
-                                  ' names->' .print_r($attGroup->name, 1));
+                                  ' names->' . print_r($attGroup->name, 1).
+                                  ' public names->' . print_r($attGroup->public_name, 1) .
+                                  ' $this->defaultLanguage->'.$this->defaultLanguage);
+
                     if ($is_color_attribute) {
                         $this->debbug('Creating a color attribute ' . $fieldName);
                         $attGroup->is_color_group = true;
