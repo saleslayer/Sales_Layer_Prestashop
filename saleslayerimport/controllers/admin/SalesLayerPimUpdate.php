@@ -2262,7 +2262,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     }
                 }
 
-                if (!empty($formatInfo)) {
+                if (!empty($formatInfo) && isset($formatInfo[0]['shops_info'])) {
                     $sl_format_info_conns = json_decode($formatInfo[0]['shops_info'], 1);
 
                     $schemaFormsExtra = " SELECT sl.shops_info FROM " . _DB_PREFIX_ . "slyr_category_product sl" .

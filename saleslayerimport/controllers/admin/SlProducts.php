@@ -6025,7 +6025,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 foreach ($shops as $shop_id) {
                                     $test_feature_store =  Db::getInstance()->executeS(
                                         sprintf(
-                                            'SELECT id_feature_value FROM ' . $this->feature_shop_table . '
+                                            'SELECT id_feature FROM ' . $this->feature_shop_table . '
                                     where id_feature = "%s"  AND id_shop = "%s" ',
                                             $id_feature,
                                             $shop_id
