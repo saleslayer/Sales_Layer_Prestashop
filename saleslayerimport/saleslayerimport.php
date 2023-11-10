@@ -305,7 +305,7 @@ class SalesLayerImport extends Module
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
-        $this->dependencies = array();  // force users to install cron jobs module
+        $this->dependencies = array();
         $this->ps_versions_compliancy = array('min' => '1.6.1.6', 'max' => '9.0.0.0');
         $this->bootstrap = true;
 
@@ -381,12 +381,12 @@ class SalesLayerImport extends Module
      */
     public function errorSetup()
     {
-        ini_set('ignore_repeated_errors', 1);
-        ini_set('display_errors', 0);
-        ini_set('display_startup_errors', 1);
+        @ini_set('ignore_repeated_errors', 1);
+        @ini_set('display_errors', 0);
+        @ini_set('display_startup_errors', 1);
         error_reporting(E_ALL);
-        ini_set('log_errors', 1);
-        ini_set('error_log', DEBBUG_PATH_LOG . '_error_log_' . date('d-m') . '.log');
+        @ini_set('log_errors', 1);
+        @ini_set('error_log', DEBBUG_PATH_LOG . '_error_log_' . date('d-m') . '.log');
     }
 
     /**
@@ -2956,7 +2956,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function syncAccesories()
     {
         $this->debbug(' Entry to sync accessories', 'syncdata');
-        ini_set('max_execution_time', 144000);
+        @ini_set('max_execution_time', 144000);
 
         do {
             //Process to update accessories once all products have been generated.
@@ -3402,7 +3402,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
             if ($actual_execution_limit < $this->limit_max_reserved_execution) {
                 $actual_execution_limit = ($this->limit_max_reserved_execution - 10);
-                ini_set('max_execution_time', $this->limit_max_reserved_execution);
+                @ini_set('max_execution_time', $this->limit_max_reserved_execution);
             }
 
             if ($execution_time_cron > 0 && $actual_execution_limit >= $execution_time_cron) {
@@ -4415,7 +4415,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $data_clear = [];
                 $data_clear['ID_PARENT'] = $item_data['ID_PARENT'];
                 $data_clear['data']      = $item_data['data'];
-                $data = json_encode($data_clear);
+                $data = json_encode($data_clear, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                 $hash = (string) hash($this->hash_algorithm_comparator, $data);
                 $images = (isset($item_data['data']['section_image']) ? $item_data['data']['section_image'] : []);
             } else { //products and product_format
@@ -4448,7 +4448,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $images = (isset($item_data['data']['product_image']) ? $item_data['data']['product_image'] : []);
                 }
                 unset($data_clear['data']['product_quantity'], $data_clear['data']['quantity']);
-                $json = json_encode($data_clear);
+                $json = json_encode($data_clear, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
                 $hash = (string) hash($this->hash_algorithm_comparator, $json);
             }
             $sl_id = $item_data['ID'];
@@ -5214,7 +5214,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if ($actual_limit < 14400) {
             $this->debbug('new limit '.print_r($actual + 14400, 1).
                           ' actual limit-> '.print_r($actual_limit, 1));
-            ini_set('max_execution_time', $actual + 14400);
+            @ini_set('max_execution_time', $actual + 14400);
         }
     }
     /**

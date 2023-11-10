@@ -1,18 +1,18 @@
 <?php
 /**
- * $Id$.
+ * NOTICE OF LICENSE
  *
- * Created by Iban Borras.
+ * This file is licenced under the Software License Agreement.
+ * With the purchase or the installation of the software in your application
+ * you accept the licence agreement.
  *
- * CreativeCommons License Attribution (By):
- * http://creativecommons.org/licenses/by/4.0/
+ * Sales-layer PIM Plugin for Prestashop
  *
- * SalesLayer Conn class is a library for connection to SalesLayer API
- *
- * @modified 2021-09-06
- *
- * @version 1.36
+ * @author    Sales Layer
+ * @copyright 2019 Sales Layer
+ * @license   License: GPLv3  License URI: https://www.gnu.org/licenses/gpl-3.0.html
  */
+
 class SalesLayerConn
 {
 
@@ -511,7 +511,7 @@ class SalesLayerConn
                 if ($stat && is_array($this->data_returned)) {
                     $stat = $this->parsingJsonReturned();
 
-                    return (floatval($this->connect_API_version) > 1.17 ? $stat : $this->data_returned['input_response']);
+                    return ((float) $this->connect_API_version > 1.17 ? $stat : $this->data_returned['input_response']);
                 }
             }
         }
@@ -880,7 +880,7 @@ class SalesLayerConn
                                                                 if (is_array($fsub)) {
                                                                     foreach ($fsub as $k => $a) {
                                                                         if ($k > 1) {
-                                                                            $ext = $this->response_tables_schema[$table][$ord][$fname][intval($k)];
+                                                                            $ext = $this->response_tables_schema[$table][$ord][$fname][(int) $k];
                                                                             if (is_array($ext)) {
                                                                                 $ext = $ext['field'];
                                                                             }
@@ -1504,7 +1504,7 @@ class SalesLayerConn
      * @return value
      */
 
-    function getCustomParemeter($param)
+    public function getCustomParemeter($param)
     {
 
         return (isset($this->response_custom_parameters[$param]) ? $this->response_custom_parameters[$param] : null);

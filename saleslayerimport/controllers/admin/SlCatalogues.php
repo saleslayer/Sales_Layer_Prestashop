@@ -115,7 +115,10 @@ class SlCatalogues extends SalesLayerPimUpdate
         $data_clear['ID_PARENT'] = $catalog['ID_PARENT'];
         $data_clear['data'] = $catalog['data'];
 
-        $data_clear = json_encode($data_clear);
+        $data_clear = json_encode(
+            $data_clear,
+            JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION
+        );
         $data_hash = (string) hash($this->hash_algorithm_comparator, $data_clear);
 
         $catalog_exists = (int)Db::getInstance()->getValue(
@@ -769,7 +772,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                     /**
                      * An error occurred
                      */
-	                $this->general_error = true;
+                    $this->general_error = true;
                     $syncCat = true;
                     $this->debbug(
                         '## Error. ' . $occurence .
@@ -1203,7 +1206,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                     );
 
                     if (!Db::getInstance()->execute($update_query)) {
-	                    $this->general_error = true;
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. in save changes to cache ' .
                             $occurence .
@@ -1220,7 +1223,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                 } else {
                     $occurence = ' ID :' . $catalog['ID'];
                 }
-	            $this->general_error = true;
+                $this->general_error = true;
                 $syncCat = true;
                 $this->debbug(
                     '## Error. Save change to ' . $occurence . ' ->' . print_r($e->getMessage(), 1),
@@ -1254,7 +1257,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                         if (!empty($url)) {
                             $cached = SalesLayerImport::getPreloadedImage($url, 'category', $catalog['ID']);
-                            if ($cached) {
+                            if ($cached && isset($cached['local_path'])) {
                                 $temp_file = stripslashes($cached['local_path']);
                                 $this->debbug('Image founded in cache as preloaded->' .
                                               print_r($temp_file, 1) . 'and before used  befor clear ->' .
@@ -1350,7 +1353,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                 } else {
                     $occurence = ' ID :' . $catalog['ID'];
                 }
-	            $this->general_error = true;
+                $this->general_error = true;
 
                 $this->debbug(
                     '## Error. Invalid slyr registration when updating stores for
@@ -1564,7 +1567,7 @@ class SlCatalogues extends SalesLayerPimUpdate
                         }
                     }
                 } catch (Exception $e) {
-	                $this->general_error = true;
+                    $this->general_error = true;
                     $this->debbug('## Error. Reorganizing category tree: ' . $e->getMessage() .
                                   ' line ->' . print_r($e->getLine(), 1) .
                                   ' trace->' . print_r($e->getTrace(), 1));
@@ -1584,7 +1587,7 @@ class SlCatalogues extends SalesLayerPimUpdate
             //  }
             //$category_regenerate->save();
         } catch (Exception $e) {
-	        $this->general_error = true;
+            $this->general_error = true;
             $this->debbug('## Error. Reorganizing category tree regenerateEntireNtree: ' . $e->getMessage() .
                           ' print->' . print_r($category_regenerate, 1));
         }

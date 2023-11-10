@@ -12,7 +12,6 @@
  * @copyright 2019 Sales Layer
  * @license   License: GPLv3  License URI: https://www.gnu.org/licenses/gpl-3.0.html
  */
-
 include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
 $process_name = 'synchronizer';
@@ -46,7 +45,7 @@ try {
 }
 $pid = getmypid();
 
-ini_set('max_execution_time', 144000);
+@ini_set('max_execution_time', 144000);
 try {
     $type  = Tools::getValue('type');
     $limit = Tools::getValue('limit');
@@ -118,11 +117,6 @@ try {
            @sync_tries AS sync_tries, @item_data AS item_data, @sync_params AS sync_params;";
             $items_to_update = Db::getInstance()->executeS($sqlpre3);
 
-          /*  $SLimport->debbug(
-                'query for select one item for process -> ' .
-                print_r($sqlpre2, 1).' time -> '.print_r(microtime(true) - $microtime, 1).' data->'.print_r($items_to_update, 1),
-                'syncdata'
-            );*/
 
             if (!empty($items_to_update)
                 && isset($items_to_update[0]['id'])
