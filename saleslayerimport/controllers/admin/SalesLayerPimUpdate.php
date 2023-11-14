@@ -850,18 +850,21 @@ class SalesLayerPimUpdate extends SalesLayerImport
             $pagination = round($this->pagination / 5);
             do {
                 $select_variants = Db::getInstance()->executeS('SELECT pfs.* FROM '._DB_PREFIX_.
-                                                           'slyr_syncdata pfs INNER JOIN '._DB_PREFIX_ . 'slyr_syncdata ps'.
-                                                            ' ON  ps.item_type = "product" AND pfs.parent_id = ps.item_id ' .
+                                                           'slyr_syncdata pfs INNER JOIN '._DB_PREFIX_ .
+                                                               'slyr_syncdata ps'.
+                                                            ' ON  ps.item_type = "product" AND ' .
+                                                               ' pfs.parent_id = ps.item_id ' .
                                                             ' WHERE pfs.item_type = "product_format"  AND ' .
                                                            ' pfs.sync_type = "update" AND pfs.parent_id != 0  ' .
-                                                           ' ORDER BY pfs.parent_id  LIMIT '.$start_limit.','.$pagination);
+                                                           ' ORDER BY pfs.parent_id  LIMIT ' .
+                                                               $start_limit . ',' . $pagination);
                 if (!empty($select_variants)) {
                     $this->debbug('selected rows for unify->' . print_r(count($select_variants), 1));
 
 
-                    foreach ($select_variants as $key_variant => $product_formats_item) {
+                    foreach ($select_variants as $product_formats_item) {
                         try {
-                            $product_formats_item['item_data'] = json_decode(stripslashes($product_formats_item['item_data']), 1);
+                            $product_formats_item['item_data'] = json_decode($product_formats_item['item_data'], 1);
                             if (isset($product_formats_item['parent_id'])) {
                                 $this->debbug(' variant for unify ->' . print_r($product_formats_item, 1));
 
@@ -875,7 +878,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
 
                                     Db::getInstance()->execute('DELETE FROM '._DB_PREFIX_.
                                                            'slyr_syncdata WHERE item_type = "product_format" AND ' .
-                                                           ' sync_type = "update" AND id = ' . $product_formats_item['id'] . '  ' .
+                                                           ' sync_type = "update" AND id = ' .
+                                                               $product_formats_item['id'] . '  ' .
                                                            ' ');
                                     $this->debbug('deleted variant ->' . print_r($product_formats_item['id'], 1));
                             }
@@ -900,7 +904,8 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         if (!isset($sync_data['sync_data']['variants'])) {
                             $sync_data['sync_data']['variants'] = [];
                         }
-                        $this->debbug('before concat data ->' . print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
+                        $this->debbug('before concat data ->' .
+                                      print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
                         if (count($sync_data['sync_data']['variants'])) {
                             foreach ($product_data['variants'] as $variant_id => $variant_data) {
                                     $sync_data['sync_data']['variants'][$variant_id] = $variant_data;
@@ -910,17 +915,29 @@ class SalesLayerPimUpdate extends SalesLayerImport
                         }
 
                         if (isset($sync_data['sync_data']['data'])) {
-                            $this->debbug('after concat data ->' . print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
+                            $this->debbug('after concat data ->' .
+                                          print_r((isset($sync_data['sync_data']['data'])?
+                                              'hay data':'no hay data'), 1));
                         }
                         // unify variants to products and delete variants
                         $num_variants = count($this->product_unify_array[$product_id]['variants']);
 
                         Db::getInstance()->execute('UPDATE '._DB_PREFIX_.
-                                               'slyr_syncdata SET item_data = "' . addslashes(json_encode($sync_data, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_PRESERVE_ZERO_FRACTION)) .
-                                               '",num_variants ="' . $num_variants . '" WHERE item_type = "product" AND ' .
-                                               ' sync_type = "update" AND item_id = ' . $product_id . '  ' .
+                                               'slyr_syncdata SET item_data = "' .
+                                                   addslashes(json_encode(
+                                                       $sync_data,
+                                                       JSON_UNESCAPED_SLASHES|
+                                                       JSON_UNESCAPED_UNICODE|
+                                                       JSON_PRESERVE_ZERO_FRACTION
+                                                   )) .
+                                               '",num_variants ="' . $num_variants .
+                                                   '" WHERE item_type = "product" AND ' .
+                                               ' sync_type = "update" AND item_id = ' .
+                                                   $product_id . '  ' .
                                                ' ');
-                        $this->debbug('Update num variants ->' . print_r($num_variants, 1).'$product_id->'.$product_id.' $sync_data->'.print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
+                        $this->debbug('Update num variants ->' . print_r($num_variants, 1) .
+                                      '$product_id->'.$product_id.' $sync_data->' .
+                                      print_r((isset($sync_data['sync_data']['data'])?'hay data':'no hay data'), 1));
                         unset($this->product_unify_array[$product_id]);
                     }
                     $start_limit += count($select_variants);
@@ -2262,8 +2279,11 @@ class SalesLayerPimUpdate extends SalesLayerImport
                     }
                 }
 
-                if (!empty($formatInfo) && isset($formatInfo[0]['shops_info'])) {
-                    $sl_format_info_conns = json_decode($formatInfo[0]['shops_info'], 1);
+                if (!empty($formatInfo)) {
+                    $sl_format_info_conns = [];
+                    if (isset($formatInfo[0]['shops_info'])) {
+                        $sl_format_info_conns = json_decode($formatInfo[0]['shops_info'], 1);
+                    }
 
                     $schemaFormsExtra = " SELECT sl.shops_info FROM " . _DB_PREFIX_ . "slyr_category_product sl" .
                         " WHERE sl.ps_id = " . $format_id . " AND sl.comp_id != " . $comp_id

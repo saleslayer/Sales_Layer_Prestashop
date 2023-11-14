@@ -119,11 +119,11 @@ public $create_new_features_as_custom = false;
 
 ## Version Guidance
 
-| Version | Status | Prestashop version     | Recommended Configuration    |
-|---------|--------|------------------------|------------------------------|
-| 1.5.2   | EOL    | \>= 1.6.1.6, < 1.7.6.x | Prestashop 1.7.6.1 / PHP 7.3 |
-| 1.5.3   | Stable | \>= 1.6.1.6, < 1.7.8.x | Prestashop 1.7.8.2 / PHP 7.3 |
-| 2.0.0   | Latest | \>= 1.7.8.x,  8.0.x    | Prestashop 8.0.4 / PHP 8.1   |
+| Version | Status | Prestashop version     | Recommended Configuration                  |
+|---------|--------|------------------------|--------------------------------------------|
+| 1.5.2   | EOL    | \>= 1.6.1.6, < 1.7.6.x | Prestashop 1.7.6.1 / PHP 7.3 / Apache2.4   |
+| 1.5.3   | Stable | \>= 1.6.1.6, < 1.7.8.x | Prestashop 1.7.8.2 / PHP 7.3 / Apache2.4   |
+| 1.6.0   | Latest | \>= 1.7.8.10           | Prestashop 1.7.8.10 / PHP 7.4  / Apache2.4 |
 
 > **Warning** 
 > Prestashop releases frequently new software versions fixing bugs and adding new functionallity. Some of this versions could be in conflict with this plugin. We highly encourage you to set the prestashop configuration recommended in the guidance table for running correctly this plugin.

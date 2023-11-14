@@ -239,7 +239,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                     $check_kewordreferencess = array();
                     foreach ($this->shop_languages as $lang) {
                         $check_kewordreferencess[] = '( id_lang = "' . $lang['id_lang'] .
-                                                     '"  AND  meta_keywords LIKE "%' . $section_reference . '%" )';
+                                                     '"  AND  meta_keywords LIKE "%' .
+                                                     addslashes($section_reference) . '%" )';
                     }
 
                     $schemaCats = 'SELECT id_category FROM ' . $this->category_lang_table .
@@ -1257,7 +1258,7 @@ class SlCatalogues extends SalesLayerPimUpdate
 
                         if (!empty($url)) {
                             $cached = SalesLayerImport::getPreloadedImage($url, 'category', $catalog['ID']);
-                            if ($cached) {
+                            if ($cached && isset($cached['local_path'])) {
                                 $temp_file = stripslashes($cached['local_path']);
                                 $this->debbug('Image founded in cache as preloaded->' .
                                               print_r($temp_file, 1) . 'and before used  befor clear ->' .

@@ -699,7 +699,7 @@ class SlVariants extends SalesLayerPimUpdate
                     sprintf(
                         'SELECT ps.id_product_attribute FROM `' . _DB_PREFIX_ . 'product_attribute` ps
                          WHERE ps.reference = "%s" AND  ps.id_product = "%s" GROUP BY  id_product_attribute',
-                        $reference,
+                        addslashes($reference),
                         $product_id
                     )
                 );
@@ -1809,7 +1809,7 @@ class SlVariants extends SalesLayerPimUpdate
                 sprintf(
                     'SELECT pa.id_product_attribute FROM ' . _DB_PREFIX_ . 'product_attribute pa
                  WHERE pa.reference = "%s" AND pa.id_product = "%s" ',
-                    $reference,
+                    addslashes($reference),
                     $product_id
                 )
             );
@@ -3393,7 +3393,7 @@ class SlVariants extends SalesLayerPimUpdate
                                     Db::getInstance()->execute(
                                         'INSERT INTO ' . _DB_PREFIX_ . "slyr_image
                                         (image_reference, id_image, md5_image, ps_product_id, ps_variant_id)
-                                        VALUES ('" . $image_reference . "', " . $image->id . ", '" .
+                                        VALUES ('" . addslashes($image_reference) . "', " . $image->id . ", '" .
                                         $md5_image . "','" . $product_id . "','" . $variant_ids . "')
                                         ON DUPLICATE KEY UPDATE id_image = '" . $image->id .
                                         "', md5_image = '" . $md5_image . "'"

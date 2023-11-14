@@ -77,7 +77,8 @@ try {
             if ($parent_id != '') {
                 $added_query = " AND parent_id = '".$parent_id."'";
             } else {
-                $added_query = " AND parent_id = '0' ";
+                $added_query = "";
+                $limit = 1;
             }
         } else {
             $skip_duration = date("Y-m-d H:i:s", strtotime("-5 minutes"));

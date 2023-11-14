@@ -437,6 +437,7 @@ class SlProducts extends SalesLayerPimUpdate
                                     'syncdata'
                                 );
                                 $productObject->setWsType('simple');
+                                $productObject->product_type = 'standard';
                             } catch (Exception $e) {
                                 $this->general_error = true;
                                 $this->debbug(
@@ -642,6 +643,8 @@ class SlProducts extends SalesLayerPimUpdate
                                 $productObject->setDefaultAttribute(0);
                                 // if ($current_product_type != Product::PTYPE_PACK) {
                                 $productObject->setWsType('pack');
+                                $productObject->product_type = 'pack';
+                                $productObject->cache_is_pack = 1;
                                 //  }
                                 $this->debbug(
                                     $occurence . ' product type pack, adding this elements ->' .
@@ -723,6 +726,7 @@ class SlProducts extends SalesLayerPimUpdate
                  */
                 if ($product_type != '' && $product_type == Product::PTYPE_VIRTUAL) {
                     try {
+                        $productObject->product_type = 'virtual';
                         if ($productObject->setWsType('virtual')) {
                             $this->debbug(
                                 'product is a virtual type ->' . print_r(
@@ -5039,7 +5043,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 Db::getInstance()->execute(
                                     'INSERT INTO ' . _DB_PREFIX_ . "slyr_image
                                     (image_reference, id_image, md5_image, ps_product_id, origin )
-                                    VALUES ('" . $image_reference . "', " . $image->id . ", '" . $md5_image .
+                                    VALUES ('" . addslashes($image_reference) . "', " . $image->id . ", '" . $md5_image .
                                     "','" . $product_id . "','prod')
                                     ON DUPLICATE KEY UPDATE id_image = '" . $image->id . "', md5_image = '" .
                                     $md5_image . "'"
@@ -5196,7 +5200,7 @@ class SlProducts extends SalesLayerPimUpdate
             $product_reference = $this->slValidateReference($product['data']['product_reference']);
             //Buscamos producto con referencia idéntica
             $schemaRef = 'SELECT id_product FROM ' . $this->product_table . "
-            WHERE reference = '" . $product_reference . "'";
+            WHERE reference = '" . addslashes($product_reference) . "'";
             $regsRef = Db::getInstance()->executeS($schemaRef);
             if (count($regsRef) == 1) {
                 $this->debbug('Selected by product first unique id->' .

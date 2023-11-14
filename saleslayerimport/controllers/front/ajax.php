@@ -45,24 +45,36 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return['server_time'] = 'Server time: ' . date('H:i');
             $SLimport = new SalesLayerImport();
 
-            $sql_processing = ' SELECT count(*) as sl_cuenta_registros, SUM(num_variants) as sl_cuenta_variants FROM '
-                              . _DB_PREFIX_ . 'slyr_syncdata ';
+            $sql_processing = ' SELECT count(*) as sl_cuenta_registros, SUM(num_variants) as sl_cuenta_variants
+        	 FROM ' . _DB_PREFIX_ . 'slyr_syncdata ';
             $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
 
             $post_work = false;
             $Work_in_message = '';
             if (!isset($items_processing['sl_cuenta_registros']) || $items_processing['sl_cuenta_registros'] == 0) {
-                $sql_processing = ' SELECT count(*) as sl_cuenta_registros FROM '
+                $sql_processing = ' SELECT count(*) as sl_cuenta_registros,prc_type FROM '
                                   . _DB_PREFIX_ . 'slyr_process ';
                 $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
                 $items_processing['sl_cuenta_variants'] = 0;
-                $Work_in_message = 'Waiting for processes to finish';
+                $return['data_show'] = $items_processing;
+                if ($items_processing['prc_type'] == 'indexer') {
+                    $sql_indexer = ' SELECT count(*) as sl_cuenta_registros FROM '
+                                      . _DB_PREFIX_ . 'slyr_indexer ';
+                    $items_indexer = $SLimport->slConnectionQuery('read', $sql_indexer);
+                    $items_processing['sl_cuenta_registros'] = $items_indexer['sl_cuenta_registros'];
+                }
+
+                $Work_in_message = 'Waiting for processes to finish. ('.ucfirst($items_processing['prc_type']).')';
                 $post_work = true;
             }
 
 
             if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
-                $actual_stat = $items_processing['sl_cuenta_registros'] + $items_processing['sl_cuenta_variants'];
+                $actual_stat = $items_processing['sl_cuenta_registros'];
+                if (isset($items_processing['sl_cuenta_variants'])) {
+                    $actual_stat += $items_processing['sl_cuenta_variants'];
+                }
+
                 $total_stat = $SLimport->getConfiguration('TOTAL_STAT');
                 if (!$total_stat) {
                     $SLimport->saveConfiguration(['TOTAL_STAT'=>$actual_stat]);
@@ -457,46 +469,15 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             }
         } else {
             try {
-                $returnUpdate = $sync_libs->storeSyncData($conn_code, null, $onlystore);
-
-                if (is_array($returnUpdate)) {
-                    if (count($returnUpdate)) {
-                        $createMessege .= 'Stored for proccess: <br>';
-                        if (isset($returnUpdate['categories_to_delete']) && $returnUpdate['categories_to_delete'] > 0) {
-                            $createMessege .= $returnUpdate['categories_to_delete'] . ' Categories to delete <br>';
-                        }
-                        if (isset($returnUpdate['products_to_delete']) && $returnUpdate['products_to_delete'] > 0) {
-                            $createMessege .= $returnUpdate['products_to_delete'] . ' Products to hide <br>';
-                        }
-                        if (isset($returnUpdate['product_formats_to_delete']) &&
-                            $returnUpdate['product_formats_to_delete'] > 0
-                        ) {
-                            $createMessege .= $returnUpdate['product_formats_to_delete'] . ' Variants to delete <br>';
-                        }
-                        if (isset($returnUpdate['categories_to_sync']) && $returnUpdate['categories_to_sync'] > 0) {
-                            $createMessege .= $returnUpdate['categories_to_sync'] . ' Categories to process <br>';
-                        }
-                        if (isset($returnUpdate['products_to_sync']) && $returnUpdate['products_to_sync'] > 0) {
-                            $createMessege .= $returnUpdate['products_to_sync'] . ' Products to process <br>';
-                        }
-                        if (isset($returnUpdate['product_formats_to_sync']) &&
-                            $returnUpdate['product_formats_to_sync'] > 0
-                        ) {
-                            $createMessege .= $returnUpdate['product_formats_to_sync'] . ' Variants to process <br>';
-                        }
-                    } else {
-                        $createMessege .= 'No changes have been received to process.';
-                    }
+                $sync_libs->storeSyncData($conn_code, null, $onlystore);
+                $total = $SLimport->getConfiguration('TOTAL_STAT');
+                if ($total) {
+                    $createMessege = 'Changes '.$total.' have been imported to process.';
                 } else {
-                    $createMessege = $returnUpdate;
-                }
-
-
-                if (trim($createMessege) == '') {
                     $createMessege = 'No changes have been received to process.';
                 }
 
-                $return = 'Test update this conector executed:<br>' . $createMessege;
+                $return = 'Update this conector executed:<br>' . $createMessege;
                 $update_success = true;
             } catch (Exception $e) {
                 $SLimport->debbug(
