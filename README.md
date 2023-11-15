@@ -72,9 +72,9 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 [prestashop1.7-system-requirements]: https://devdocs.prestashop-project.org/1.7/basics/installation/system-requirements/
 [1.5.2]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.5.2-stable
 [1.5.3]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.5.3-stable
-[1.6.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.6.0-stable
+[1.6.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.6.0
 [2.0.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/2.0.05.3-stable
-[2.1.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/2.1.0-stable
+[2.1.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/2.1.0
 [1.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/1.x
 [2.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.x
 [changelog-1.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/1.x/CHANGELOG.md
