@@ -1,4 +1,18 @@
 # Changelog
+## [2.1.0] - 2023-11-15
+
+### Added
+
+- Prestashop 8.1.x compatibility.
+
+### Changed
+
+- Compatibility fixes for version PrestaShop 8.1.2.
+- Stability and performance improvements for large stores.
+
+### Tested
+
+- PrestaShop 8.1.2 / PHP 8.1 / Apache2.4
 
 ## [2.0.0] - 2023-06-09
 
@@ -13,7 +27,7 @@
 ### Tested
 
 - PrestaShop 8.0.4 / PHP 8.1
-- PrestaShop 1.7.8.2 / PHP 7.3
+
 
 ## [1.5.3] - 2023-01-17
 
