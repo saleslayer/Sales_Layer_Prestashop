@@ -1,19 +1,19 @@
 # Changelog
 
-## [2.0.0] - 2023-06-09
+## [1.6.0] - 2023-11-15
 
 ### Added
 
-- Prestashop 8.0.x compatibility.
+- Paged API support.
 
 ### Changed
 
-- Remove dependency on Prestashop cronjobs plugin.
+-Paged API support 1.18
+-Some fixes
 
 ### Tested
 
-- PrestaShop 8.0.4 / PHP 8.1
-- PrestaShop 1.7.8.2 / PHP 7.3
+- PrestaShop 1.7.8.10 / PHP 7.4
 
 ## [1.5.3] - 2023-01-17
 
