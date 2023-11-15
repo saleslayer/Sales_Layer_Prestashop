@@ -646,11 +646,6 @@ class SlProducts extends SalesLayerPimUpdate
                                 $productObject->product_type = 'pack';
                                 $productObject->cache_is_pack = 1;
                                 //  }
-                              /*  Db::getInstance()->update(
-                                    'product',
-                                    ['cache_is_pack' => 1],
-                                    'id_product = ' . (int) $productObject->id
-                                );*/
                                 $this->debbug(
                                     $occurence . ' product type pack, adding this elements ->' .
                                      print_r($product_packs_data, 1),
@@ -5048,7 +5043,7 @@ class SlProducts extends SalesLayerPimUpdate
                                 Db::getInstance()->execute(
                                     'INSERT INTO ' . _DB_PREFIX_ . "slyr_image
                                     (image_reference, id_image, md5_image, ps_product_id, origin )
-                                    VALUES ('" . $image_reference . "', " . $image->id . ", '" . $md5_image .
+                                    VALUES ('" . addslashes($image_reference) . "', " . $image->id . ", '" . $md5_image .
                                     "','" . $product_id . "','prod')
                                     ON DUPLICATE KEY UPDATE id_image = '" . $image->id . "', md5_image = '" .
                                     $md5_image . "'"
@@ -5205,7 +5200,7 @@ class SlProducts extends SalesLayerPimUpdate
             $product_reference = $this->slValidateReference($product['data']['product_reference']);
             //Buscamos producto con referencia idéntica
             $schemaRef = 'SELECT id_product FROM ' . $this->product_table . "
-            WHERE reference = '" . $product_reference . "'";
+            WHERE reference = '" . addslashes($product_reference) . "'";
             $regsRef = Db::getInstance()->executeS($schemaRef);
             if (count($regsRef) == 1) {
                 $this->debbug('Selected by product first unique id->' .

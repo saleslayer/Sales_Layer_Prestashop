@@ -2973,7 +2973,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 foreach ($res as $register) {
                     $ids_for_delete[] = $register['id'];
                     $id_product       = $register['id_product'];
-                    $product_accessories = json_decode(stripslashes($register['accessories']), 1);
+                    $product_accessories = json_decode($register['accessories'], 1);
                     $product_accessories_ids = array();
 
                     if (!empty($product_accessories)) {
@@ -3838,7 +3838,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
     public function callIndexer()
     {
-        $this->callProcess('indexer');
+        $count_proceses    = $this->getCountProcess('indexer');
+        if ($count_proceses == 0) {
+            $this->callProcess('indexer');
+        }
         /**
          * If you need to execute something after synchronization add the url here and uncomment the script
          */
@@ -3857,6 +3860,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
     public function callProcess($to = 'indexer', $commands = [])
     {
         try {
+            gc_enable();
+            gc_collect_cycles();
             $default_store = Configuration::get('PS_SHOP_DEFAULT');
             Shop::setContext(Shop::CONTEXT_SHOP, $default_store);
             $default_shop = new Shop($default_store);
@@ -3887,8 +3892,6 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             );
         }
         try {
-            gc_enable();
-            gc_collect_cycles();
             $this->urlSendCustomJson('GET', $url, null, false);
             gc_disable();
         } catch (Exception $e) {

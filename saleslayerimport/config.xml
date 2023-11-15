@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <module>
-  <name>saleslayerimport</name>
-  <displayName><![CDATA[Sales Layer Import]]></displayName>
-  <version><![CDATA[2.1.0]]></version>
-  <description><![CDATA[Import products from Sales Layer API.]]></description>
-  <author><![CDATA[Sales Layer]]></author>
-  <tab><![CDATA[administration]]></tab>
-  <confirmUninstall>Are you sure you want to uninstall?</confirmUninstall>
-  <is_configurable>1</is_configurable>
-  <need_instance>0</need_instance>
-  <limited_countries></limited_countries>
+    <name>saleslayerimport</name>
+    <displayName><![CDATA[Sales Layer Import]]></displayName>
+    <version><![CDATA[2.1.0]]></version>
+    <description><![CDATA[Import products from Sales Layer API.]]></description>
+    <author><![CDATA[Sales Layer]]></author>
+    <tab><![CDATA[administration]]></tab>
+	<confirmUninstall><![CDATA[Are you sure you want to uninstall?]]></confirmUninstall>
+    <is_configurable>1</is_configurable>
+    <need_instance>0</need_instance>
 </module>

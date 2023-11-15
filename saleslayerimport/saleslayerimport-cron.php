@@ -74,6 +74,12 @@ if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
     try {
         $SLimport->autoSyncConnectors();
         $SLimport->callProcess('cleaner');
+        $sql_indexer = ' SELECT count(*) as sl_cuenta_registros FROM '
+                       . _DB_PREFIX_ . 'slyr_indexer ';
+        $items_indexer = $SLimport->slConnectionQuery('read', $sql_indexer);
+        if (isset($items_indexer['sl_cuenta_registros']) && $items_indexer['sl_cuenta_registros'] > 0) {
+            $SLimport->callIndexer();
+        }
     } catch (Exception $e) {
         $SLimport->debbug('## Error. Auto-sync connectors in cron start : ' . $e->getMessage(), 'error');
     }

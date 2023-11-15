@@ -239,7 +239,8 @@ class SlCatalogues extends SalesLayerPimUpdate
                     $check_kewordreferencess = array();
                     foreach ($this->shop_languages as $lang) {
                         $check_kewordreferencess[] = '( id_lang = "' . $lang['id_lang'] .
-                                                     '"  AND  meta_keywords LIKE "%' . $section_reference . '%" )';
+                                                     '"  AND  meta_keywords LIKE "%' .
+                                                     addslashes($section_reference) . '%" )';
                     }
 
                     $schemaCats = 'SELECT id_category FROM ' . $this->category_lang_table .

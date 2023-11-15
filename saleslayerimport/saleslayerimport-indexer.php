@@ -18,6 +18,8 @@ include(dirname(__FILE__) . '/../../init.php');
 $process_name = 'indexer';
 /* Check security token */
 
+$max_cyclus = 4;
+
 
 
 if (!Module::isInstalled('saleslayerimport')
@@ -39,7 +41,9 @@ try {
 }
 
 if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
-    ini_set('max_execution_time', 144000);
+    echo 'Indexer running';
+    @ini_set('max_execution_time', 1440000);
+    @ini_set('max_memory_size', 1024);
     $start_time = time();
     $SLimport->registerWorkProcess($process_name);
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . '/controllers/admin/SalesLayerPimUpdate.php';
@@ -56,8 +60,11 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
         $indexer  = new SlProductIndexer();
         $all_shops = Shop::getShops(true, null, true);
         $registers = [];
+        $cyclus = 0;
         do {
             try {
+                gc_enable();
+                gc_collect_cycles();
                 $query = "SELECT * FROM " . _DB_PREFIX_ . 'slyr_indexer LIMIT 250 ';
                 $registers = Db::getInstance()->executeS($query);
                 if (count($registers) > 0) {
@@ -81,6 +88,11 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
 
             $SLimport->checkTheRuntime($start_time);
             $SLimport->clearDebugContent();
+            if ($cyclus >= $max_cyclus) {
+                break;
+            }
+            $cyclus++;
+            gc_disable();
         } while (count($registers) > 0);
     } catch (Exception $e) {
         $SLimport->debbug(
@@ -90,4 +102,11 @@ if ($SLimport->checkRegistersForProccess(false, 'indexer')) {
     }
     $SLimport->clearWorkProcess($process_name);
     $pimUpdate->removeDownloadingBlock('INDEXER');
+
+    $sql_indexer = ' SELECT count(*) as sl_cuenta_registros FROM '
+                   . _DB_PREFIX_ . 'slyr_indexer ';
+    $items_indexer = $SLimport->slConnectionQuery('read', $sql_indexer);
+    if (isset($items_indexer['sl_cuenta_registros']) && $items_indexer['sl_cuenta_registros'] > 0) {
+        $SLimport->callIndexer();
+    }
 }
