@@ -2,8 +2,9 @@
 
 # Sales Layer PrestaShop plugin
 
-[![Minimum PHP Version](https://img.shields.io/badge/php-7.x-8892BF.svg?style=flat-square&logo=php)](https://php.net/) [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-1.7.x-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
-[![GitHub release](https://img.shields.io/badge/release-1.6.0-blue)](https://github.com/saleslayer/magento-enterprise-plugin)
+[![Minimum PHP Version](https://img.shields.io/badge/php-7.x-8892BF.svg?style=flat-square&logo=php)](https://php.net/) 
+[![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-1.7.x-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
+[![GitHub release](https://img.shields.io/badge/release-v1.6.0-blue)](https://github.com/saleslayer/Sales_Layer_Prestashop/releases)
 
 PrestaShop plugin that allows you to easily synchronize your [Sales Layer][saleslayer-home] catalogue information with PrestaShop online stores.
 
