@@ -1,18 +1,17 @@
-
-
-
-<a href="https://support.saleslayer.com"><img src="https://saleslayer.com/assets/images/logo.svg" alt="Sales Layer WooCommerce" width="460"></a>
+<a href="https://support.saleslayer.com"><p align="center"><img src="https://saleslayer.com/assets/images/logo.svg" alt="Sales Layer Prestashop module" width="230"></p></a>
 
 # Sales Layer PrestaShop plugin
 
-[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%207.3-8892BF.svg?style=flat-square)](https://php.net/) [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-%3E%3D%208.0.0-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop) [![GitHub release](https://img.shields.io/github/v/release/saleslayer/Sales_Layer_Prestashop)](https://github.com/saleslayer/Sales_Layer_Prestashop)
+[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.1-8892BF.svg?style=flat-square&logo=php)](https://php.net/) 
+[![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-%3E%3D%208.0.0-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
+[![GitHub release](https://img.shields.io/badge/release-v2.1.0-blue)](https://github.com/saleslayer/Sales_Layer_Prestashop/releases)
 
-PrestaShop plugin that allows you to easily synchronize your Sales Layer catalogue information with PrestaShop online stores.
-[Sales Layer - Global Leading PIM][saleslayer-home]
+PrestaShop plugin that allows you to easily synchronize your [Sales Layer][saleslayer-home] catalogue information with PrestaShop online stores.
 
 ## Download
 
-[Download latest module version][latest-release-download]
+Download [Sales Layer PrestaShop module 2.1.0](https://github.com/saleslayer/Sales_Layer_Prestashop/releases/download/2.1.0/prestashop_module_sales_layer_v2.1.0.zip) compatible with Prestashop 8.x
+
 Check out the latest changes at our [Changelog][changelog-md]
 
 ## Important notes & documentation
