@@ -1,12 +1,14 @@
-<a href="https://support.saleslayer.com"><p align="left"><img src="https://saleslayer.com/assets/images/logo.svg" alt="Magento Enterprise plugin" width="230"></p></a>
+<a href="https://support.saleslayer.com"><p align="left"><img src="https://saleslayer.com/assets/images/logo.svg" alt="Sales Layer Prestashop module" width="230"></p></a>
 
 # Sales Layer PrestaShop plugin
 
 [![Minimum PHP Version](https://img.shields.io/badge/php-7.x-8892BF.svg?style=flat-square&logo=php)](https://php.net/) [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-1.7.x-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
 [![GitHub release](https://img.shields.io/badge/release-1.6.0-blue)](https://github.com/saleslayer/magento-enterprise-plugin)
 
-PrestaShop plugin that allows you to easily synchronize your Sales Layer catalogue information with PrestaShop online stores.
-[Sales Layer - Global Leading PIM][saleslayer-home]
+PrestaShop plugin that allows you to easily synchronize your [Sales Layer][saleslayer-home] catalogue information with PrestaShop online stores.
+
+> **Note** 
+> This repository branch is compatible with Prestashop 1.6.x and 1.7.x distributions. See version guidance table.
 
 ## Download
 
