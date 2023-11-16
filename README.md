@@ -1,18 +1,17 @@
-
-
-
-<a href="https://support.saleslayer.com"><img src="https://saleslayer.com/assets/images/logo.svg" alt="Sales Layer WooCommerce" width="460"></a>
+<a href="https://support.saleslayer.com"><p align="left"><img src="https://saleslayer.com/assets/images/logo.svg" alt="Magento Enterprise plugin" width="230"></p></a>
 
 # Sales Layer PrestaShop plugin
 
-[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%207.3-8892BF.svg?style=flat-square)](https://php.net/) [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-%3E%3D%201.7.6.1-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop) [![GitHub release](https://img.shields.io/github/v/release/saleslayer/Sales_Layer_Prestashop)](https://github.com/saleslayer/Sales_Layer_Prestashop)
+[![Minimum PHP Version](https://img.shields.io/badge/php-7.x-8892BF.svg?style=flat-square&logo=php)](https://php.net/) [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-1.7.x-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
+[![GitHub release](https://img.shields.io/badge/release-1.6.0-blue)](https://github.com/saleslayer/magento-enterprise-plugin)
 
 PrestaShop plugin that allows you to easily synchronize your Sales Layer catalogue information with PrestaShop online stores.
 [Sales Layer - Global Leading PIM][saleslayer-home]
 
 ## Download
 
-[Download latest module version][latest-release-download]
+Download [Sales Layer PrestaShop module 1.6.0](https://github.com/saleslayer/Sales_Layer_Prestashop/releases/download/1.6.0/prestashop_module_sales_layer_v1.6.0.zip) compatible with Prestashop 1.7.x
+
 Check out the latest changes at our [Changelog][changelog-md]
 
 ## Important notes & documentation
@@ -60,13 +59,12 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 > Prestashop releases frequently new software versions fixing bugs and adding new functionality. Some of this versions could be in conflict with this plugin. We highly encourage you to set the prestashop configuration recommended in the guidance table for running correctly this plugin.
 
 > **Note** 
-> See [System requirements for PrestaShop 8][prestashop8-system-requirements] and [System requirements for PrestaShop 1.7][prestashop1.7-system-requirements] for best setting up on your system environment.
+> See [System requirements for PrestaShop 1.7][prestashop1.7-system-requirements] for best setting up on your system environment.
 
 [saleslayer-home]: https://www.saleslayer.com
 [latest-release-download]: https://github.com/saleslayer/Sales_Layer_Prestashop/releases/latest
 [changelog-md]: ./CHANGELOG.md
 [sc-connector-about]: https://support.saleslayer.com/prestashop/important-notes-about-connector
-[prestashop8-system-requirements]: https://devdocs.prestashop-project.org/8/basics/installation/system-requirements/
 [prestashop1.7-system-requirements]: https://devdocs.prestashop-project.org/1.7/basics/installation/system-requirements/
 [1.5.2]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.5.2-stable
 [1.5.3]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.5.3-stable
