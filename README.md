@@ -2,8 +2,8 @@
 
 # Sales Layer PrestaShop plugin
 
-[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.1-8892BF.svg?style=flat-square&logo=php)](https://php.net/) 
-[![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-%3E%3D%208.0.0-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
+[![Minimum PHP Version](https://img.shields.io/badge/php-%3E=7.2,%20%3C=8.1-8892BF.svg?style=flat-square&logo=php)](https://php.net/) 
+[![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-8.1.x-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
 [![GitHub release](https://img.shields.io/badge/release-v2.1.0-blue)](https://github.com/saleslayer/Sales_Layer_Prestashop/releases)
 
 PrestaShop plugin that allows you to easily synchronize your [Sales Layer][saleslayer-home] catalogue information with PrestaShop online stores.
@@ -48,17 +48,24 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
  		
 ## Version Guidance
 
-| Version        | Status | Branch | Prestashop version     | Recommended Configuration                | Changelog                         |
-|----------------|--------|--------|------------------------|------------------------------------------|-----------------------------------|
-| [1.5.2][1.5.2] | EOL   |[1.X]        | \>= 1.6.1.6, < 1.7.6.x | Prestashop 1.7.6.1 / PHP 7.3 / Apache2.4   | [changelog-1.x][changelog-1.x-md]
-| [1.5.3][1.5.3] | Stable | [1.X]      | \>= 1.6.1.6, < 1.7.8.x | Prestashop 1.7.8.2 / PHP 7.3 / Apache2.4   | [changelog-1.x][changelog-1.x-md]
-| [1.6.0][1.6.0] | Latest | [1.X]      | \>= 1.7.8.x            | Prestashop 1.7.8.10 / PHP 7.4  / Apache2.4 | [changelog-1.x][changelog-1.x-md] |
-| [2.0.0][2.0.0] | Stable | [2.X]        | \>= 1.7.8.x,  8.0.x    | Prestashop 8.0.4 / PHP 8.1  / Apache2.4 | [changelog-2.x][changelog-2.x-md] |
-| [2.1.0][2.1.0] | Latest | [2.X]        | \>= 8.1.x             | Prestashop 8.1.2 / PHP 8.1  / Apache2.4 | [changelog-2.x][changelog-2.x-md] |
+| Branch         | Status     | Prestashop compatibility | PHP compatibility | Changelog                             | 
+|----------------|------------|--------------------------|-------------------|---------------------------------------|
+| [2.1.x]        | Stable     | 8.0.x, 8.1.x             | \>= 7.2, <=8.1    | [changelog-2.1.x][changelog-2.1.x-md] |
+| [2.0.x]        | Fixes only | 8.0.x                    | \>= 7.2, <=8.1    | [changelog-2.0.x][changelog-2.0.x-md] |
+| [1.6.x]        | Stable     | 1.7.8.x                  | \>= 7.1, <=7.4    | [changelog-1.6.x][changelog-1.6.x-md] |
+| [1.5.x]        | EOL        | \>= 1.6.1.6, < 1.7.8.x   | \>= 7.1, <=7.4    | [changelog-1.5.x][changelog-1.5.x-md] |
+
+
+## Branch 2.1.x Release recommended configuration
+
+
+| Release        | Prestashop Version | PHP     | Web Server | 
+|----------------|--------------------|---------|------------|
+| [2.1.0][2.1.0] |  Prestashop 8.1.2  | PHP 8.1 | Apache2.4  |
 
 
 > **Warning** 
-> Prestashop releases frequently new software versions fixing bugs and adding new functionality. Some of this versions could be in conflict with this plugin. We highly encourage you to set the prestashop configuration recommended in the guidance table for running correctly this plugin.
+> Prestashop releases frequently new software versions fixing bugs and adding new functionality. Some of this versions could be in conflict with this plugin. We highly encourage you to set the prestashop configuration recommended in the release record table for running correctly this plugin.
 
 > **Note** 
 > See [System requirements for PrestaShop 8][prestashop8-system-requirements] and [System requirements for PrestaShop 1.7][prestashop1.7-system-requirements] for best setting up on your system environment.
@@ -69,12 +76,12 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 [sc-connector-about]: https://support.saleslayer.com/prestashop/important-notes-about-connector
 [prestashop8-system-requirements]: https://devdocs.prestashop-project.org/8/basics/installation/system-requirements/
 [prestashop1.7-system-requirements]: https://devdocs.prestashop-project.org/1.7/basics/installation/system-requirements/
-[1.5.2]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.5.2-stable
-[1.5.3]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.5.3-stable
-[1.6.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/1.6.0
-[2.0.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/2.0.05.3-stable
 [2.1.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/2.1.0
-[1.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/1.x
-[2.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.x
-[changelog-1.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/1.x/CHANGELOG.md
-[changelog-2.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/2.x/CHANGELOG.md
+[1.5.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/1.5.x
+[1.6.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/1.6.x
+[2.0.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.0.x
+[2.1.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.1.x
+[changelog-1.5.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/1.5.x/CHANGELOG.md
+[changelog-1.6.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/1.6.x/CHANGELOG.md
+[changelog-2.0.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/2.0.x/CHANGELOG.md
+[changelog-2.1.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/2.1.x/CHANGELOG.md
