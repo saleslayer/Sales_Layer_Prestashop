@@ -70,7 +70,7 @@ class SalesLayerImport extends Module
 
     ###############################################################
 
-    public $i_am_a_developer = true;
+    public $i_am_a_developer = false;
 
     ###############################################################
 
@@ -302,7 +302,7 @@ class SalesLayerImport extends Module
 
         $this->name = 'saleslayerimport';
         $this->tab = 'administration';
-        $this->version = '2.1.0';
+        $this->version = '2.1.1';
         $this->author = 'Sales Layer';
         $this->connector_type = 'CN_PRSHP2';
         $this->need_instance = 0;
@@ -4663,15 +4663,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 foreach ($result as $id_product) {
                                     $this->debbug('Deleting from cache all variants of product ->: ' .
                                                   print_r($id_product, 1), 'cleaner');
-                                    $delete_variants_hash = 'DELETE FROM ' .  _DB_PREFIX_  . 'slyr_input_compare ' .
-                                                            ' WHERE ' .
-                                                            ' ps_type ="product_format" ' .
-                                                            'AND ps_id IN(' .
-                                                            'SELECT id_product_attribute FROM ' . _DB_PREFIX_ .
-                                                            'product_attribute ' .
-                                                            ' WHERE ' .
-                                                            ' id_product = "' . $id_product . '" 
-								                         ) ';
+
+                                    $delete_variants_hash = 'DELETE sic
+															FROM ' .  _DB_PREFIX_  . 'slyr_input_compare sic
+															JOIN ' .  _DB_PREFIX_  .
+                                                            'product_attribute pa ON sic.ps_id = pa.id_product_attribute
+															WHERE pa.id_product = ' . $id_product .
+                                                            ' AND sic.ps_type = "product_format" ';
                                     Db::getInstance()->execute($delete_variants_hash);
                                 }
                             }
