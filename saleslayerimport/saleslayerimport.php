@@ -70,7 +70,7 @@ class SalesLayerImport extends Module
 
     ###############################################################
 
-    public $i_am_a_developer = false;
+    public $i_am_a_developer = true;
 
     ###############################################################
 
@@ -89,6 +89,7 @@ class SalesLayerImport extends Module
     public $integrityFile                       = 'integrity.json';
     public $integrityPathDirectory              = '';
     public $cpu_max_limit_for_retry_call        = 3.00;
+    public $cpu_number_of_cores                 = 2;
     public $timeout_for_run_process_connections = 5000;
     private $max_execution_time                 = 290;
     private $memory_min_limit                   = 300;
@@ -352,6 +353,11 @@ class SalesLayerImport extends Module
             $this->saveConfiguration(['PERFORMANCE_LIMIT' => $Performance_limit]);
         }
         $this->cpu_max_limit_for_retry_call = $Performance_limit;
+
+        $number_of_cores = $this->getProcessorCoresNumber();
+        if ($number_of_cores) {
+            $this->cpu_number_of_cores = $number_of_cores;
+        }
     }
 
     /**
@@ -364,7 +370,7 @@ class SalesLayerImport extends Module
             `save_value` VARCHAR(500) NULL,
             PRIMARY KEY (`configname`),
             UNIQUE INDEX `configname_UNIQUE` (`configname` ASC)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
 
         $debugmode = $this->getConfiguration('DEBUGMODE');
@@ -373,6 +379,10 @@ class SalesLayerImport extends Module
             $this->saveConfiguration(['DEBUGMODE' => $debugmode]);
         }
 
+        $this->debugmode = $debugmode;
+    }
+    public function setDebugModeValue($debugmode)
+    {
         $this->debugmode = $debugmode;
     }
 
@@ -403,6 +413,22 @@ class SalesLayerImport extends Module
         $res = $this->slConnectionQuery('read', $sql_sel);
         if (!empty($res)) {
             return $res[0]['save_value'];
+        } else {
+            return false;
+        }
+    }
+    /**
+     * Get timeBD
+     * @param $configuration_name
+     * @return bool|mixed
+     */
+
+    public function getDBTime()
+    {
+        $sql_sel = "SELECT NOW() as timeBD FROM " . $this->saleslayer_aditional_config;
+        $res = $this->slConnectionQuery('read', $sql_sel);
+        if (!empty($res)) {
+            return reset($res);
         } else {
             return false;
         }
@@ -933,7 +959,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                '`conn_extra` mediumtext ,' .
                                '`updater_version` varchar(10) NOT NULL, ' .
                                'PRIMARY KEY (`cnf_id`)' .
-                               ') ENGINE=MyISAM
+                               ') ENGINE=InnoDB
                                  ROW_FORMAT=COMPACT '.
                                ' DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ';
         Db::getInstance()->execute($schemaSQL_PS_Config);
@@ -953,7 +979,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 PRIMARY KEY (`id`),
                                 INDEX `indice_1` (`ps_id` ASC, `slyr_id` ASC, `ps_type` ASC),
                                 INDEX `indice_2` (`ps_id` ASC, `comp_id` ASC, `ps_type` ASC,`ps_attribute_group_id` ASC)
-                                ) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
+                                ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
 
         Db::getInstance()->execute($schemaSQL_PS_SL_C_P);
 
@@ -1001,7 +1027,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 `id_image` int(10) NOT NULL, 
                                 `md5_image` varchar(128) NOT NULL, 
                                 PRIMARY KEY (`image_reference`)
-                                ) ENGINE=MyISAM DEFAULT CHARSET=utf8; ";
+                                ) ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
 
         Db::getInstance()->execute($schemaSQL_PS_SL_C_I);
 
@@ -1029,7 +1055,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             INDEX `sync_type` (`sync_type` ASC),
             INDEX `item_type` (`item_type` ASC),
             INDEX `sync_tries` (`sync_tries` ASC)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
         $query_read = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " .
@@ -1131,7 +1157,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             `save_value` VARCHAR(500) NULL,
             PRIMARY KEY (`configname`),
             UNIQUE INDEX `configname_UNIQUE` (`configname` ASC)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_configdata);
 
         /*From 1.4.1*/
@@ -1155,7 +1181,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             `id_product` BIGINT NOT NULL,
             PRIMARY KEY (`id`),
             INDEX `id_product` (`id_product` ASC))
-            ENGINE=MyISAM DEFAULT CHARSET=utf8";
+            ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
         
 
@@ -1165,7 +1191,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             `accessories` varchar(20000) NOT NULL,
             PRIMARY KEY (`id`),
             INDEX `id_product` (`id_product` ASC))
-            ENGINE=MyISAM DEFAULT CHARSET=utf8";
+            ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
         /* from 1.4.27*/
@@ -1181,7 +1207,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             INDEX `reg` (`ps_id` ASC , `hash` ASC, `ps_type` ASC, `conn_id` ASC),
             UNIQUE INDEX `reg_unique` (`ps_id` ASC ,`ps_type` ASC, `conn_id` ASC)
         )
-        ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
 
         $schemaSQL_PS_SL_SETDATA = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . "slyr_stock_update (
@@ -1193,7 +1219,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             UNIQUE(`ps_id`,`ps_type`,`id_shop`),
             UNIQUE INDEX `reg_unique` (`ps_id` ASC , `ps_type` ASC, `id_shop` ASC)
         )
-        ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
         
         $query_read = 'SELECT * FROM INFORMATION_SCHEMA.COLUMNS ' .
@@ -1220,7 +1246,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             INDEX `url` (`url` ASC),
             INDEX `type_status` (`ps_type`,`status`)
         )
-        ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
         
 
@@ -1232,7 +1258,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             UNIQUE  (`pid`,`prc_type`),
             UNIQUE INDEX `prc_type` (`pid` ASC ,`prc_type` ASC)
         )
-        ENGINE=MyISAM DEFAULT CHARSET=utf8";
+        ENGINE=InnoDB DEFAULT CHARSET=utf8";
         Db::getInstance()->execute($schemaSQL_PS_SL_SETDATA);
         
 
@@ -1245,7 +1271,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
         if (empty($shops_info)) {
             $query_alter = 'ALTER TABLE ' . _DB_PREFIX_ . 'slyr_syncdata ' .
-                           'ENGINE = MyISAM ,' .
+                           'ENGINE = InnoDB ,' .
                            "ADD COLUMN `date_start` datetime DEFAULT NULL AFTER `status`, " .
                            'ADD INDEX `date_start` (`date_start` ASC) ';
 
@@ -1309,6 +1335,26 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
 
             Db::getInstance()->execute(sprintf($query_alter));
         }
+        $query_read = "SHOW INDEXES FROM " . _DB_PREFIX_ . "slyr_image ";
+        $ps_indexes = Db::getInstance()->executeS($query_read);
+
+        if ($ps_indexes && is_array($ps_indexes)) {
+            $for_add = ['id' => 'UNIQUE INDEX `id` (`id_image` ASC)',
+                        'prod' => 'INDEX `prod` (`ps_product_id` ASC)'];
+            foreach ($ps_indexes as $index) {
+                foreach ($for_add as $key_name => $value) {
+                    if (isset($index['Key_name']) && $index['Key_name'] == $key_name) {
+                        unset($for_add[$key_name]);
+                    }
+                }
+            }
+            if (!empty($for_add)) {
+                $query_alter = "ALTER TABLE " . _DB_PREFIX_ . "slyr_image
+            ADD ".implode(', ADD ', $for_add);
+                Db::getInstance()->execute(sprintf($query_alter));
+            }
+        }
+        $this->changeEngine('InnoDB');
     }
 
     /**
@@ -3350,6 +3396,37 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             Db::getInstance()->execute('DROP TABLE IF EXISTS ' . _DB_PREFIX_ . $table);
         }
     }
+    public function changeEngine()
+    {
+        $tables = [
+            /* from version 1.3 */
+            'slyr_image' => 'InnoDB',
+            'slyr_category_product' => 'InnoDB', // ok
+            'slyr_syncdata' => 'InnoDB',
+            $this->saleslayer_aditional_config => 'Aria',
+            /*from version 1.4.20*/
+            'slyr_indexer' => 'Aria', //ok
+            'slyr_accessories' => 'Aria',//ok
+            /*from version 1.5*/
+            'slyr_input_compare' => 'InnoDB', //ok
+            'slyr_stock_update' => 'Aria', // ok
+            'slyr_image_preloader' => 'Aria',//ok
+            'slyr_process' => 'InnoDB', // ok
+            'slyr___api_config' => 'Aria' // ok
+        ];
+
+        foreach ($tables as $table => $engine) {
+            $query_read = 'SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES ' .
+                          " WHERE table_schema = '" . _DB_NAME_ . "' " .
+                          " AND table_name = '" . _DB_PREFIX_ . $table."' ";
+
+            $tablesInfo = Db::getInstance()->executeS($query_read);
+            if ($tablesInfo && count($tablesInfo) && isset($tablesInfo[0]['ENGINE']) && $tablesInfo[0]['ENGINE'] != $engine) {
+                Db::getInstance()->execute('ALTER TABLE ' . _DB_PREFIX_ . $table.' ENGINE='.$engine);
+            }
+        }
+    }
+
 
     /**
      * Stop indexer if is executed and save stat before stop it
@@ -3406,12 +3483,14 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
 
             if ($execution_time_cron > 0 && $actual_execution_limit >= $execution_time_cron) {
-                $result = $this->testSlcronExist();
-                if (count($result)) {
-                    $updated_time = $this->getConfiguration('LATEST_CRON_EXECUTION');
-                    $now_is       = strtotime($result[0]['timeBD']);
+              //  $result = $this->testSlcronExist();
+                $updated_time = $this->getConfiguration('LATEST_CRON_EXECUTION');
+                $bdTime = $this->getDBTime();
+
+                if ($updated_time && $execution_time_cron) {
+                    $now_is       = strtotime($bdTime['timeBD']);
                     $this->debbug(
-                        'now()-> ' . print_r($result[0]['timeBD'], 1) .
+                        'now()-> ' . print_r($bdTime['timeBD'], 1) .
                         ' last update -> ' . print_r(date('d-m-Y H:i:s', $updated_time), 1),
                         'balancer'
                     );
@@ -3442,7 +3521,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 );
 
                 if ($restand_seconds_for > 0) {
-                    $this->max_execution_time = round($restand_seconds_for - 5);
+                    $this->max_execution_time = round($restand_seconds_for - 10);
                 } else {
                     $this->debbug(
                         'Set Max execution as default ' .
@@ -3503,10 +3582,15 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $this->sql_items_delete
                 ) > 0)
         ) {
-            $sql_items_to_delete = implode(',', $this->sql_items_delete);
+            if (count($this->sql_items_delete)== 1) {
+                $delete_query = " = '" . reset($this->sql_items_delete) . "';";
+            } else {
+                $sql_items_to_delete = implode(',', $this->sql_items_delete);
+                 $delete_query =    " IN (" . $sql_items_to_delete . ");";
+            }
 
             $sql_delete = " DELETE FROM " . _DB_PREFIX_ . "slyr_syncdata" .
-                " WHERE id IN (" . $sql_items_to_delete . ")";
+                " WHERE id ".$delete_query;
             $this->debbug(
                 "Deleting processed rows: " . print_r($sql_delete, 1),
                 'syncdata'
@@ -3857,7 +3941,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      *
      * @return void
      */
-    public function callProcess($to = 'indexer', $commands = [])
+    public function callProcess($to = 'indexer', $commands = [], $number = 1)
     {
         try {
             gc_enable();
@@ -3892,7 +3976,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             );
         }
         try {
-            $this->urlSendCustomJson('GET', $url, null, false);
+            $petition_urls = [];
+            for ($i = 0; $i < $number; $i++) {
+                $petition_urls[] = $url;
+            }
+            $this->asyncRunUrls($petition_urls);
+            //$this->urlSendCustomJson('GET', $url, null, false);
             gc_disable();
         } catch (Exception $e) {
             $this->debbug(
@@ -4565,7 +4654,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                 " LIMIT ".$start_limit.','.$pagination;
                         $result =    Db::getInstance()->executeS($query);
 
-                        $this->debbug('Check if has been modified this product ->: ' .
+                        $this->debbug('Check if has been modified this '.$table.' ->: ' .
                                       print_r($query, 1), 'cleaner');
                         if (count($result)) {
                             $result = array_column($result, 'id_' . $table);
@@ -4718,7 +4807,9 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $registers = Db::getInstance()->executeS($query);
                 if (count($registers)) {
                     foreach ($registers as $reg) {
-                        if (file_exists($reg['local_path'])) {
+                        if (isset($reg['local_path']) &&
+                            !empty($reg['local_path']) &&
+                            file_exists($reg['local_path'])) {
                             unlink($reg['local_path']);
                         }
                         Db::getInstance()->execute('DELETE FROM ' .  _DB_PREFIX_ .
@@ -4828,13 +4919,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             }
             $count_proceses = $this->getCountProcess($type_process);
             $performance_limit = $performance_limit - $count_proceses;
-            for ($i = 0; $i <= $performance_limit; $i++) {
-                $load = sys_getloadavg();
-                if ($load[0] <= $performance_limit) {
-                    $this->callProcess($type_process, $commands);
-                    sleep(1);
-                }
-            }
+            $this->callProcess($type_process, $commands, $performance_limit);
         } catch (Exception $e) {
             $this->debbug('## Error. run proceses of ' . $type_process . ' images : ' . $e->getMessage() .
                           ' line->' . $e->getLine(), $type_process);
@@ -4879,6 +4964,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      */
     public function runBalancer()
     {
+
         $this->errorSetup();
         $this->debbug("==== Sync Data INIT " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . "  ====", 'balancer');
         if (!$this->testDownloadingBlock('BALANCER')) {
@@ -4899,8 +4985,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         $this->clearWorkProcessBalancer('synchronizer');
         $this->allocateMemory();
         $used_parent_ids= [];
-        $used_parent_ids_str = '';
-
+        $downloading_data = $this->getConfiguration('DOWNLOADING');
+        
+        if (in_array(substr(date('i'), -1), ['0','5'])) {
+            $this->compareStats();
+        }
 
         /**
          * Check if have incomplete synchronization
@@ -5019,6 +5108,13 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             'balancer'
                         );
                         $max_number_of_processes = $max_proceses_sugestion;
+                        if ($downloading_data) {
+                            $max_number_of_processes = 1;
+                            $this->debbug(
+                                'overwrite max number to min but is downloading data ->' .$max_number_of_processes,
+                                'balancer'
+                            );
+                        }
                     }
 
                     /**
@@ -5027,7 +5123,11 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                     $progress_now = false;
                     do {
                         try {
-                            $count_proceses    = $this->getCountProcess('synchronizer');
+                            if ($process == 'delete') {
+                                $count_proceses    = $this->getCountProcess('delete');
+                            } else {
+                                $count_proceses    = $this->getCountProcess('synchronizer');
+                            }
                             $load              = sys_getloadavg();
                             $this->debbug('before compare load->' .
                                           print_r($load[0], 1) . '>=' . print_r($performance_limit, 1) .
@@ -5036,7 +5136,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                             if (($load[0] >= ($performance_limit - 1) ||
                                 $count_proceses >= $max_number_of_processes) && $count_proceses > 0
                             ) {
-                                sleep(4);
+                                sleep(2);
                                 $this->checkProcessTime();
                                 if ($this->end_process) {
                                     $this->debbug('stop processing by end time for process ' . $item_type . '->' .
@@ -5093,12 +5193,16 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         }
                     } elseif ($process == 'update') {
                         $this->allocateMemory();
+                        $this->debbug('before compare load->'.
+                                      print_r(($this->cpu_max_limit_for_retry_call / 2), 1).
+                                      '<'.print_r($load[0], 1).
+                                      ' number of cores ->'.$this->cpu_number_of_cores, 'balancer');
                         if (($this->cpu_max_limit_for_retry_call / 2) < $load[0]) {
-                            $this->limit_per_process = 1;
+                            $this->limit_per_process = (int) $this->cpu_number_of_cores * 1;
                         } elseif ($load[0] > ($this->cpu_max_limit_for_retry_call  / 4)) {
-                            $this->limit_per_process = 3;
+                            $this->limit_per_process = (int) $this->cpu_number_of_cores * 3;
                         } else {
-                            $this->limit_per_process = 5;
+                            $this->limit_per_process = (int) $this->cpu_number_of_cores * $performance_limit;
                         }
 
                         $command = ['type' => $item_type, 'limit' => $this->limit_per_process];
@@ -5175,6 +5279,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
             $this->deleteConfiguration('LAST_CONNECTOR');
             $this->deleteConfiguration('TOTAL_STAT');
             $this->deleteConfiguration('STOPPED');
+            $this->deleteConfiguration('LATEST_SPEED');
+            $this->deleteConfiguration('LATEST_STATS');
             $this->startIndexer();
             sleep(10);
             $this->clearPreloadCache();
@@ -5194,6 +5300,45 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         }
         return true;
     }
+    private function compareStats()
+    {
+        $latest_stats = $this->getConfiguration('LATEST_STATS');
+        if ($latest_stats) {
+            $sql_processing = ' SELECT count(*) as sl_cuenta_registros, SUM(num_variants) as sl_cuenta_variants
+        	 FROM ' . _DB_PREFIX_ . 'slyr_syncdata ';
+            $items_processing = $this->slConnectionQuery('read', $sql_processing);
+            $actual_stats = 0;
+           
+            if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
+                $actual_stats = $items_processing['sl_cuenta_registros'];
+                $actual_stats += $items_processing['sl_cuenta_variants'];
+            }
+            $parse_stats = explode('_', $latest_stats);
+
+            if ($parse_stats[0] == date("i", strtotime("-5minutes"))) {
+                $items_per_hour = ($parse_stats[1] - $actual_stats)*12;
+                $this->debbug('## Warning. Actual velocity ratio : ' .
+                              $items_per_hour.
+                              ' items/h  with performance ->'.
+                              print_r($this->cpu_max_limit_for_retry_call, 1), 'balancer');
+                if ($items_per_hour > 0) {
+                    $this->saveConfiguration(['LATEST_SPEED'=>$items_per_hour]);
+                }
+            }
+            $this->saveConfiguration(['LATEST_STATS'=>date("i").'_'.$actual_stats]);
+        } else {
+            $sql_processing = ' SELECT count(*) as sl_cuenta_registros, SUM(num_variants) as sl_cuenta_variants
+        	 FROM ' . _DB_PREFIX_ . 'slyr_syncdata ';
+            $items_processing = $this->slConnectionQuery('read', $sql_processing);
+            $actual_stats = 0;
+            if (isset($items_processing['sl_cuenta_registros']) && $items_processing['sl_cuenta_registros'] > 0) {
+                $actual_stats = $items_processing['sl_cuenta_registros'];
+                $actual_stats += $items_processing['sl_cuenta_variants'];
+            }
+            $this->saveConfiguration(['LATEST_STATS'=>date("i").'_'.$actual_stats]);
+        }
+    }
+
     public function loadDebugVariables()
     {
         if (!$this->start_sync_connector) {
@@ -5205,6 +5350,12 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 $this->start_sync_timestamp =  $register[1];
             }
         }
+    }
+    public function getProcessorCoresNumber()
+    {
+        $command = "cat /proc/cpuinfo | grep processor | wc -l";
+
+        return  (int) shell_exec($command);
     }
     public function checkTheRuntime($start_at)
     {
@@ -5255,9 +5406,8 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         if (!$wait_for_response) {
             $this->debbug('run short connection without wait response->' .
                           $this->timeout_for_run_process_connections, 'balancer');
-            curl_setopt($ch, CONNECTION_TIMEOUT, $this->timeout_for_run_process_connections);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout_for_run_process_connections);
-            curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->timeout_for_run_process_connections);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);  // Tiempo de espera para la conexión inicial
+            curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout_for_run_process_connections);  // Tiempo total de espera
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
         } else {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -5304,5 +5454,46 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
         unset($ch, $url, $json);
 
         return array($http_stat, $result, $httpcode);
+    }
+
+    /**
+     * Ejecutar urls de forma asyncrona
+     * @param array $urls
+     *
+     * @return void
+     */
+    public function asyncRunUrls($urls)
+    {
+        $mh = curl_multi_init();
+        $handles = array();
+
+        foreach ($urls as $url) {
+            $ch = curl_init($url);
+            // Configura las opciones del cURL según tus necesidades
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 1);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_multi_add_handle($mh, $ch);
+            $handles[] = $ch;
+        }
+
+        $active = null;
+
+        do {
+            $mrc = curl_multi_exec($mh, $active);
+
+            // Espera hasta que alguna actividad ocurra o hasta que se alcance el tiempo límite
+            curl_multi_select($mh);
+        } while ($mrc == CURLM_CALL_MULTI_PERFORM || $active);
+
+        foreach ($handles as $handle) {
+            curl_multi_remove_handle($mh, $handle);
+            curl_close($handle);
+        }
+
+        curl_multi_close($mh);
     }
 }

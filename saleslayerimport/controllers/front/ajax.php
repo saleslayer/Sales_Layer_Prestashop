@@ -44,7 +44,7 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
             $return = array();
             $return['server_time'] = 'Server time: ' . date('H:i');
             $SLimport = new SalesLayerImport();
-
+            $return['items_per_hour'] = 0;
             $sql_processing = ' SELECT count(*) as sl_cuenta_registros, SUM(num_variants) as sl_cuenta_variants
         	 FROM ' . _DB_PREFIX_ . 'slyr_syncdata ';
             $items_processing = $SLimport->slConnectionQuery('read', $sql_processing);
@@ -131,7 +131,13 @@ class SaleslayerimportajaxModuleFrontController extends ModuleFrontController
                 $Work_in_message .= '&nbsp;';
                 $return['work_stat'] = $Work_in_message ;
                 $return['speed']     = $SLimport->getCountProcess();
-
+                $return['items_per_hour'] = 0;
+                $items_per_hour      = $SLimport->getConfiguration('LATEST_SPEED');
+                if ($items_per_hour) {
+                    $return['items_per_hour'] = $items_per_hour;
+                }
+                $SLimport->getConfiguration('LATEST_SPEED');
+                
                 $result = $SLimport->testSlcronExist();
                 $register_forProcess = $SLimport->checkRegistersForProccess();
 

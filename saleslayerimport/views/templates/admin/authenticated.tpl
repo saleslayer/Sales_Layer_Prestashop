@@ -45,6 +45,7 @@
         <div class="row mar-5"><span title="Cpu usage">Cpu</span><span style="float:right" id="cpuv"></span></div>
         <div class="row mar-5"><span title="Memory usage">Mem</span><span style="float:right" id="memv"></span></div>
         <div class="row mar-5"><span title="Swap memory usage">Swp</span><span style="float:right" id="swpv"></span></div>
+        <div class="row mar-5"><span title="A symbolic average to see the number of items processed per hour calculated for the last 5 minutes.">Itm/h</span><span style="float:right" id="itmsh"></span></div>
       </div>
       <div class="row text-center">
         <span id="messages">{$messages|escape:"quotes":"UTF-8"}</span></div>
@@ -125,6 +126,7 @@
   <script>
     var timerCheck;
     var timeout;
+    $.numx={loaded:false, timerx:0 }
 
     function validAutosync(data) {
       var connector_id = data.id.replace(data.name + '_', '');
@@ -224,7 +226,6 @@
         dataType: 'json',
         data: {'connector_id': connector_id, 'command': command, 'token': token},
         success: function (data_return) {
-          check_status();
           if (command == 'delete_now') {
             document.getElementById('connector_register_' + connector_id).remove();
           } else {
@@ -275,46 +276,40 @@
       })
     }
     function check_status() {
+
       var token = $('#mymodule_wrapper').attr('data-token');
       var command = 'check_status';
+
       jQuery.ajax({
         type: 'POST',
         url: $('#ajax_link_sl').val(),
         dataType: 'json',
         data: {'command': command, 'token': token},
         success: function (data_return) {
+
           $('.server_time').html(data_return['server_time']);
           if (data_return['status'] == 'processing') {
             var start = document.getElementById('allelements').value;
             if (start == 0) {
               document.getElementById('allelements').value = parseInt(data_return['total_stat']);
               showProgressBarSL(0, start, data_return['next_cron_expected'],data_return['work_stat'],data_return['speed']);
-              clearInterval(timerCheck);
-              timerCheck = setInterval(function () {
-                check_status()
-              }, 2000)
+              $.numx.timerx = setTimeout(check_status, 7000);
             } else {
               if (parseInt(start) < parseInt(data_return['actual_stat'])) {
                 start = parseInt(data_return['actual_stat']);
                 document.getElementById('allelements').value = data_return['actual_stat']
               }
               $('#messages').html('');
-              clearTimeout(timeout);
+              $.numx.timerx = setTimeout(check_status, 10000);
               var actual = start - parseInt(data_return['actual_stat']);
               showProgressBarSL(actual, start, data_return['next_cron_expected'],data_return['work_stat'],data_return['speed']);
               //   console.log('status start->'+ start +'  now->'+ data_return['actual_stat'] +' actual->' +actual);
               if (actual == start) {
-                clearInterval(timerCheck);
-                timerCheck = setInterval(function () {
-                  check_status()
-                }, 10000)
+
               }
             }
           } else {
-            clearInterval(timerCheck);
-            timerCheck = setInterval(function () {
-              check_status()
-            }, 10000);
+            $.numx.timerx = setTimeout(check_status, 10000);
             document.getElementById('progressbar').innerHTML = '';
             document.getElementById('allelements').value = 0
             if(data_return['work_stat']!='undefined'){
@@ -331,15 +326,23 @@
                 document.getElementById('memv').innerHTML = data_return['health']['mem']+' %';
                 document.getElementById('swpv').classList = getSetColor(data_return['health']['swp']);
                 document.getElementById('swpv').innerHTML = data_return['health']['swp']+' %';
+
           }else{
             document.getElementById('health-class').style.display = 'none';
+          }
+          if(data_return['items_per_hour'] != false ) {
+            document.getElementById('itmsh').innerHTML = data_return['items_per_hour']+' i/h';
+          }else{
+            document.getElementById('itmsh').innerHTML = '0 i/h';
           }
 
         },
         error: function () {
+          $.numx.timerx = setTimeout(check_status, 10000);
           document.getElementById('allelements').value = 0
         }
       })
+
     }
 
     function getSetColor(val){
@@ -379,7 +382,7 @@
       }
       var div;
       var text_color;
-      if (statPr > 60) {
+      if (statPr > 70) {
         text_color = 'text-white'
       } else {
         text_color = 'text-body'
@@ -419,7 +422,7 @@
       }, 12000)
     }
     document.addEventListener('DOMContentLoaded', function () {
-      check_status();
+      $.numx.timerx = setTimeout(check_status, 7000);
       showPagination();
     }, false)
 

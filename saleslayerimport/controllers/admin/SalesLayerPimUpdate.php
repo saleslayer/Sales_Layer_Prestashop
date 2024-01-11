@@ -54,8 +54,15 @@ class SalesLayerPimUpdate extends SalesLayerImport
             $this->createDownloadingBlock($set_name);
             return true;
         } else {//exist downloading in course
+            $cron_frequency = 900;
+            if ($set_name == 'BALANCER') {
+                $cron_frequency_returned = $this->getConfiguration('CRON_MINUTES_FREQUENCY');
+                if ($cron_frequency_returned) {
+                    $cron_frequency = $cron_frequency_returned + 1;
+                }
+            }
             $downloading_in_course = time() - $Downloading_block;
-            if ($downloading_in_course > 900) { // descarga ya está en curso  más que 15 minutos
+            if ($downloading_in_course > $cron_frequency) { // descarga ya está en curso  más que 15 minutos
                 // eliminar el registro antiguo y poner una nueva y continuar si se pasaron ya 900s
                 $this->removeDownloadingBlock($set_name);
                 $this->createDownloadingBlock($set_name);
@@ -116,7 +123,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
             return false;
         }
 
-        @ini_set('max_execution_time', 14400);
+        @ini_set('max_execution_time', 604800);
         $this->sl_time_ini_process = microtime(1);
 
         $this->debbug(" ==== Store Sync Data INIT ==== ");
@@ -754,7 +761,7 @@ class SalesLayerPimUpdate extends SalesLayerImport
      */
     private function processAttributes($data_returned, $connector_id, $comp_id)
     {
-        if (!empty($this->product_formats_items) && isset($data_returned['data_schema_info']['product_formats'])
+        if (isset($data_returned['data_schema_info']['product_formats'])
             && !empty($data_returned['data_schema_info']['product_formats'])
         ) {
             try {

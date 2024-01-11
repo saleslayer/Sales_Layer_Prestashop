@@ -211,7 +211,6 @@ class SaleslayerimportdiagtoolsModuleFrontController extends ModuleFrontControll
 
             $exportlines = array();
 
-
             if (file_exists($log_dir_path . $logfile)) {
                 $total_lines = $this->countLines($log_dir_path . $logfile);
 
