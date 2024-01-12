@@ -111,12 +111,21 @@ try {
            SET dest.status = 'pr', dest.sync_tries = src.sync_tries + 1,
            dest.date_start = '" . date("Y-m-d H:i:s") . "'
            WHERE dest.id = src.id;";
+            try {
+                Db::getInstance()->execute($sqlpre2);
 
-            Db::getInstance()->execute($sqlpre2);
+                $sqlpre3 = "SELECT @id AS id, @sync_type AS sync_type, @item_type AS item_type,
+                 @sync_tries AS sync_tries, @item_data AS item_data, @sync_params AS sync_params;";
+                $items_to_update = Db::getInstance()->executeS($sqlpre3);
+            } catch (Exception $e) {
+                if ($SLimport->debugmode > 3) {
+                    $SLimport->debbug(' ##Error. query: ->' .
+                                      print_r($e->getMessage(), 1).' line->'.$e->getLine().
+                                      ' trace->'.print_r($e->getTraceAsString(), 1), 'syncdata');
+                }
+                $items_to_update = [];
+            }
 
-            $sqlpre3 = "SELECT @id AS id, @sync_type AS sync_type, @item_type AS item_type,
-           @sync_tries AS sync_tries, @item_data AS item_data, @sync_params AS sync_params;";
-            $items_to_update = Db::getInstance()->executeS($sqlpre3);
 
 
             if (!empty($items_to_update)
@@ -163,7 +172,8 @@ try {
 } catch (Exception $e) {
     $SLimport->debbug(
         '## Error. in process command for sincronize-> ' .
-        print_r($e->getMessage(), 1) . ' line->' . print_r($e->getLine(), 1),
+        print_r($e->getMessage(), 1) . ' line->' .
+        print_r($e->getLine(), 1).' trace->'.print_r($e->getTraceAsString(), 1),
         'syncdata'
     );
 }

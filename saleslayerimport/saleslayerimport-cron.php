@@ -80,6 +80,23 @@ if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
         if (isset($items_indexer['sl_cuenta_registros']) && $items_indexer['sl_cuenta_registros'] > 0) {
             $SLimport->callIndexer();
         }
+        $downloading_data = $this->getConfiguration('DOWNLOADING');
+        if ($downloading_data && $downloading_data < strtotime('-15 minutes')) {
+            $SLimport->debbug(
+                '## Warning. Send delete download block but is stuck from ->' .
+                date('Y-m-d H:i:s', $downloading_data)
+            );
+            $SLimport->removeDownloadingBlock('DOWNLOADING');
+            $SLimport->deleteConfiguration('STOPPED');
+        }
+        $stopped = $this->getConfiguration('STOPPED');
+        if ($stopped && $stopped < strtotime('-15 minutes')) {
+            $SLimport->debbug(
+                '## Warning. Send delete Stoped block but is stuck from ->' .
+                date('Y-m-d H:i:s', $stopped)
+            );
+            $SLimport->deleteConfiguration('STOPPED');
+        }
     } catch (Exception $e) {
         $SLimport->debbug('## Error. Auto-sync connectors in cron start : ' . $e->getMessage(), 'error');
     }

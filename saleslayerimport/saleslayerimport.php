@@ -3595,8 +3595,10 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                 "Deleting processed rows: " . print_r($sql_delete, 1),
                 'syncdata'
             );
-            $this->slConnectionQuery('-', $sql_delete);
-
+            try {
+                $this->slConnectionQuery('-', $sql_delete);
+            } catch (Exception $e) {
+            }
             $this->sql_items_delete = array();
         }
     }
@@ -4962,7 +4964,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      */
     public function runBalancer()
     {
-
+        $this->setDebugModeValue(4);
         $this->errorSetup();
         $this->debbug("==== Sync Data INIT " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . "  ====", 'balancer');
         if (!$this->testDownloadingBlock('BALANCER')) {
@@ -5107,11 +5109,22 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                         );
                         $max_number_of_processes = $max_proceses_sugestion;
                         if ($downloading_data) {
-                            $max_number_of_processes = 1;
-                            $this->debbug(
-                                'overwrite max number to min but is downloading data ->' .$max_number_of_processes,
-                                'balancer'
-                            );
+                            if ($downloading_data < strtotime('-10 minutes')) {
+                                $this->debbug(
+                                    '## Warning. Send delete download block but is stuck from ->' .
+                                    date('Y-m-d H:i:s', $downloading_data),
+                                    'balancer'
+                                );
+                                $this->removeDownloadingBlock('DOWNLOADING');
+                                $this->deleteConfiguration('STOPPED');
+                            } else {
+                                $max_number_of_processes = 1;
+                                $this->debbug(
+                                    'overwrite max number to min but is downloading data ->' .
+                                    $max_number_of_processes.' block from ->'.date('Y-m-d H:i:s', $downloading_data),
+                                    'balancer'
+                                );
+                            }
                         }
                     }
 

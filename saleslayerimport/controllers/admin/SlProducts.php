@@ -3890,6 +3890,31 @@ class SlProducts extends SalesLayerPimUpdate
             ' time->' . date("H:i:s") . ' micro-time->' . microtime(true) . ' <<<<<<<<<<<<<<<<<<<<<<<<<<<',
             'syncdata'
         );
+        $get_log = $this->getConfiguration('PRODUCT_LOG');
+        if ($get_log) {
+            $parse_logs_petition = explode('|', $get_log);
+            $search_ref = [];
+            foreach ($parse_logs_petition as $items) {
+                $parse_items = explode(':', $items);
+                $key = trim($parse_items[0]);
+                $search_ref[$key][] = trim($parse_items[1]);
+            }
+            foreach ($search_ref as $key => $refs) {
+                if ($key == 'id' && in_array($product[$key], $refs)) {
+                    $this->debbug(
+                        ' ## Warning. Product report ->' . $occurence,
+                        'syncdata'
+                    );
+                } elseif ($key == 'ref' && in_array($product['data']['product_reference'], $refs)) {
+                    $this->debbug(
+                        ' ## Warning. Product report ->' . $occurence,
+                        'syncdata'
+                    );
+                }
+            }
+        }
+
+
         if ($syncProduct) {
             if ($this->general_error) {
                 $data_hash = null;

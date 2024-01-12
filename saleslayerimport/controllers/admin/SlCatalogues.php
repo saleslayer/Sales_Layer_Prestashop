@@ -1457,6 +1457,29 @@ class SlCatalogues extends SalesLayerPimUpdate
             ' time->' . date("H:i:s") . ' micro-time->' . microtime(true) . ' <<<<<<<<<<<<<<<<<<<<<<<<<<<',
             'syncdata'
         );
+        $get_log = $this->getConfiguration('CATEGORY_LOG');
+        if ($get_log) {
+            $parse_logs_petition = explode('|', $get_log);
+            $search_ref = [];
+            foreach ($parse_logs_petition as $items) {
+                $parse_items = explode(':', $items);
+                $key = trim($parse_items[0]);
+                $search_ref[$key][] = trim($parse_items[1]);
+            }
+            foreach ($search_ref as $key => $refs) {
+                if ($key == 'id' && in_array($catalog[$key], $refs)) {
+                    $this->debbug(
+                        ' ## Warning. Category report ->' . $occurence,
+                        'syncdata'
+                    );
+                } elseif ($key == 'ref' && in_array($catalog['data']['section_reference'], $refs)) {
+                    $this->debbug(
+                        ' ## Warning. Category report ->' . $occurence,
+                        'syncdata'
+                    );
+                }
+            }
+        }
         if ($syncCat) {
             if ($this->general_error) {
                 $data_hash = null;

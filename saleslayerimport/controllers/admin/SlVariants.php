@@ -1760,6 +1760,29 @@ class SlVariants extends SalesLayerPimUpdate
                 $processedShop++;
             }
         }
+        $get_log = $this->getConfiguration('VARIANT_LOG');
+        if ($get_log) {
+            $parse_logs_petition = explode('|', $get_log);
+            $search_ref = [];
+            foreach ($parse_logs_petition as $items) {
+                $parse_items = explode(':', $items);
+                $key = trim($parse_items[0]);
+                $search_ref[$key][] = trim($parse_items[1]);
+            }
+            foreach ($search_ref as $key => $refs) {
+                if ($key == 'id' && in_array($product_format[$key], $refs)) {
+                    $this->debbug(
+                        ' ## Warning. Variant report ->' . $occurrence,
+                        'syncdata'
+                    );
+                } elseif ($key == 'ref' && in_array($reference, $refs)) {
+                    $this->debbug(
+                        ' ## Warning. Variant report ->' . $occurrence,
+                        'syncdata'
+                    );
+                }
+            }
+        }
 
         if ($syncVariant) {
             if ($this->general_error) {
