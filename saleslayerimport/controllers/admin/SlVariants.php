@@ -1244,6 +1244,7 @@ class SlVariants extends SalesLayerPimUpdate
                         $current_supplier_collection = ProductSupplier::getSupplierCollection($product_id, false);
                     } catch (Exception $e) {
                         $syncVariant = false;
+                        $this->general_error = true;
                         $this->debbug(
                             '## Error. ' . $occurrence . ' In ProductSupplier::getSupplierCollection->' . print_r(
                                 $e->getMessage(),
@@ -1346,6 +1347,7 @@ class SlVariants extends SalesLayerPimUpdate
                                                 }
                                             } catch (Exception $e) {
                                                 $syncVariant = false;
+                                                $this->general_error = true;
                                                 $this->debbug(
                                                     '## Error. ' . $occurrence .
                                                     '  In addSupplierReference->' . print_r(
@@ -1485,6 +1487,7 @@ class SlVariants extends SalesLayerPimUpdate
                                             );
                                         } catch (Exception $e) {
                                             $syncVariant = true;
+                                            $this->general_error = true;
                                             $this->debbug(
                                                 '## Error. ' . $occurrence . ' In syncVariantImageToProduct->' .
                                                 print_r(
@@ -1608,6 +1611,7 @@ class SlVariants extends SalesLayerPimUpdate
                     $comb->save();
                 } catch (Exception $e) {
                     $syncVariant = true;
+                    $this->general_error = true;
                     $this->debbug(
                         '## Error. ' . $occurrence . ' Update Variant->' .
                         print_r($e->getMessage(), 1),

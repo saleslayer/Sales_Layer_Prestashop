@@ -467,18 +467,19 @@ class SalesLayerImport extends Module
                 }
             }
         } catch (Exception $e) {
-            if (!empty($params)) {
-                $this->debbug(
-                    '## Error. SL SQL type: ' . $type . ' - query: ' . $query . ' - params: ' . print_r(
-                        $params,
-                        1
-                    )
-                );
-            } else {
-                $this->debbug('## Error. SL SQL type: ' . $type . ' - query: ' . $query);
+            if ($this->debugmode > 1 || $this->i_am_a_developer) {
+                if (!empty($params)) {
+                    $this->debbug(
+                        '## Error. SL SQL type: ' . $type . ' - query: ' . $query . ' - params: ' . print_r(
+                            $params,
+                            1
+                        )
+                    );
+                } else {
+                    $this->debbug('## Error. SL SQL type: ' . $type . ' - query: ' . $query);
+                }
+                $this->debbug('## Error. SL SQLin error message: ' . $e->getMessage());
             }
-
-            $this->debbug('## Error. SL SQLin error message: ' . $e->getMessage());
         }
 
         if (!$resultado) {
@@ -3711,7 +3712,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
                                     $sql_up = "UPDATE " . _DB_PREFIX_ .
                                               "slyr_syncdata SET date_start = '" . date("Y-m-d H:i:s") .
                                               "', num_variants = '".count($item_data['sync_data']['variants']).
-                                              "'  WHERE  id = '".$id_for_refresh."';";
+                                              "'  WHERE  id = ".$id_for_refresh.";";
 
                                     $this->slConnectionQuery('-', $sql_up);
                                     $this->registerWorkProcess('synchronizer', $pid);
@@ -4964,7 +4965,7 @@ FROM ' . $this->prestashop_cron_table . $where . ' LIMIT 1';
      */
     public function runBalancer()
     {
-        $this->setDebugModeValue(4);
+
         $this->errorSetup();
         $this->debbug("==== Sync Data INIT " . date('Y-m-d H:i:s') . ' pid:' . getmypid() . "  ====", 'balancer');
         if (!$this->testDownloadingBlock('BALANCER')) {

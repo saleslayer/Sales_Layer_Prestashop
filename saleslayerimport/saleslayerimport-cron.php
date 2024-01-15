@@ -80,7 +80,7 @@ if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
         if (isset($items_indexer['sl_cuenta_registros']) && $items_indexer['sl_cuenta_registros'] > 0) {
             $SLimport->callIndexer();
         }
-        $downloading_data = $this->getConfiguration('DOWNLOADING');
+        $downloading_data = $SLimport->getConfiguration('DOWNLOADING');
         if ($downloading_data && $downloading_data < strtotime('-15 minutes')) {
             $SLimport->debbug(
                 '## Warning. Send delete download block but is stuck from ->' .
@@ -89,7 +89,7 @@ if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
             $SLimport->removeDownloadingBlock('DOWNLOADING');
             $SLimport->deleteConfiguration('STOPPED');
         }
-        $stopped = $this->getConfiguration('STOPPED');
+        $stopped = $SLimport->getConfiguration('STOPPED');
         if ($stopped && $stopped < strtotime('-15 minutes')) {
             $SLimport->debbug(
                 '## Warning. Send delete Stoped block but is stuck from ->' .
