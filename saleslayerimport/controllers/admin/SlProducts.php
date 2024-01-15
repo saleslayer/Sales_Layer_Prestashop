@@ -62,11 +62,13 @@ class SlProducts extends SalesLayerPimUpdate
         $sync_categories,
         $connector_id
     ) {
+        $reference = '';
         $test_after_update = array();
         $mulilanguage = array();
         $occurence_found = false;
         if (isset($product['data']['product_reference']) && !empty($product['data']['product_reference'])) {
             $occurence_found = true;
+            $reference = $product['data']['product_reference'];
             $occurence = ' product reference : "' . $product['data']['product_reference'] . '"';
         } elseif (isset($product['data']['product_name']) && !empty($product['data']['product_name'])) {
             $occurence_found = true;
@@ -3905,7 +3907,7 @@ class SlProducts extends SalesLayerPimUpdate
                         ' ## Warning. Product report ->' . $occurence,
                         'syncdata'
                     );
-                } elseif ($key == 'ref' && in_array($product['data']['product_reference'], $refs)) {
+                } elseif ($key == 'ref' && in_array($reference, $refs)) {
                     $this->debbug(
                         ' ## Warning. Product report ->' . $occurence,
                         'syncdata'
