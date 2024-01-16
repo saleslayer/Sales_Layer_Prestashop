@@ -4,7 +4,7 @@
 
 [![Minimum PHP Version](https://img.shields.io/badge/php-%3E=7.2,%20%3C=8.1-8892BF.svg?style=flat-square&logo=php)](https://php.net/) 
 [![Minimum Prestashop Version](https://img.shields.io/badge/Prestashop-8.1.x-AA92BF.svg?style=flat-square)](https://github.com/PrestaShop/PrestaShop)
-[![GitHub release](https://img.shields.io/badge/release-v2.1.0-blue)](https://github.com/saleslayer/Sales_Layer_Prestashop/releases)
+[![GitHub release](https://img.shields.io/badge/release-v2.1.1-blue)](https://github.com/saleslayer/Sales_Layer_Prestashop/releases)
 
 PrestaShop plugin that allows you to easily synchronize your [Sales Layer][saleslayer-home] catalogue information with PrestaShop online stores.
 
@@ -61,7 +61,8 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 
 | Release        | Prestashop Version | PHP     | Web Server | 
 |----------------|--------------------|---------|------------|
-| [2.1.0][2.1.0] |  Prestashop 8.1.2  | PHP 8.1 | Apache2.4  |
+| [2.1.0][2.1.0] |  Prestashop 8.1.2  | PHP 8.1 | Apache 2.4  |
+| [2.1.1][2.1.1] |  Prestashop 8.1.2  | PHP 8.1 | Apache 2.4, nginx 1.22  |
 
 
 > **Warning** 
@@ -77,6 +78,7 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 [prestashop8-system-requirements]: https://devdocs.prestashop-project.org/8/basics/installation/system-requirements/
 [prestashop1.7-system-requirements]: https://devdocs.prestashop-project.org/1.7/basics/installation/system-requirements/
 [2.1.0]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/2.1.0
+[2.1.1]:https://github.com/saleslayer/Sales_Layer_Prestashop/releases/tag/2.1.1
 [1.5.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/1.5.x
 [1.6.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/1.6.x
 [2.0.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.0.x

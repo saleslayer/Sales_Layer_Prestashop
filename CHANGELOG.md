@@ -1,4 +1,18 @@
 # Changelog
+## [2.1.1] - 2024-01-15
+
+### Added
+
+- faster recovery from crashed process (especially nginx servers/PHP-FPM)
+
+### Changed
+
+- several improvements in balancer for managing item elimination or deactivation processes
+
+### Tested
+
+- PrestaShop 8.1.2 / PHP 8.1 / Apache 2.4, nginx 1.22
+
 ## [2.1.0] - 2023-11-15
 
 ### Added
@@ -12,7 +26,7 @@
 
 ### Tested
 
-- PrestaShop 8.1.2 / PHP 8.1 / Apache2.4
+- PrestaShop 8.1.2 / PHP 8.1 / Apache 2.4
 
 ## [2.0.0] - 2023-06-09
 
