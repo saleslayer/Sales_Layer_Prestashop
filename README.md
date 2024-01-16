@@ -10,7 +10,7 @@ PrestaShop plugin that allows you to easily synchronize your [Sales Layer][sales
 
 ## Download
 
-Download [Sales Layer PrestaShop module 2.1.0](https://github.com/saleslayer/Sales_Layer_Prestashop/releases/download/2.1.0/prestashop_module_sales_layer_v2.1.0.zip) compatible with Prestashop 8.x
+Download [Sales Layer PrestaShop module 2.1.1](https://github.com/saleslayer/Sales_Layer_Prestashop/releases/download/2.1.1/prestashop_module_sales_layer_v2.1.1.zip) compatible with Prestashop 8.x
 
 Check out the latest changes at our [Changelog][changelog-md]
 
