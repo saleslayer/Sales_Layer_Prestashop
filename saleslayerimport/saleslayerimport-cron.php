@@ -86,7 +86,7 @@ if ($SLimport->checkRegistersForProccess(false, 'syncdata', true)) {
                 '## Warning. Send delete download block but is stuck from ->' .
                 date('Y-m-d H:i:s', $downloading_data)
             );
-            $SLimport->removeDownloadingBlock('DOWNLOADING');
+            $SLimport->deleteConfiguration('DOWNLOADING');
             $SLimport->deleteConfiguration('STOPPED');
         }
         $stopped = $SLimport->getConfiguration('STOPPED');
