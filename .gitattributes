@@ -1,7 +1,5 @@
-# Por defecto, trata texto y usa LF
 * text=auto eol=lf
 
-# Asegura que binarios no se tocan
 *.png -text
 *.jpg -text
 *.gif -text
