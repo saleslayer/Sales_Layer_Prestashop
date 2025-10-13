@@ -1,4 +1,20 @@
 # Changelog
+## [2.2.0] - 2025-10-13
+
+### Added
+
+- Compatibility with PHP 8.3
+- Compatibility with PrestaShop 8.2.3
+
+### Changed
+
+- Updated internal dependencies for PHP 8.3 support
+- Minor improvements and bug fixes
+
+### Tested
+
+- PrestaShop 8.2.3 / PHP 8.3 / Apache 2.4, nginx 1.22
+
 ## [2.1.1] - 2024-01-15
 
 ### Added

@@ -37,6 +37,8 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 ## Requirements for synchronization
 
 * Active cronjobs.
+* PrestaShop 8.2.3
+* PHP 8.3
 * Define the fields relationship in the Sales Layer Prestashop connector:
 	* Most Prestashop fields are already defined in each section, extra fields for products are converted to features and extra fields for variants are converted to attributes in order to synchronize.
 * Inside categories, products and variants there will be attributes; Sales Layer Product Identification, Sales Layer Product Company Identification and Sales Layer Format Identification, don't modify or delete these attributes or its values, otherwise, the products will be created again as new ones in the next synchronization.
@@ -44,6 +46,10 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 	* Auto-synchronization and preferred hour for it.
 	* The stores where the information will be updated.
 	* Overwrite stock status (stock will be updated only at creation of new items)
+
+---
+
+**Tested on PrestaShop 8.2.3 with PHP 8.3 (October 2025)**
 
 ## Version Guidance
 
