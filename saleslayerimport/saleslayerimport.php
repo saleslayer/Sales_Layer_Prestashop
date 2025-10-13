@@ -70,7 +70,7 @@ class SalesLayerImport extends Module
 
     ###############################################################
 
-    public $i_am_a_developer = true;
+    public $i_am_a_developer = false;
 
     ###############################################################
 
