@@ -87,6 +87,7 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 [1.6.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/1.6.x
 [2.0.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.0.x
 [2.1.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.1.x
+[2.2.X]:https://github.com/saleslayer/Sales_Layer_Prestashop/tree/2.2.x
 [changelog-1.5.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/1.5.x/CHANGELOG.md
 [changelog-1.6.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/1.6.x/CHANGELOG.md
 [changelog-2.0.x-md]: https://github.com/saleslayer/Sales_Layer_Prestashop/blob/2.0.x/CHANGELOG.md
