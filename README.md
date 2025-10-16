@@ -45,17 +45,6 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 	* The stores where the information will be updated.
 	* Overwrite stock status (stock will be updated only at creation of new items)
 
- 		
-## Version Guidance
-
-| Branch         | Status     | Prestashop compatibility | PHP compatibility | Changelog                             | 
-|----------------|------------|--------------------------|-------------------|---------------------------------------|
-| [2.1.x]        | Stable     | 8.0.x, 8.1.x             | \>= 7.2, <=8.1    | [changelog-2.1.x][changelog-2.1.x-md] |
-| [2.0.x]        | Fixes only | 8.0.x                    | \>= 7.2, <=8.1    | [changelog-2.0.x][changelog-2.0.x-md] |
-| [1.6.x]        | Stable     | 1.7.8.x                  | \>= 7.1, <=7.4    | [changelog-1.6.x][changelog-1.6.x-md] |
-| [1.5.x]        | EOL        | \>= 1.6.1.6, < 1.7.8.x   | \>= 7.1, <=7.4    | [changelog-1.5.x][changelog-1.5.x-md] |
-
-
 ## Branch 2.1.x Release recommended configuration
 
 
