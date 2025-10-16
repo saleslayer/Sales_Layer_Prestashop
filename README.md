@@ -51,6 +51,11 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 
 **Tested on PrestaShop 8.2.3 with PHP 8.3 (October 2025)**
 
+> **Note**
+> PrestaShop recommends using PHP version 8.1 for stores running PrestaShop 8.2.x. However, the Sales Layer extension has been successfully tested with PHP 8.3 on both Apache and Nginx web servers.To ensure full compatibility in environments with multiple third-party extensions installed, we recommend following PrestaShop’s guidelines and using PHP 8.1 in production instances.
+
+---
+
 ## Version Guidance
 
 | Branch         | Status     | Prestashop compatibility | PHP compatibility | Changelog                             |
