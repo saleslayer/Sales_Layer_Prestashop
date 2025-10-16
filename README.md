@@ -56,16 +56,16 @@ Wait a few minutes and enter the template Sales Layer >> How to use , to verify 
 | Branch         | Status     | Prestashop compatibility | PHP compatibility | Changelog                             |
 |----------------|------------|--------------------------|-------------------|---------------------------------------|
 | [2.2.x]        | Stable     | 8.2.x                    | \>= 7.2, <=8.3    | [changelog-2.2.x][changelog-2.2.x-md] |
-| [2.1.x]        | Stable     | 8.0.x, 8.1.x             | \>= 7.2, <=8.1    | [changelog-2.1.x][changelog-2.1.x-md] |
+| [2.1.x]        | Fixes only | 8.0.x, 8.1.x             | \>= 7.2, <=8.1    | [changelog-2.1.x][changelog-2.1.x-md] |
 | [2.0.x]        | Fixes only | 8.0.x                    | \>= 7.2, <=8.1    | [changelog-2.0.x][changelog-2.0.x-md] |
-| [1.6.x]        | Stable     | 1.7.8.x                  | \>= 7.1, <=7.4    | [changelog-1.6.x][changelog-1.6.x-md] |
+| [1.6.x]        | Fixes only | 1.7.8.x                  | \>= 7.1, <=7.4    | [changelog-1.6.x][changelog-1.6.x-md] |
 | [1.5.x]        | EOL        | \>= 1.6.1.6, < 1.7.8.x   | \>= 7.1, <=7.4    | [changelog-1.5.x][changelog-1.5.x-md] |
 
 ## Branch 2.2.x Release recommended configuration
 
-| Release        | Prestashop Version | PHP     | Web Server      |
-|----------------|--------------------|---------|-----------------|
-| [2.2.0][2.2.0] |  Prestashop 8.2.3  | PHP 8.3 | Apache 2.4, nginx 1.22  |
+| Release        | Prestashop Version | PHP     | Web Server              | Notes                          |
+|----------------|--------------------|---------|-------------------------|--------------------------------|
+| [2.2.0][2.2.0] |  Prestashop 8.2.3  | PHP 8.1 | Apache 2.4, nginx 1.22  | Testing succeed using PHP 8.3  |
 
 > **Warning**
 > Prestashop releases frequently new software versions fixing bugs and adding new functionality. Some of this versions could be in conflict with this plugin. We highly encourage you to set the prestashop configuration recommended in the release record table for running correctly this plugin.
